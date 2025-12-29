@@ -11,6 +11,7 @@ export const useAuthStore = defineStore('auth', () => {
     async function login(credentials: Credentials) {
         const data = await authenticateRepository.login(credentials);
         token.value = data.token
+        await new Promise(resolve => setTimeout(resolve, 100));
         await refresh();
     }
 
