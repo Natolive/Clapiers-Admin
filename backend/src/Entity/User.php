@@ -2,20 +2,20 @@
 
 namespace App\Entity;
 
+use App\Entity\Trait\IdTrait;
+use App\Entity\Trait\TimestampableTrait;
 use App\Repository\UserRepository;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
 use Symfony\Component\Security\Core\User\UserInterface;
 
 #[ORM\Entity(repositoryClass: UserRepository::class)]
-#[ORM\Table(name: '`user`')]
+#[ORM\HasLifecycleCallbacks]
 #[ORM\UniqueConstraint(name: 'UNIQ_IDENTIFIER_EMAIL', fields: ['email'])]
 class User implements UserInterface, PasswordAuthenticatedUserInterface
 {
-    #[ORM\Id]
-    #[ORM\GeneratedValue]
-    #[ORM\Column]
-    private ?int $id = null;
+    use IdTrait;
+    use TimestampableTrait;
 
     #[ORM\Column(length: 180)]
     private ?string $email = null;
@@ -31,11 +31,6 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
      */
     #[ORM\Column]
     private ?string $password = null;
-
-    public function getId(): ?int
-    {
-        return $this->id;
-    }
 
     public function getEmail(): ?string
     {
