@@ -1,9 +1,15 @@
 import Aura from '@primeuix/themes/aura';
 
 export default defineNuxtConfig({
-    modules: [
-        '@primevue/nuxt-module'
-    ],
+    runtimeConfig: {
+        public: {
+            apiBase: 'http://127.0.0.1:8000/api', // accessible on client
+        }
+    },
+    app: {
+        pageTransition: { name: 'page', mode: 'out-in' },
+    },
+    modules: ['@primevue/nuxt-module', '@pinia/nuxt'],
     css: [
         'primeflex/primeflex.css',
         'primeicons/primeicons.css',
