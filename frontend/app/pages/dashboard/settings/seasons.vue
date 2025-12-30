@@ -37,16 +37,11 @@ import { SeasonsRepository } from '~/repository/seasons-repository';
 import type { Season } from '~/types/entity/Season';
 
 definePageMeta({
+   middleware: 'auth-middleware',
   layout: 'dashboard'
 });
 
 const { isSuperAdmin } = useUserRole();
-
-// Redirect if not super admin
-if (!isSuperAdmin.value) {
-  await navigateTo('/dashboard');
-}
-
 const seasonsRepository = new SeasonsRepository();
 const seasons = ref<Season[]>([]);
 const loading = ref(true);
@@ -58,6 +53,12 @@ const sortedSeasons = computed(() => {
 
 // Fetch seasons on mount
 onMounted(async () => {
+  // Redirect if not super admin (after auth is loaded)
+  if (!isSuperAdmin.value) {
+    await navigateTo('/dashboard');
+    return;
+  }
+
   try {
     seasons.value = await seasonsRepository.getAll();
   } finally {

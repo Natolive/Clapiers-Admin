@@ -9,6 +9,7 @@
 <script setup lang="ts">
 
 definePageMeta({
+   middleware: 'auth-middleware',
   layout: 'dashboard'
 });
 const { isSuperAdmin } = useUserRole();

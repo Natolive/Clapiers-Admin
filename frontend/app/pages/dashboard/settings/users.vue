@@ -7,9 +7,9 @@
 </template>
 
 <script setup lang="ts">
-import { AppUserRole } from '~/types/entity/AppUser';
 
 definePageMeta({
+   middleware: 'auth-middleware',
   layout: 'dashboard'
 });
 
