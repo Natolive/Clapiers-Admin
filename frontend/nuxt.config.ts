@@ -21,7 +21,7 @@ export default defineNuxtConfig({
             theme: {
                 preset: Aura,
                 options: {
-                    darkModeSelector: 'system',
+                    darkModeSelector: 'light',
                     cssLayer: false // Disabling layers often fixes "variable not found" issues in Nuxt
                 }
             }
