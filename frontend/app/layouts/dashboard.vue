@@ -79,7 +79,7 @@ type MenuItem = {
 
 const authStore = useAuthStore();
 const route = useRoute();
-const { isSuperAdmin } = useUserRole();
+const { isSuperAdmin, isAdmin } = useUserRole();
 const sidebarVisible = ref(false);
 const currentTime = ref('');
 let timeInterval: ReturnType<typeof setInterval> | null = null;
@@ -87,7 +87,13 @@ let timeInterval: ReturnType<typeof setInterval> | null = null;
 const navigationItems = computed<MenuItem[]>(() => {
   const items: MenuItem[] = [
     { label: 'Tableau de bord', icon: 'pi pi-home', route: '/dashboard', command: () => navigateTo('/dashboard') },
+    { label: 'Calendrier', icon: 'pi pi-calendar', route: '/dashboard/calendar', command: () => navigateTo('/dashboard/calendar') },
   ];
+
+  // Show Mon équipe for admin and super admin
+  if (isAdmin.value) {
+    items.push({ label: 'Mon équipe', icon: 'pi pi-users', route: '/dashboard/my-team', command: () => navigateTo('/dashboard/my-team') });
+  }
 
   // Only show Paramètres menu if user is super admin
   if (isSuperAdmin.value) {
@@ -98,6 +104,7 @@ const navigationItems = computed<MenuItem[]>(() => {
         { label: 'Saisons', icon: 'pi pi-calendar', route: '/dashboard/settings/seasons', command: () => navigateTo('/dashboard/settings/seasons') },
         { label: 'Utilisateurs', icon: 'pi pi-users', route: '/dashboard/settings/users', command: () => navigateTo('/dashboard/settings/users') },
         { label: 'Équipes', icon: 'pi pi-sitemap', route: '/dashboard/settings/teams', command: () => navigateTo('/dashboard/settings/teams') },
+        { label: 'Licenciés', icon: 'pi pi-id-card', route: '/dashboard/settings/members', command: () => navigateTo('/dashboard/settings/members') },
       ]
     });
   }
