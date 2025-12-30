@@ -1,4 +1,5 @@
 import type { Credentials } from "~/types/custom/Credentials";
+import type { AppUser } from "~/types/entity/AppUser";
 
 export class AuthenticationRepository {
     private api = useApi()
@@ -12,7 +13,7 @@ export class AuthenticationRepository {
     }
 
     async me() {
-        return await this.api<any>('/user/me', {
+        return await this.api<AppUser>('/user/me', {
             method: 'GET'
         });
     }

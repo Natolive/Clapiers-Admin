@@ -17,9 +17,6 @@ class UserController extends AbstractController
     {
         /** @var AppUser $user */
         $user = $this->getUser();
-        return $this->json([
-            'email' => $user->getEmail(),
-            'roles' => $user->getRoles(),
-        ]);
+        return $this->json($user->toArray());
     }
 }

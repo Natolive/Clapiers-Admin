@@ -107,4 +107,15 @@ class AppUser implements UserInterface, PasswordAuthenticatedUserInterface
     {
         // @deprecated, to be removed when upgrading to Symfony 8
     }
+
+    public function toArray(): array
+    {
+        return [
+            'id' => $this->getId(),
+            'email' => $this->getEmail(),
+            'roles' => $this->getRoles(),
+            'createdAt' => $this->getCreatedAt()?->format(DATE_ATOM),
+            'updatedAt' => $this->getUpdatedAt()?->format(DATE_ATOM),
+        ];
+    }
 }

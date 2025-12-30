@@ -69,21 +69,56 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useAuthStore } from '~/stores/auth.store';
 
+type MenuItem = {
+  label: string;
+  icon: string;
+  route?: string;
+  command?: () => void;
+  items?: MenuItem[];
+};
+
 const authStore = useAuthStore();
 const route = useRoute();
+const { isSuperAdmin } = useUserRole();
 const sidebarVisible = ref(false);
 const currentTime = ref('');
 let timeInterval: ReturnType<typeof setInterval> | null = null;
 
-const navigationItems = ref([
-  { label: 'Dashboard', icon: 'pi pi-home', route: '/dashboard', command: () => navigateTo('/dashboard') },
-  { label: 'Users', icon: 'pi pi-users', route: '/dashboard/users', command: () => navigateTo('/dashboard/users') },
-  { label: 'Settings', icon: 'pi pi-cog', route: '/dashboard/settings', command: () => navigateTo('/dashboard/settings') },
-]);
+const navigationItems = computed<MenuItem[]>(() => {
+  const items: MenuItem[] = [
+    { label: 'Tableau de bord', icon: 'pi pi-home', route: '/dashboard', command: () => navigateTo('/dashboard') },
+  ];
+
+  // Only show Paramètres menu if user is super admin
+  if (isSuperAdmin.value) {
+    items.push({
+      label: 'Paramètres',
+      icon: 'pi pi-cog',
+      items: [
+        { label: 'Utilisateurs', icon: 'pi pi-users', route: '/dashboard/settings/users', command: () => navigateTo('/dashboard/settings/users') },
+        { label: 'Équipes', icon: 'pi pi-sitemap', route: '/dashboard/settings/teams', command: () => navigateTo('/dashboard/settings/teams') },
+      ]
+    });
+  }
+
+  return items;
+});
 
 const pageTitle = computed(() => {
-  const currentItem = navigationItems.value.find(item => item.route === route.path);
-  return currentItem?.label || 'Dashboard';
+  // Check top-level items
+  let currentItem = navigationItems.value.find(item => item.route === route.path);
+
+  // If not found, check nested items
+  if (!currentItem) {
+    for (const item of navigationItems.value) {
+      if (item.items) {
+        currentItem = item.items.find(subItem => subItem.route === route.path);
+        if (currentItem) break;
+      }
+    }
+  }
+
+  return currentItem?.label || 'Tableau de bord';
 });
 
 const handleLogout = () => {
