@@ -2,8 +2,8 @@
 
 namespace App\Controller;
 
-use App\Application\UseCase\Seasons\GetActualSeasonUseCase;
-use App\Application\UseCase\Seasons\GetAllSeasonsUseCase;
+use App\Application\UseCase\Season\GetActualSeasonUseCase;
+use App\Application\UseCase\Season\GetAllSeasonsUseCase;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;

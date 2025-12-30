@@ -16,7 +16,7 @@ abstract class AbstractUseCase
      * @param TCommand $command
      * @return mixed
      */
-    abstract protected function run(?CommandInterface $command = null): mixed;
+    abstract public function run(?CommandInterface $command = null): mixed;
 
     /**
      * @param TCommand $command
@@ -27,7 +27,10 @@ abstract class AbstractUseCase
         try {
             $result = $this->run($command);
 
-            return new JsonResponse($result);
+            // Convert entities to arrays
+            $data = $this->serializeResult($result);
+
+            return new JsonResponse($data);
         } catch (UseCaseException $e) {
             return new JsonResponse(
                 ['message' => $e->getMessage() ?? 'Use Case Error'],
@@ -39,5 +42,26 @@ abstract class AbstractUseCase
                 Response::HTTP_INTERNAL_SERVER_ERROR
             );
         }
+    }
+
+    private function serializeResult(mixed $result): mixed
+    {
+        // If result has toArray method, use it
+        if (is_object($result) && method_exists($result, 'toArray')) {
+            return $result->toArray();
+        }
+
+        // If result is an array of entities, map each to toArray
+        if (is_array($result)) {
+            return array_map(function ($item) {
+                if (is_object($item) && method_exists($item, 'toArray')) {
+                    return $item->toArray();
+                }
+                return $item;
+            }, $result);
+        }
+
+        // Otherwise return as is
+        return $result;
     }
 }

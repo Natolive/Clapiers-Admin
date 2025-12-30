@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Application\UseCase\Seasons;
+namespace App\Application\UseCase\Season;
 
 use App\Common\Command\CommandInterface;
 use App\Common\Exception\UseCaseException;
@@ -18,14 +18,14 @@ class GetActualSeasonUseCase extends AbstractUseCase
     ) {
     }
 
-    protected function run(?CommandInterface $command = null): array
+    public function run(?CommandInterface $command = null): Season
     {
         $seasons = $this->seasonRepository->findAll();
 
         /** @var Season $season */
         foreach ($seasons as $season) {
             if ($season->isActual()) {
-                return $season->toArray();
+                return $season;
             }
         }
 

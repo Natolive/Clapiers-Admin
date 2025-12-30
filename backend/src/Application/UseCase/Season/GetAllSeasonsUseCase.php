@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Application\UseCase\Seasons;
+namespace App\Application\UseCase\Season;
 
 use App\Common\Command\CommandInterface;
 use App\Common\Exception\UseCaseException;
@@ -17,9 +17,8 @@ class GetAllSeasonsUseCase extends AbstractUseCase
     ) {
     }
 
-    protected function run(?CommandInterface $command = null): array
+    public function run(?CommandInterface $command = null): array
     {
-        $seasons = $this->seasonRepository->findAll();
-        return array_map(fn($season) => $season->toArray(), $seasons);
+        return $this->seasonRepository->findAll();
     }
 }
