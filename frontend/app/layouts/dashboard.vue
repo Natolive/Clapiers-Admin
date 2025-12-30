@@ -3,7 +3,7 @@
     <!-- Sidebar -->
     <aside
       :class="[
-        'sidebar fixed left-0 top-0 bottom-0 z-5 surface-card border-right-1 surface-border shadow-2 transition-all transition-duration-300',
+        'sidebar fixed left-0 top-0 bottom-0 z-5 surface-card border-right-1 surface-border shadow-2 transition-all transition-duration-300 flex flex-column',
         sidebarVisible ? 'sidebar-open' : 'sidebar-closed'
       ]"
     >
@@ -19,9 +19,21 @@
 
       <!-- Footer -->
       <div class="p-3 border-top-1 surface-border">
+        <!-- Actual Season Display -->
+        <div v-if="seasonsStore.hasActualSeason" class="mb-3 p-3 surface-100 border-round">
+          <div class="flex align-items-center gap-2 mb-2">
+            <i class="pi pi-calendar text-primary"></i>
+            <span class="font-semibold text-sm">Saison actuelle</span>
+          </div>
+          <div class="text-primary font-bold text-lg">
+            {{ seasonsStore.actualSeason?.startYear }}/{{ seasonsStore.actualSeason?.endYear }}
+          </div>
+        </div>
+
+        <!-- Logout Button -->
         <Button
           icon="pi pi-sign-out"
-          label="Logout"
+          label="Déconnexion"
           severity="danger"
           text
           @click="handleLogout"
@@ -68,6 +80,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useAuthStore } from '~/stores/auth.store';
+import { useSeasonsStore } from '~/stores/seasons.store';
 
 type MenuItem = {
   label: string;
@@ -78,6 +91,7 @@ type MenuItem = {
 };
 
 const authStore = useAuthStore();
+const seasonsStore = useSeasonsStore();
 const route = useRoute();
 const { isSuperAdmin, isAdmin } = useUserRole();
 const sidebarVisible = ref(false);
