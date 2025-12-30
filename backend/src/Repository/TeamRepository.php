@@ -29,4 +29,14 @@ class TeamRepository extends ServiceEntityRepository
             ->getQuery()
             ->getResult();
     }
+
+    public function countBySeason(Season $season): int
+    {
+        return (int) $this->createQueryBuilder('t')
+            ->select('COUNT(t.id)')
+            ->andWhere('t.season = :season')
+            ->setParameter('season', $season)
+            ->getQuery()
+            ->getSingleScalarResult();
+    }
 }

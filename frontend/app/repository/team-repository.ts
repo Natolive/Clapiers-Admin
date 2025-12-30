@@ -15,4 +15,11 @@ export class TeamRepository {
             body: { id, name }
         });
     }
+
+    async countBySeason(seasonId: number): Promise<number> {
+        return await this.api<number>('/team/count-by-season', {
+            method: 'POST',
+            body: { seasonId }
+        });
+    }
 }

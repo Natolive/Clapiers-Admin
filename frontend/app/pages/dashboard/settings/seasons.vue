@@ -16,7 +16,7 @@
               <div class="flex align-items-center gap-2">
                 <i class="pi pi-sitemap text-primary"></i>
                 <span class="font-semibold">Équipes:</span>
-                <span>N/A</span>
+                <span>{{ teamCounts[season.id] ?? 0 }}</span>
               </div>
               <div class="flex align-items-center gap-2">
                 <i class="pi pi-id-card text-primary"></i>
@@ -34,6 +34,7 @@
 <script setup lang="ts">
 import SkeletonLoader from '~/components/common/skeleton/SkeletonLoader.vue';
 import { SeasonRepository } from '~/repository/season-repository';
+import { TeamRepository } from '~/repository/team-repository';
 import type { Season } from '~/types/entity/Season';
 
 definePageMeta({
@@ -43,7 +44,9 @@ definePageMeta({
 
 const { isSuperAdmin } = useUserRole();
 const seasonRepository = new SeasonRepository();
+const teamRepository = new TeamRepository();
 const seasons = ref<Season[]>([]);
+const teamCounts = reactive<Record<number, number>>({});
 const loading = ref(true);
 
 // Computed property to sort seasons from most recent to oldest
@@ -61,6 +64,14 @@ onMounted(async () => {
 
   try {
     seasons.value = await seasonRepository.getAll();
+
+    // Fetch team counts for each season
+    await Promise.all(
+      seasons.value.map(async (season) => {
+        const count = await teamRepository.countBySeason(season.id);
+        teamCounts[season.id] = count;
+      })
+    );
   } finally {
     loading.value = false;
   }
