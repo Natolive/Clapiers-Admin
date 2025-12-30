@@ -44,12 +44,22 @@ class Seasons
         return $this;
     }
 
+    public function isActual(): bool
+    {
+        $now = new \DateTimeImmutable('now');
+        $seasonStart = new \DateTimeImmutable($this->startYear . '-08-01');
+        $seasonEnd = new \DateTimeImmutable($this->endYear . '-07-31 23:59:59');
+
+        return $now >= $seasonStart && $now <= $seasonEnd;
+    }
+
     public function toArray(): array
     {
         return [
             'id' => $this->getId(),
             'startYear' => $this->getStartYear(),
             'endYear' => $this->getEndYear(),
+            'isActual' => $this->isActual(),
             'createdAt' => $this->getCreatedAt()?->format(DATE_ATOM),
             'updatedAt' => $this->getUpdatedAt()?->format(DATE_ATOM),
         ];
