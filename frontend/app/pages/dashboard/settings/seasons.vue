@@ -1,5 +1,4 @@
 <template>
-  <div>
     <SkeletonLoader v-if="loading" type="card-grid" :count="6" />
 
     <div v-else class="grid">
@@ -28,7 +27,6 @@
         </Card>
       </div>
     </div>
-  </div>
 </template>
 
 <script setup lang="ts">

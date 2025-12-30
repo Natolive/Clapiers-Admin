@@ -1,6 +1,4 @@
 <template>
-  <div>
-    <h2 class="text-3xl font-bold mb-4">Équipes</h2>
 
     <Toolbar class="mb-4">
       <template #start>
@@ -15,9 +13,6 @@
         <DataTable
           :value="teams"
           stripedRows
-          paginator
-          :rows="10"
-          :rowsPerPageOptions="[5, 10, 20, 50]"
           responsiveLayout="scroll"
           class="p-datatable-sm"
         >
@@ -41,8 +36,6 @@
         </DataTable>
       </template>
     </Card>
-
-  </div>
 </template>
 
 <script setup lang="ts">
