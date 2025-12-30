@@ -1,5 +1,5 @@
 <template>
-
+  <div>
     <Toolbar class="mb-4">
       <template #start>
         <Button label="Nouvelle équipe" icon="pi pi-plus" @click="openDialog()" />
@@ -36,6 +36,7 @@
         </DataTable>
       </template>
     </Card>
+    </div>
 </template>
 
 <script setup lang="ts">

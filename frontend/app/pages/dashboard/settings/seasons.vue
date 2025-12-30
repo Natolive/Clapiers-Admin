@@ -1,6 +1,6 @@
 <template>
+  <div>
     <SkeletonLoader v-if="loading" type="card-grid" :count="6" />
-
     <div v-else class="grid">
       <div v-for="season in sortedSeasons" :key="season.id" class="col-12 md:col-6 lg:col-4">
         <Card>
@@ -27,6 +27,7 @@
         </Card>
       </div>
     </div>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -47,14 +48,11 @@ const seasons = ref<Season[]>([]);
 const teamCounts = reactive<Record<number, number>>({});
 const loading = ref(true);
 
-// Computed property to sort seasons from most recent to oldest
 const sortedSeasons = computed(() => {
   return [...seasons.value].sort((a, b) => b.startYear - a.startYear);
 });
 
-// Fetch seasons on mount
 onMounted(async () => {
-  // Redirect if not super admin (after auth is loaded)
   if (!isSuperAdmin.value) {
     await navigateTo('/dashboard');
     return;
@@ -62,8 +60,6 @@ onMounted(async () => {
 
   try {
     seasons.value = await seasonRepository.getAll();
-
-    // Fetch team counts for each season
     await Promise.all(
       seasons.value.map(async (season) => {
         const count = await teamRepository.countBySeason(season.id);
