@@ -18,15 +18,14 @@ export function useApi() {
             }
 
             // Show error toast for other errors
-            const toast = useToast()
             const message = response._data?.message || response.statusText || 'An error occurred'
-
+            const toast = useToast();
             toast.add({
                 severity: 'error',
                 summary: 'Error',
                 detail: message,
                 life: 5000
-            })
+            });
         }
     })
 }
