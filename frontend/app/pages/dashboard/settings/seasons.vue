@@ -33,7 +33,7 @@
 
 <script setup lang="ts">
 import SkeletonLoader from '~/components/common/skeleton/SkeletonLoader.vue';
-import { SeasonsRepository } from '~/repository/seasons-repository';
+import { SeasonRepository } from '~/repository/season-repository';
 import type { Season } from '~/types/entity/Season';
 
 definePageMeta({
@@ -42,7 +42,7 @@ definePageMeta({
 });
 
 const { isSuperAdmin } = useUserRole();
-const seasonsRepository = new SeasonsRepository();
+const seasonRepository = new SeasonRepository();
 const seasons = ref<Season[]>([]);
 const loading = ref(true);
 
@@ -60,7 +60,7 @@ onMounted(async () => {
   }
 
   try {
-    seasons.value = await seasonsRepository.getAll();
+    seasons.value = await seasonRepository.getAll();
   } finally {
     loading.value = false;
   }

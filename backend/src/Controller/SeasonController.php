@@ -9,8 +9,8 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 
-#[Route('/api/seasons', name: 'api_seasons_')]
-class SeasonsController extends AbstractController
+#[Route('/api/season', name: 'api_season_')]
+class SeasonController extends AbstractController
 {
     #[Route('', name: 'get_all', methods: ['GET'])]
     #[IsGranted('ROLE_SUPER_ADMIN')]

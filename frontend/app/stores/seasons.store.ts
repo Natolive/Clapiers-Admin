@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { SeasonsRepository } from '~/repository/seasons-repository'
+import { SeasonRepository } from '~/repository/season-repository'
 import type { Season } from '~/types/entity/Season'
 
 export const useSeasonsStore = defineStore('seasons', () => {
@@ -9,8 +9,8 @@ export const useSeasonsStore = defineStore('seasons', () => {
 
     async function fetchActualSeason() {
         try {
-            const seasonsRepository = new SeasonsRepository()
-            actualSeason.value = await seasonsRepository.getActual()
+            const seasonRepository = new SeasonRepository()
+            actualSeason.value = await seasonRepository.getActual()
         } catch (error) {
             actualSeason.value = null
         }
