@@ -95,6 +95,7 @@ const navigationItems = computed<MenuItem[]>(() => {
       label: 'Paramètres',
       icon: 'pi pi-cog',
       items: [
+        { label: 'Saisons', icon: 'pi pi-calendar', route: '/dashboard/settings/seasons', command: () => navigateTo('/dashboard/settings/seasons') },
         { label: 'Utilisateurs', icon: 'pi pi-users', route: '/dashboard/settings/users', command: () => navigateTo('/dashboard/settings/users') },
         { label: 'Équipes', icon: 'pi pi-sitemap', route: '/dashboard/settings/teams', command: () => navigateTo('/dashboard/settings/teams') },
       ]

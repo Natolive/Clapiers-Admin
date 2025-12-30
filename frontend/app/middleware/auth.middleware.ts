@@ -1,5 +1,3 @@
-import {AuthenticationRepository} from "~/repository/authentication-repository";
-
 export default defineNuxtRouteMiddleware(async (to, from) => {
     const auth = useAuthStore()
 
