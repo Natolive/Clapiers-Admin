@@ -37,8 +37,20 @@ abstract class AbstractUseCase
                 $e->getCode() ?? Response::HTTP_BAD_REQUEST
             );
         } catch (\Throwable $e) {
+            $isDev = ($_ENV['APP_ENV'] ?? 'prod') === 'dev';
+
             return new JsonResponse(
-                ['message' => 'Unknown Error'],
+                [
+                    'message' => $isDev ? $e->getMessage() : 'Unknown Error',
+                    'error' => $isDev ? [
+                        'class' => \get_class($e),
+                        'message' => $e->getMessage(),
+                        'code' => $e->getCode(),
+                        'file' => $e->getFile(),
+                        'line' => $e->getLine(),
+                        'trace' => $e->getTraceAsString(),
+                    ] : null,
+                ],
                 Response::HTTP_INTERNAL_SERVER_ERROR
             );
         }

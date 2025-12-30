@@ -74,6 +74,9 @@
         <slot />
       </div>
     </main>
+
+    <!-- Global Dialog Container -->
+    <DialogContainer />
   </div>
 </template>
 
@@ -81,6 +84,7 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useAuthStore } from '~/stores/auth.store';
 import { useSeasonsStore } from '~/stores/seasons.store';
+import DialogContainer from '~/components/common/DialogContainer.vue';
 
 type MenuItem = {
   label: string;
