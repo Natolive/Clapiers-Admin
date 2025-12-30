@@ -5,7 +5,7 @@ namespace App\Application\UseCase\Seasons;
 use App\Common\Command\CommandInterface;
 use App\Common\Exception\UseCaseException;
 use App\Common\UseCase\AbstractUseCase;
-use App\Repository\SeasonsRepository;
+use App\Repository\SeasonRepository;
 
 /**
  * @extends AbstractUseCase<null>
@@ -13,13 +13,13 @@ use App\Repository\SeasonsRepository;
 class GetAllSeasonsUseCase extends AbstractUseCase
 {
     public function __construct(
-        private readonly SeasonsRepository $seasonsRepository
+        private readonly SeasonRepository $seasonRepository
     ) {
     }
 
     protected function run(?CommandInterface $command = null): array
     {
-        $seasons = $this->seasonsRepository->findAll();
+        $seasons = $this->seasonRepository->findAll();
         return array_map(fn($season) => $season->toArray(), $seasons);
     }
 }

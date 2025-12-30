@@ -4,12 +4,12 @@ namespace App\Entity;
 
 use App\Entity\Trait\IdTrait;
 use App\Entity\Trait\TimestampableTrait;
-use App\Repository\SeasonsRepository;
+use App\Repository\SeasonRepository;
 use Doctrine\ORM\Mapping as ORM;
 
-#[ORM\Entity(repositoryClass: SeasonsRepository::class)]
+#[ORM\Entity(repositoryClass: SeasonRepository::class)]
 #[ORM\HasLifecycleCallbacks]
-class Seasons
+class Season
 {
     use IdTrait;
     use TimestampableTrait;

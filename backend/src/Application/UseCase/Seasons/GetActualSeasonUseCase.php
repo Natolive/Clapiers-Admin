@@ -5,8 +5,8 @@ namespace App\Application\UseCase\Seasons;
 use App\Common\Command\CommandInterface;
 use App\Common\Exception\UseCaseException;
 use App\Common\UseCase\AbstractUseCase;
-use App\Entity\Seasons;
-use App\Repository\SeasonsRepository;
+use App\Entity\Season;
+use App\Repository\SeasonRepository;
 
 /**
  * @extends AbstractUseCase<null>
@@ -14,15 +14,15 @@ use App\Repository\SeasonsRepository;
 class GetActualSeasonUseCase extends AbstractUseCase
 {
     public function __construct(
-        private readonly SeasonsRepository $seasonsRepository
+        private readonly SeasonRepository $seasonRepository
     ) {
     }
 
     protected function run(?CommandInterface $command = null): array
     {
-        $seasons = $this->seasonsRepository->findAll();
+        $seasons = $this->seasonRepository->findAll();
 
-        /** @var Seasons $season */
+        /** @var Season $season */
         foreach ($seasons as $season) {
             if ($season->isActual()) {
                 return $season->toArray();
