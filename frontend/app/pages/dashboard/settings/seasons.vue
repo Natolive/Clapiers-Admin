@@ -1,8 +1,6 @@
 <template>
   <div>
-    <div v-if="loading" class="flex justify-content-center align-items-center" style="min-height: 200px;">
-      <i class="pi pi-spin pi-spinner" style="font-size: 2rem;"></i>
-    </div>
+    <SkeletonLoader v-if="loading" type="card-grid" :count="6" />
 
     <div v-else class="grid">
       <div v-for="season in sortedSeasons" :key="season.id" class="col-12 md:col-6 lg:col-4">
@@ -34,6 +32,7 @@
 </template>
 
 <script setup lang="ts">
+import SkeletonLoader from '~/components/common/skeleton/SkeletonLoader.vue';
 import { SeasonsRepository } from '~/repository/seasons-repository';
 import type { Season } from '~/types/entity/Season';
 
