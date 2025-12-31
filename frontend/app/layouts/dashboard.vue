@@ -70,7 +70,7 @@
       </header>
 
       <!-- Content Area -->
-      <div class="p-4 flex-1">
+      <div class="p-1 md:p-4 flex-1">
         <slot />
       </div>
     </main>
