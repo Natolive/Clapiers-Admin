@@ -5,15 +5,21 @@
     responsiveLayout="scroll"
     class="p-datatable-sm"
   >
-    <Column field="firstName" header="Prénom" sortable style="width: 25%"></Column>
-    <Column field="lastName" header="Nom" sortable style="width: 25%"></Column>
-    <Column field="team.name" header="Équipe" sortable style="width: 30%"></Column>
-    <Column field="createdAt" header="Date de création" sortable style="width: 15%">
+    <Column header="Membre" sortable field="firstName" style="width: 35%">
+      <template #body="slotProps">
+        <div class="flex align-items-center gap-3">
+          <MemberAvatar :member="slotProps.data" />
+          <span>{{ slotProps.data.firstName }} {{ slotProps.data.lastName }}</span>
+        </div>
+      </template>
+    </Column>
+    <Column field="team.name" header="Équipe" sortable style="width: 35%"></Column>
+    <Column field="createdAt" header="Date de création" sortable style="width: 20%">
       <template #body="slotProps">
         {{ new Date(slotProps.data.createdAt).toLocaleDateString('fr-FR') }}
       </template>
     </Column>
-    <Column header="Actions" style="width: 5%">
+    <Column header="Actions" style="width: 10%">
       <template #body="slotProps">
         <Button
           icon="pi pi-pencil"
@@ -29,6 +35,7 @@
 
 <script setup lang="ts">
 import CreateUpdateMemberDialog from '~/components/dialogs/CreateUpdateMemberDialog.vue';
+import MemberAvatar from '~/components/common/MemberAvatar.vue';
 import type { Member } from '~/types/entity/Member';
 import type { Team } from '~/types/entity/Team';
 

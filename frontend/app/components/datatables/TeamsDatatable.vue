@@ -38,8 +38,14 @@
             class="p-datatable-sm"
             stripedRows
           >
-            <Column field="lastName" header="Nom" sortable></Column>
-            <Column field="firstName" header="Prénom" sortable></Column>
+            <Column header="Membre" sortable field="firstName">
+              <template #body="memberProps">
+                <div class="flex align-items-center gap-3">
+                  <MemberAvatar :member="memberProps.data" size="normal" />
+                  <span>{{ memberProps.data.firstName }} {{ memberProps.data.lastName }}</span>
+                </div>
+              </template>
+            </Column>
             <Column field="createdAt" header="Date d'ajout" sortable>
               <template #body="memberProps">
                 {{ new Date(memberProps.data.createdAt).toLocaleDateString('fr-FR') }}
@@ -57,6 +63,7 @@
 
 <script setup lang="ts">
 import CreateUpdateTeamDialog from '~/components/dialogs/CreateUpdateTeamDialog.vue';
+import MemberAvatar from '~/components/common/MemberAvatar.vue';
 import { MemberRepository } from '~/repository/member-repository';
 import type { Team } from '~/types/entity/Team';
 import type { Member } from '~/types/entity/Member';

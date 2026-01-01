@@ -4,6 +4,7 @@ export type Member = {
     id: number;
     firstName: string;
     lastName: string;
+    color: string;
     team: Team;
     createdAt: string;
     updatedAt: string;

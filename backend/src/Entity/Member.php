@@ -24,6 +24,19 @@ class Member
     #[ORM\JoinColumn(nullable: false)]
     private Team $team;
 
+    #[ORM\Column(length: 7)]
+    private string $color;
+
+    public function __construct()
+    {
+        $this->color = $this->generateRandomHexColor();
+    }
+
+    private function generateRandomHexColor(): string
+    {
+        return sprintf('#%06X', mt_rand(0, 0xFFFFFF));
+    }
+
     public function getFirstName(): string
     {
         return $this->firstName;
@@ -60,12 +73,25 @@ class Member
         return $this;
     }
 
+    public function getColor(): string
+    {
+        return $this->color;
+    }
+
+    public function setColor(string $color): static
+    {
+        $this->color = $color;
+
+        return $this;
+    }
+
     public function toArray(): array
     {
         return [
             'id' => $this->getId(),
             'firstName' => $this->getFirstName(),
             'lastName' => $this->getLastName(),
+            'color' => $this->getColor(),
             'team' => $this->getTeam()->toArray(),
             'createdAt' => $this->getCreatedAt()?->format(DATE_ATOM),
             'updatedAt' => $this->getUpdatedAt()?->format(DATE_ATOM),
