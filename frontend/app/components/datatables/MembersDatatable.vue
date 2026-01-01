@@ -8,7 +8,7 @@
     <Column header="Membre" sortable field="firstName" style="width: 35%">
       <template #body="slotProps">
         <div class="flex align-items-center gap-3">
-          <MemberAvatar :member="slotProps.data" />
+          <MemberAvatar :member="slotProps.data" size="normal" />
           <span>{{ slotProps.data.firstName }} {{ slotProps.data.lastName }}</span>
         </div>
       </template>
