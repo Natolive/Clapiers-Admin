@@ -24,6 +24,7 @@
 
 <script setup lang="ts">
 import { zodResolver } from '@primevue/forms/resolvers/zod';
+import type { FormSubmitEvent } from '@primevue/forms';
 import { z } from 'zod';
 import type {Credentials} from "~/types/custom/Credentials";
 
@@ -39,11 +40,12 @@ const schema = z.object({
   email: z.email({ message: 'Format d\'adresse e-mail invalide' }),
   password: z.string().min(1, { message: 'Le mot de passe doit faire au moins 1 caractère' })
 });
+type LoginFormValues = z.infer<typeof schema>;
 const resolver = ref(zodResolver(schema));
 
-const onFormSubmit = ({ valid, values }) => {
-  if (valid) {
-    emit('login-success', values);
+const onFormSubmit = (event: FormSubmitEvent<Record<string, any>>) => {
+  if (event.valid) {
+    emit('login-success', event.values as LoginFormValues);
   }
 };
 </script>

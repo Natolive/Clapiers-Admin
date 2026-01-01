@@ -15,6 +15,7 @@
 
 <script setup lang="ts">
 import { zodResolver } from '@primevue/forms/resolvers/zod';
+import type { FormSubmitEvent } from '@primevue/forms';
 import { z } from 'zod';
 import type { Team } from '~/types/entity/Team';
 
@@ -33,15 +34,16 @@ const emit = defineEmits<{
 const schema = z.object({
   name: z.string().min(1, { message: 'Le nom de l\'équipe est requis' })
 });
+type TeamFormValues = z.infer<typeof schema>;
 const resolver = ref(zodResolver(schema));
 
 const initialValues = computed(() => ({
   name: props.team?.name || ''
 }));
 
-const onFormSubmit = ({ valid, values }) => {
-  if (valid) {
-    emit('submit', values);
+const onFormSubmit = (event: FormSubmitEvent<Record<string, any>>) => {
+  if (event.valid) {
+    emit('submit', event.values as TeamFormValues);
   }
 };
 </script>
