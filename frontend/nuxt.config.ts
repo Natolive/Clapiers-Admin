@@ -7,6 +7,16 @@ export default defineNuxtConfig({
             apiBase: 'http://127.0.0.1:8000/api', // accessible on client
         }
     },
+    app: {
+        pageTransition: {
+            name: 'page',
+            mode: 'out-in'
+        },
+        layoutTransition: {
+            name: 'layout',
+            mode: 'out-in'
+        }
+    },
     modules: ['@primevue/nuxt-module', '@pinia/nuxt'],
     primevue: {
         autoImport: true,
