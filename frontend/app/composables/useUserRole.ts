@@ -49,12 +49,35 @@ export const useUserRole = () => {
     const isAdmin = computed(() => hasRole(AppUserRole.ADMIN));
     const isUser = computed(() => hasRole(AppUserRole.USER));
 
+    /**
+     * Get human-readable label for a role
+     */
+    const getRoleLabel = (role: string): string => {
+        const roleMap: Record<string, string> = {
+            [AppUserRole.SUPER_ADMIN]: 'Super Admin',
+            [AppUserRole.ADMIN]: 'Admin',
+            [AppUserRole.USER]: 'Utilisateur'
+        };
+        return roleMap[role] || role;
+    };
+
+    /**
+     * Get badge severity for a role
+     */
+    const getRoleSeverity = (role: string): 'danger' | 'info' | 'secondary' => {
+        if (role === AppUserRole.SUPER_ADMIN) return 'danger';
+        if (role === AppUserRole.ADMIN) return 'info';
+        return 'secondary';
+    };
+
     return {
         user,
         hasRole,
         hasExactRole,
         isSuperAdmin,
         isAdmin,
-        isUser
+        isUser,
+        getRoleLabel,
+        getRoleSeverity
     };
 };
