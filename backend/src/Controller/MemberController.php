@@ -5,6 +5,8 @@ namespace App\Controller;
 use App\Application\UseCase\Member\CreateUpdateMember\CreateUpdateMemberCommand;
 use App\Application\UseCase\Member\CreateUpdateMember\CreateUpdateMemberUseCase;
 use App\Application\UseCase\Member\GetAllMembersUseCase;
+use App\Application\UseCase\Member\GetMembersByTeam\GetMembersByTeamCommand;
+use App\Application\UseCase\Member\GetMembersByTeam\GetMembersByTeamUseCase;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Attribute\MapRequestPayload;
@@ -27,6 +29,14 @@ class MemberController extends AbstractController
         #[MapRequestPayload] CreateUpdateMemberCommand $command,
         CreateUpdateMemberUseCase $useCase
     ): Response {
+        return $useCase->execute($command);
+    }
+
+    #[Route('/team/{teamId}', name: 'get_by_team', methods: ['GET'])]
+    #[IsGranted('ROLE_SUPER_ADMIN')]
+    public function getByTeam(int $teamId, GetMembersByTeamUseCase $useCase): Response
+    {
+        $command = new GetMembersByTeamCommand($teamId);
         return $useCase->execute($command);
     }
 }

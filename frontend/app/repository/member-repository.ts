@@ -15,4 +15,10 @@ export class MemberRepository {
             body: { id, firstName, lastName, teamId }
         });
     }
+
+    async getByTeam(teamId: number): Promise<Member[]> {
+        return await this.api<Member[]>(`/member/team/${teamId}`, {
+            method: 'GET'
+        });
+    }
 }
