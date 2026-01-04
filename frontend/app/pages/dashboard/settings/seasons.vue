@@ -20,7 +20,7 @@
               <div class="flex align-items-center gap-2">
                 <i class="pi pi-id-card text-primary"></i>
                 <span class="font-semibold">Licenciés:</span>
-                <span>N/A</span>
+                <span>{{ memberCounts[season.id] ?? 0 }}</span>
               </div>
             </div>
           </template>
@@ -34,6 +34,7 @@
 import SkeletonLoader from '~/components/common/skeleton/SkeletonLoader.vue';
 import { SeasonRepository } from '~/repository/season-repository';
 import { TeamRepository } from '~/repository/team-repository';
+import { MemberRepository } from '~/repository/member-repository';
 import type { Season } from '~/types/entity/Season';
 
 definePageMeta({
@@ -44,8 +45,10 @@ definePageMeta({
 const { isSuperAdmin } = useUserRole();
 const seasonRepository = new SeasonRepository();
 const teamRepository = new TeamRepository();
+const memberRepository = new MemberRepository();
 const seasons = ref<Season[]>([]);
 const teamCounts = reactive<Record<number, number>>({});
+const memberCounts = reactive<Record<number, number>>({});
 const loading = ref(true);
 
 const sortedSeasons = computed(() => {
@@ -62,8 +65,11 @@ onMounted(async () => {
     seasons.value = await seasonRepository.getAll();
     await Promise.all(
       seasons.value.map(async (season) => {
-        const count = await teamRepository.countBySeason(season.id);
-        teamCounts[season.id] = count;
+        const teamCount = await teamRepository.countBySeason(season.id);
+        teamCounts[season.id] = teamCount;
+
+        const memberCount = await memberRepository.countBySeason(season.id);
+        memberCounts[season.id] = memberCount;
       })
     );
   } finally {

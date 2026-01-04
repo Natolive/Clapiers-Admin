@@ -3,6 +3,7 @@
 namespace App\Repository;
 
 use App\Entity\Member;
+use App\Entity\Season;
 use App\Entity\Team;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
@@ -29,5 +30,16 @@ class MemberRepository extends ServiceEntityRepository
             ->addOrderBy('m.firstName', 'ASC')
             ->getQuery()
             ->getResult();
+    }
+
+    public function countBySeason(Season $season): int
+    {
+        return (int) $this->createQueryBuilder('m')
+            ->select('COUNT(m.id)')
+            ->join('m.team', 't')
+            ->andWhere('t.season = :season')
+            ->setParameter('season', $season)
+            ->getQuery()
+            ->getSingleScalarResult();
     }
 }

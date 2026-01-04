@@ -2,6 +2,8 @@
 
 namespace App\Controller;
 
+use App\Application\UseCase\Member\CountMembersBySeason\CountMembersBySeasonCommand;
+use App\Application\UseCase\Member\CountMembersBySeason\CountMembersBySeasonUseCase;
 use App\Application\UseCase\Member\CreateUpdateMember\CreateUpdateMemberCommand;
 use App\Application\UseCase\Member\CreateUpdateMember\CreateUpdateMemberUseCase;
 use App\Application\UseCase\Member\GetAllMembersUseCase;
@@ -37,6 +39,15 @@ class MemberController extends AbstractController
     public function getByTeam(int $teamId, GetMembersByTeamUseCase $useCase): Response
     {
         $command = new GetMembersByTeamCommand($teamId);
+        return $useCase->execute($command);
+    }
+
+    #[Route('/count-by-season', name: 'count_by_season', methods: ['POST'])]
+    #[IsGranted('ROLE_SUPER_ADMIN')]
+    public function countBySeason(
+        #[MapRequestPayload] CountMembersBySeasonCommand $command,
+        CountMembersBySeasonUseCase $useCase
+    ): Response {
         return $useCase->execute($command);
     }
 }
