@@ -63,10 +63,12 @@ const openCreateDialog = () => {
     props: {
       member: null,
       teams: teams.value,
-      onSubmit: async (values: { firstName: string; lastName: string; teamId: number }) => {
+      onSubmit: async (values: { firstName: string; lastName: string; phoneNumber: string; email: string; teamId: number }) => {
         const savedMember = await memberRepository.createUpdate(
           values.firstName,
           values.lastName,
+          values.phoneNumber,
+          values.email,
           values.teamId,
           null
         );

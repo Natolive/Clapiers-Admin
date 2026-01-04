@@ -27,6 +27,12 @@ class Member
     #[ORM\Column(length: 7)]
     private string $color;
 
+    #[ORM\Column(length: 30)]
+    private string $phoneNumber;
+
+    #[ORM\Column(length: 255)]
+    private string $email;
+
     public function __construct()
     {
         $this->color = $this->generateRandomHexColor();
@@ -85,6 +91,30 @@ class Member
         return $this;
     }
 
+    public function getPhoneNumber(): string
+    {
+        return $this->phoneNumber;
+    }
+
+    public function setPhoneNumber(string $phoneNumber): static
+    {
+        $this->phoneNumber = $phoneNumber;
+
+        return $this;
+    }
+
+    public function getEmail(): string
+    {
+        return $this->email;
+    }
+
+    public function setEmail(string $email): static
+    {
+        $this->email = $email;
+
+        return $this;
+    }
+
     public function toArray(): array
     {
         return [
@@ -92,6 +122,8 @@ class Member
             'firstName' => $this->getFirstName(),
             'lastName' => $this->getLastName(),
             'color' => $this->getColor(),
+            'phoneNumber' => $this->getPhoneNumber(),
+            'email' => $this->getEmail(),
             'team' => $this->getTeam()->toArray(),
             'createdAt' => $this->getCreatedAt()?->format(DATE_ATOM),
             'updatedAt' => $this->getUpdatedAt()?->format(DATE_ATOM),

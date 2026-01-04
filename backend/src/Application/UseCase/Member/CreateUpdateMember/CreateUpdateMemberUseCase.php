@@ -51,6 +51,8 @@ class CreateUpdateMemberUseCase extends AbstractUseCase
         $member->setFirstName($command->firstName);
         $member->setLastName($command->lastName);
         $member->setTeam($team);
+        $member->setPhoneNumber($command->phoneNumber);
+        $member->setEmail($command->email);
 
         $this->entityManager->persist($member);
         $this->entityManager->flush();
@@ -76,6 +78,8 @@ class CreateUpdateMemberUseCase extends AbstractUseCase
         $member->setFirstName($command->firstName);
         $member->setLastName($command->lastName);
         $member->setTeam($team);
+        $member->setPhoneNumber($command->phoneNumber);
+        $member->setEmail($command->email);
 
         $this->entityManager->flush();
 

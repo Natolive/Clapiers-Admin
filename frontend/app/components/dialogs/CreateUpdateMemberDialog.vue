@@ -27,7 +27,7 @@ interface Props {
   loading?: boolean;
   modal?: boolean;
   style?: string | object;
-  onSubmit?: (values: { firstName: string; lastName: string; teamId: number }) => void | Promise<void>;
+  onSubmit?: (values: { firstName: string; lastName: string; phoneNumber: string; email: string; teamId: number }) => void | Promise<void>;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -41,7 +41,7 @@ const props = withDefaults(defineProps<Props>(), {
 
 const emit = defineEmits<{
   'update:visible': [value: boolean];
-  'submit': [values: { firstName: string; lastName: string; teamId: number }];
+  'submit': [values: { firstName: string; lastName: string; phoneNumber: string; email: string; teamId: number }];
 }>();
 
 const internalLoading = ref(false);
@@ -54,7 +54,7 @@ const handleVisibilityChange = (value: boolean) => {
   emit('update:visible', value);
 };
 
-const handleSubmit = async (values: { firstName: string; lastName: string; teamId: number }) => {
+const handleSubmit = async (values: { firstName: string; lastName: string; phoneNumber: string; email: string; teamId: number }) => {
   if (props.onSubmit) {
     internalLoading.value = true;
     try {

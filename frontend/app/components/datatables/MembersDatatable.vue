@@ -5,7 +5,7 @@
     responsiveLayout="scroll"
     class="p-datatable-sm"
   >
-    <Column header="Membre" sortable field="firstName" style="width: 35%">
+    <Column header="Membre" sortable field="firstName" style="width: 20%">
       <template #body="slotProps">
         <div class="flex align-items-center gap-3">
           <MemberAvatar :member="slotProps.data" size="normal" />
@@ -13,8 +13,18 @@
         </div>
       </template>
     </Column>
-    <Column field="team.name" header="Équipe" sortable style="width: 35%"></Column>
-    <Column field="createdAt" header="Date de création" sortable style="width: 20%">
+    <Column field="phoneNumber" header="Téléphone" sortable style="width: 15%">
+      <template #body="slotProps">
+        <span>{{ slotProps.data.phoneNumber }}</span>
+      </template>
+    </Column>
+    <Column field="email" header="Email" sortable style="width: 20%">
+      <template #body="slotProps">
+        <span>{{ slotProps.data.email }}</span>
+      </template>
+    </Column>
+    <Column field="team.name" header="Équipe" sortable style="width: 20%"></Column>
+    <Column field="createdAt" header="Date de création" sortable style="width: 15%">
       <template #body="slotProps">
         {{ new Date(slotProps.data.createdAt).toLocaleDateString('fr-FR') }}
       </template>
@@ -58,12 +68,14 @@ const openDialog = (member?: Member) => {
     props: {
       member: member || null,
       teams: props.teams,
-      onSubmit: async (values: { firstName: string; lastName: string; teamId: number }) => {
+      onSubmit: async (values: { firstName: string; lastName: string; phoneNumber: string; email: string; teamId: number }) => {
         const { MemberRepository } = await import('~/repository/member-repository');
         const memberRepository = new MemberRepository();
         const savedMember = await memberRepository.createUpdate(
           values.firstName,
           values.lastName,
+          values.phoneNumber,
+          values.email,
           values.teamId,
           member?.id || null
         );

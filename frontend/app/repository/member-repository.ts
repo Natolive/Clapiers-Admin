@@ -9,10 +9,10 @@ export class MemberRepository {
         });
     }
 
-    async createUpdate(firstName: string, lastName: string, teamId: number, id: number|null = null): Promise<Member> {
+    async createUpdate(firstName: string, lastName: string, phoneNumber: string, email: string, teamId: number, id: number|null = null): Promise<Member> {
         return await this.api<Member>('/member', {
             method: 'POST',
-            body: { id, firstName, lastName, teamId }
+            body: { id, firstName, lastName, phoneNumber, email, teamId }
         });
     }
 

@@ -5,6 +5,8 @@ export type Member = {
     firstName: string;
     lastName: string;
     color: string;
+    phoneNumber: string;
+    email: string;
     team: Team;
     createdAt: string;
     updatedAt: string;
