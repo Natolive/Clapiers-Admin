@@ -19,20 +19,20 @@
     </div>
 
     <div class="flex flex-column gap-2">
-      <label for="phoneNumber" class="font-semibold">Téléphone</label>
-      <PhoneInput name="phoneNumber" :disabled="loading" placeholder="Entrez le numéro de téléphone" />
-
-      <small v-if="$form.phoneNumber?.invalid" class="p-error text-red-500 text-sm">
-        {{ $form.phoneNumber?.error?.message }}
-      </small>
-    </div>
-
-    <div class="flex flex-column gap-2">
       <label for="email" class="font-semibold">Email</label>
       <InputText name="email" :disabled="loading" type="email" fluid placeholder="Entrez l'email" />
 
       <small v-if="$form.email?.invalid" class="p-error text-red-500 text-sm">
         {{ $form.email?.error?.message }}
+      </small>
+    </div>
+
+    <div class="flex flex-column gap-2">
+      <label for="phoneNumber" class="font-semibold">Téléphone</label>
+      <PhoneInput name="phoneNumber" :disabled="loading" placeholder="Entrez le numéro de téléphone" />
+
+      <small v-if="$form.phoneNumber?.invalid" class="p-error text-red-500 text-sm">
+        {{ $form.phoneNumber?.error?.message }}
       </small>
     </div>
 
