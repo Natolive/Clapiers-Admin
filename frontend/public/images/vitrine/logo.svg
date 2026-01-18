@@ -1,0 +1,22 @@
+<svg width="200" height="60" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#FF6B35;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#FFD23F;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+
+  <!-- Volleyball icon -->
+  <circle cx="30" cy="30" r="20" fill="url(#grad1)"/>
+  <path d="M 15 30 Q 30 15, 45 30" stroke="white" stroke-width="2" fill="none"/>
+  <path d="M 15 30 Q 30 45, 45 30" stroke="white" stroke-width="2" fill="none"/>
+  <line x1="30" y1="10" x2="30" y2="50" stroke="white" stroke-width="2"/>
+
+  <!-- Text -->
+  <text x="60" y="25" font-family="Arial, sans-serif" font-size="18" font-weight="bold" fill="#1A1A2E">
+    CLAPIERS
+  </text>
+  <text x="60" y="45" font-family="Arial, sans-serif" font-size="16" font-weight="normal" fill="#004E98">
+    VOLLEYBALL
+  </text>
+</svg>

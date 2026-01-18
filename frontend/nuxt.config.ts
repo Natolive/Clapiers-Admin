@@ -35,5 +35,6 @@ export default defineNuxtConfig({
         'primeicons/primeicons.css',
         // We don't import theme CSS here anymore!
         // It's handled by the preset below.
+        '~/assets/styles/vitrine.css'
     ]
 })
