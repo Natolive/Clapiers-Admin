@@ -33,7 +33,6 @@ export default defineNuxtConfig({
     css: [
         'primeflex/primeflex.css',
         'primeicons/primeicons.css',
-        // We don't import theme CSS here anymore!
-        // It's handled by the preset below.
+        '~/assets/css/home.css'
     ]
 })
