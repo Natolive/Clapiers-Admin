@@ -9,8 +9,10 @@ security:
                 property: email # or 'username' depending on your field
 
     role_hierarchy:
-        ROLE_SUPER_ADMIN: [ROLE_ADMIN, ROLE_USER]
+        ROLE_SUPER_ADMIN: [ROLE_ADMIN, ROLE_VIEW_MESSAGE, ROLE_CONFIRM_MESSAGE, ROLE_USER]
         ROLE_ADMIN: [ROLE_USER]
+        ROLE_VIEW_MESSAGE: [ROLE_USER]
+        ROLE_CONFIRM_MESSAGE: [ROLE_VIEW_MESSAGE]
 
     firewalls:
         dev:
@@ -35,4 +37,5 @@ security:
 
     access_control:
         - { path: ^/api/login, roles: PUBLIC_ACCESS }
+        - { path: ^/api/public, roles: PUBLIC_ACCESS }
         - { path: ^/api, roles: ROLE_USER }

@@ -85,6 +85,7 @@ import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useAuthStore } from '~/stores/auth.store';
 import { useSeasonsStore } from '~/stores/seasons.store';
 import DialogContainer from '~/components/common/DialogContainer.vue';
+import { AppUserRole } from '~/types/entity/AppUser';
 
 type MenuItem = {
   label: string;
@@ -97,7 +98,7 @@ type MenuItem = {
 const authStore = useAuthStore();
 const seasonsStore = useSeasonsStore();
 const route = useRoute();
-const { isSuperAdmin, isAdmin } = useUserRole();
+const { isSuperAdmin, isAdmin, hasRole } = useUserRole();
 const sidebarVisible = ref(false);
 const currentTime = ref('');
 let timeInterval: ReturnType<typeof setInterval> | null = null;
@@ -117,6 +118,11 @@ const navigationItems = computed<MenuItem[]>(() => {
   // Show Mon équipe for admin and super admin
   if (isAdmin.value) {
     items.push({ label: 'Mon équipe', icon: 'pi pi-users', route: '/dashboard/my-team', command: () => { navigateTo('/dashboard/my-team'); closeSidebarOnMobile(); } });
+  }
+
+  // Show Messages for users with VIEW_MESSAGE role
+  if (hasRole(AppUserRole.VIEW_MESSAGE)) {
+    items.push({ label: 'Messages', icon: 'pi pi-envelope', route: '/dashboard/messages', command: () => { navigateTo('/dashboard/messages'); closeSidebarOnMobile(); } });
   }
 
   // Only show Paramètres menu if user is super admin

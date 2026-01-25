@@ -2,6 +2,7 @@
 
 namespace App\Entity;
 
+use App\Entity\Enum\AppUserRole;
 use App\Entity\Trait\IdTrait;
 use App\Entity\Trait\TimestampableTrait;
 use App\Repository\UserRepository;
@@ -61,7 +62,7 @@ class AppUser implements UserInterface, PasswordAuthenticatedUserInterface
     {
         $roles = $this->roles;
         // guarantee every user at least has ROLE_USER
-        $roles[] = 'ROLE_USER';
+        $roles[] = AppUserRole::USER->value;
 
         return array_unique($roles);
     }

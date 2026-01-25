@@ -48,8 +48,20 @@
         </div>
 
         <div class="contact-form-wrapper">
-          <form class="contact-form" @submit.prevent="handleSubmit">
+          <div v-if="success" class="success-message">
+            <i class="pi pi-check-circle"></i>
+            <div>
+              <h4>Message envoyé !</h4>
+              <p>Nous vous répondrons dans les plus brefs délais.</p>
+            </div>
+          </div>
+
+          <form v-else class="contact-form" @submit.prevent="handleSubmit">
             <h3 class="form-title">Envoyer un message</h3>
+
+            <Message v-if="error" severity="error" :closable="false" class="form-error">
+              {{ error }}
+            </Message>
 
             <div class="form-row">
               <div class="form-group">
@@ -115,13 +127,16 @@
 </template>
 
 <script setup lang="ts">
+const api = usePublicApi()
 const sending = ref(false)
+const success = ref(false)
+const error = ref('')
 
 const form = ref({
   firstName: '',
   lastName: '',
   email: '',
-  subject: null,
+  subject: null as string | null,
   message: ''
 })
 
@@ -132,18 +147,43 @@ const subjects = [
   'Autre question'
 ]
 
-const handleSubmit = async () => {
-  sending.value = true
-  // Simulate sending
-  await new Promise(resolve => setTimeout(resolve, 1500))
-  sending.value = false
-  // Reset form
+const resetForm = () => {
   form.value = {
     firstName: '',
     lastName: '',
     email: '',
     subject: null,
     message: ''
+  }
+}
+
+const handleSubmit = async () => {
+  if (!form.value.firstName || !form.value.lastName || !form.value.email || !form.value.subject || !form.value.message) {
+    error.value = 'Veuillez remplir tous les champs'
+    return
+  }
+
+  sending.value = true
+  error.value = ''
+  success.value = false
+
+  try {
+    await api('/public/contact-message', {
+      method: 'POST',
+      body: {
+        firstName: form.value.firstName,
+        lastName: form.value.lastName,
+        email: form.value.email,
+        subject: form.value.subject,
+        message: form.value.message
+      }
+    })
+    success.value = true
+    resetForm()
+  } catch (e: any) {
+    error.value = e?.data?.message || 'Une erreur est survenue. Veuillez réessayer.'
+  } finally {
+    sending.value = false
   }
 }
 </script>
@@ -282,6 +322,34 @@ const handleSubmit = async () => {
 .submit-btn:hover {
   background: #c5303c !important;
   border-color: #c5303c !important;
+}
+
+.success-message {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 2rem;
+  text-align: left;
+}
+
+.success-message i {
+  font-size: 3rem;
+  color: #22c55e;
+}
+
+.success-message h4 {
+  margin: 0 0 0.5rem;
+  font-size: 1.25rem;
+  color: var(--club-dark);
+}
+
+.success-message p {
+  margin: 0;
+  color: #666;
+}
+
+.form-error {
+  margin-bottom: 1rem;
 }
 
 @media (max-width: 968px) {

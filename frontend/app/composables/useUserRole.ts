@@ -7,13 +7,23 @@ export const useUserRole = () => {
 
     /**
      * Role hierarchy:
-     * - SUPER_ADMIN has all permissions (is also ADMIN and USER)
+     * - SUPER_ADMIN has all permissions
      * - ADMIN is also USER
+     * - CONFIRM_MESSAGE can also VIEW_MESSAGE
+     * - VIEW_MESSAGE is also USER
      * - USER is just USER
      */
     const roleHierarchy: Record<AppUserRole, AppUserRole[]> = {
-        [AppUserRole.SUPER_ADMIN]: [AppUserRole.SUPER_ADMIN, AppUserRole.ADMIN, AppUserRole.USER],
+        [AppUserRole.SUPER_ADMIN]: [
+            AppUserRole.SUPER_ADMIN,
+            AppUserRole.ADMIN,
+            AppUserRole.USER,
+            AppUserRole.VIEW_MESSAGE,
+            AppUserRole.CONFIRM_MESSAGE
+        ],
         [AppUserRole.ADMIN]: [AppUserRole.ADMIN, AppUserRole.USER],
+        [AppUserRole.CONFIRM_MESSAGE]: [AppUserRole.CONFIRM_MESSAGE, AppUserRole.VIEW_MESSAGE, AppUserRole.USER],
+        [AppUserRole.VIEW_MESSAGE]: [AppUserRole.VIEW_MESSAGE, AppUserRole.USER],
         [AppUserRole.USER]: [AppUserRole.USER]
     };
 
@@ -56,7 +66,9 @@ export const useUserRole = () => {
         const roleMap: Record<string, string> = {
             [AppUserRole.SUPER_ADMIN]: 'Super Admin',
             [AppUserRole.ADMIN]: 'Admin',
-            [AppUserRole.USER]: 'Utilisateur'
+            [AppUserRole.USER]: 'Utilisateur',
+            [AppUserRole.VIEW_MESSAGE]: 'Voir messages',
+            [AppUserRole.CONFIRM_MESSAGE]: 'Gérer messages'
         };
         return roleMap[role] || role;
     };

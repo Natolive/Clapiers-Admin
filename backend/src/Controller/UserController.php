@@ -6,6 +6,7 @@ use App\Application\UseCase\User\CreateUpdateUser\CreateUpdateUserCommand;
 use App\Application\UseCase\User\CreateUpdateUser\CreateUpdateUserUseCase;
 use App\Application\UseCase\User\GetAllUsersUseCase;
 use App\Entity\AppUser;
+use App\Entity\Enum\AppUserRole;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Attribute\MapRequestPayload;
@@ -24,14 +25,14 @@ class UserController extends AbstractController
     }
 
     #[Route('', name: 'get_all', methods: ['GET'])]
-    #[IsGranted('ROLE_SUPER_ADMIN')]
+    #[IsGranted(AppUserRole::ROLE_SUPER_ADMIN)]
     public function getAll(GetAllUsersUseCase $useCase): Response
     {
         return $useCase->execute();
     }
 
     #[Route('', name: 'create_update', methods: ['POST', 'PUT'])]
-    #[IsGranted('ROLE_SUPER_ADMIN')]
+    #[IsGranted(AppUserRole::ROLE_SUPER_ADMIN)]
     public function createUpdate(
         #[MapRequestPayload] CreateUpdateUserCommand $command,
         CreateUpdateUserUseCase $useCase
