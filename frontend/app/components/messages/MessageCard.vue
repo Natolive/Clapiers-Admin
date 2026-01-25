@@ -17,6 +17,12 @@
         </div>
       </div>
 
+      <!-- Read info on mobile - shown at top -->
+      <div v-if="message.isRead && message.readBy" class="read-info-mobile">
+        <i class="pi pi-check-circle"></i>
+        <span>Lu par {{ message.readBy.email }} le {{ formattedReadDate }}</span>
+      </div>
+
       <div class="message-body" :class="{ expanded: isExpanded }">
         <p>{{ message.message }}</p>
       </div>
@@ -32,7 +38,7 @@
         />
 
         <div class="message-actions">
-          <div v-if="message.isRead && message.readBy" class="read-info">
+          <div v-if="message.isRead && message.readBy" class="read-info read-info-desktop">
             <i class="pi pi-check-circle"></i>
             <span>Lu par {{ message.readBy.email }} le {{ formattedReadDate }}</span>
           </div>
@@ -212,6 +218,22 @@ const markAsRead = async () => {
   color: #22c55e;
 }
 
+.read-info-mobile {
+  display: none;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+  color: var(--p-text-muted-color);
+  padding: 0.5rem 0.75rem;
+  background: #f0fdf4;
+  border-radius: 6px;
+  margin-bottom: 1rem;
+}
+
+.read-info-mobile i {
+  color: #22c55e;
+}
+
 @media (max-width: 600px) {
   .message-header {
     flex-direction: column;
@@ -219,9 +241,18 @@ const markAsRead = async () => {
   }
 
   .message-meta {
+    flex-direction: column;
     align-items: flex-start;
-    flex-direction: row;
-    gap: 1rem;
+    gap: 0.5rem;
+    width: 100%;
+  }
+
+  .read-info-mobile {
+    display: flex;
+  }
+
+  .read-info-desktop {
+    display: none;
   }
 
   .message-footer {

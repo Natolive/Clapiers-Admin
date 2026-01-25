@@ -16,34 +16,38 @@
     <SkeletonLoader v-if="loading" type="list" />
 
     <template v-else>
-      <TabView v-model:activeIndex="activeTab">
-        <TabPanel>
-          <template #header>
+      <Tabs v-model:value="activeTab">
+        <TabList>
+          <Tab value="unread">
             <span class="tab-header">
               <i class="pi pi-envelope"></i>
               Non lus
               <Badge v-if="unreadMessages.length > 0" :value="unreadMessages.length" severity="danger" />
             </span>
-          </template>
-          <MessagesList
-            :messages="unreadMessages"
-            :can-confirm="canConfirm"
-            @mark-as-read="handleMarkAsRead"
-          />
-        </TabPanel>
-        <TabPanel>
-          <template #header>
+          </Tab>
+          <Tab value="read">
             <span class="tab-header">
               <i class="pi pi-check-circle"></i>
               Lus
             </span>
-          </template>
-          <MessagesList
-            :messages="readMessages"
-            :can-confirm="false"
-          />
-        </TabPanel>
-      </TabView>
+          </Tab>
+        </TabList>
+        <TabPanels>
+          <TabPanel value="unread">
+            <MessagesList
+              :messages="unreadMessages"
+              :can-confirm="canConfirm"
+              @mark-as-read="handleMarkAsRead"
+            />
+          </TabPanel>
+          <TabPanel value="read">
+            <MessagesList
+              :messages="readMessages"
+              :can-confirm="false"
+            />
+          </TabPanel>
+        </TabPanels>
+      </Tabs>
     </template>
   </div>
 </template>
@@ -63,7 +67,7 @@ definePageMeta({
 const { hasRole } = useUserRole();
 const repository = new ContactMessageRepository();
 const loading = ref(true);
-const activeTab = ref(0);
+const activeTab = ref('unread');
 const allMessages = ref<ContactMessage[]>([]);
 
 const canViewMessages = computed(() => hasRole(AppUserRole.VIEW_MESSAGE));
