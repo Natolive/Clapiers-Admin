@@ -1,7 +1,6 @@
 <template>
   <div class="messages-page">
     <div class="page-header">
-      <h1>Messages</h1>
       <div class="header-stats" v-if="!loading">
         <span class="stat unread" v-if="unreadCount > 0">
           <i class="pi pi-envelope"></i>
