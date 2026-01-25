@@ -36,7 +36,7 @@ export const useAuthStore = defineStore('auth', () => {
         const seasonsStore = useSeasonsStore();
         seasonsStore.clearActualSeason();
 
-        navigateTo('/login')
+        navigateTo('/')
     }
 
     return { token, user, isAuthenticated, login, logout, refresh }
