@@ -14,7 +14,46 @@
 
       <!-- Navigation -->
       <nav class="flex-1 p-3 overflow-y-auto">
-        <Menu :model="navigationItems" class="w-full border-none bg-transparent" />
+        <ul class="nav-list">
+          <li v-for="item in navigationItems" :key="item.label">
+            <!-- Item with subitems -->
+            <template v-if="item.items">
+              <div class="nav-group-label">
+                <i :class="item.icon"></i>
+                <span>{{ item.label }}</span>
+              </div>
+              <ul class="nav-sublist">
+                <li v-for="subitem in item.items" :key="subitem.label">
+                  <a
+                    class="nav-link"
+                    :class="{ active: route.path === subitem.route }"
+                    @click="subitem.command?.()"
+                  >
+                    <i :class="subitem.icon"></i>
+                    <span>{{ subitem.label }}</span>
+                  </a>
+                </li>
+              </ul>
+            </template>
+            <!-- Single item -->
+            <template v-else>
+              <a
+                class="nav-link"
+                :class="{ active: route.path === item.route }"
+                @click="item.command?.()"
+              >
+                <i :class="item.icon"></i>
+                <span>{{ item.label }}</span>
+                <Badge
+                  v-if="item.badge"
+                  :value="item.badge"
+                  :severity="item.badgeSeverity || 'primary'"
+                  class="nav-badge"
+                />
+              </a>
+            </template>
+          </li>
+        </ul>
       </nav>
 
       <!-- Footer -->
@@ -86,6 +125,7 @@ import { useAuthStore } from '~/stores/auth.store';
 import { useSeasonsStore } from '~/stores/seasons.store';
 import DialogContainer from '~/components/common/DialogContainer.vue';
 import { AppUserRole } from '~/types/entity/AppUser';
+import { ContactMessageRepository } from '~/repository/contact-message-repository';
 
 type MenuItem = {
   label: string;
@@ -93,6 +133,8 @@ type MenuItem = {
   route?: string;
   command?: () => void;
   items?: MenuItem[];
+  badge?: string;
+  badgeSeverity?: string;
 };
 
 const authStore = useAuthStore();
@@ -101,7 +143,9 @@ const route = useRoute();
 const { isSuperAdmin, isAdmin, hasRole } = useUserRole();
 const sidebarVisible = ref(false);
 const currentTime = ref('');
+const unreadMessagesCount = ref(0);
 let timeInterval: ReturnType<typeof setInterval> | null = null;
+let messagesInterval: ReturnType<typeof setInterval> | null = null;
 
 const closeSidebarOnMobile = () => {
   if (window.innerWidth < 1024) {
@@ -122,7 +166,17 @@ const navigationItems = computed<MenuItem[]>(() => {
 
   // Show Messages for users with VIEW_MESSAGE role
   if (hasRole(AppUserRole.VIEW_MESSAGE)) {
-    items.push({ label: 'Messages', icon: 'pi pi-envelope', route: '/dashboard/messages', command: () => { navigateTo('/dashboard/messages'); closeSidebarOnMobile(); } });
+    const messageItem: MenuItem = {
+      label: 'Messages',
+      icon: 'pi pi-envelope',
+      route: '/dashboard/messages',
+      command: () => { navigateTo('/dashboard/messages'); closeSidebarOnMobile(); }
+    };
+    if (unreadMessagesCount.value > 0) {
+      messageItem.badge = String(unreadMessagesCount.value);
+      messageItem.badgeSeverity = 'danger';
+    }
+    items.push(messageItem);
   }
 
   // Only show Paramètres menu if user is super admin
@@ -177,11 +231,28 @@ const updateTime = () => {
   });
 };
 
-onMounted(() => {
+const fetchUnreadMessagesCount = async () => {
+  if (!hasRole(AppUserRole.VIEW_MESSAGE)) return;
+
+  try {
+    const repository = new ContactMessageRepository();
+    const result = await repository.countUnread();
+    unreadMessagesCount.value = result.count;
+  } catch (e) {
+    // Silently fail - don't show error for background fetch
+  }
+};
+
+onMounted(async () => {
   sidebarVisible.value = window.innerWidth >= 1024;
   window.addEventListener('resize', handleResize);
   updateTime();
   timeInterval = setInterval(updateTime, 1000);
+
+  // Fetch unread messages count
+  await fetchUnreadMessagesCount();
+  // Refresh every 30 seconds
+  messagesInterval = setInterval(fetchUnreadMessagesCount, 30000);
 });
 
 onUnmounted(() => {
@@ -189,10 +260,75 @@ onUnmounted(() => {
   if (timeInterval) {
     clearInterval(timeInterval);
   }
+  if (messagesInterval) {
+    clearInterval(messagesInterval);
+  }
 });
 </script>
 
 <style scoped>
+/* Navigation styles */
+.nav-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.nav-link {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  color: var(--p-text-color);
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.nav-link:hover {
+  background: var(--p-surface-100);
+}
+
+.nav-link.active {
+  background: var(--p-primary-color);
+  color: var(--p-primary-contrast-color);
+}
+
+.nav-link i {
+  font-size: 1.1rem;
+  width: 1.25rem;
+  text-align: center;
+}
+
+.nav-badge {
+  margin-left: auto;
+}
+
+.nav-group-label {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  font-weight: 600;
+  color: var(--p-text-muted-color);
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-top: 0.5rem;
+}
+
+.nav-group-label i {
+  font-size: 1rem;
+}
+
+.nav-sublist {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  padding-left: 1rem;
+}
+
 /* Desktop styles */
 .sidebar {
   width: 18rem;
