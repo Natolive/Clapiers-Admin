@@ -82,6 +82,12 @@
                         class="text-xs p-0 pl-1"
                         @click="downloadLicense(member)"
                       />
+                      <Tag
+                        v-else
+                        value="Aucune licence"
+                        severity="danger"
+                        class="text-xs"
+                      />
                     </div>
                   </div>
                 </div>

@@ -4,12 +4,19 @@
     <aside
       :class="[
         'sidebar fixed left-0 top-0 bottom-0 z-5 surface-card border-right-1 surface-border shadow-2 transition-all transition-duration-300 flex flex-column',
-        sidebarVisible ? 'sidebar-open' : 'sidebar-closed'
+        sidebarVisible ? 'sidebar-open' : 'sidebar-closed',
+        sidebarCollapsed && isDesktop ? 'sidebar-collapsed' : '',
+        sidebarHovered ? 'sidebar-expanded' : ''
       ]"
+      @mouseenter="handleSidebarMouseEnter"
+      @mouseleave="handleSidebarMouseLeave"
     >
       <!-- Header -->
-      <div class="p-4 border-bottom-1 surface-border">
-        <h2 class="text-2xl font-bold text-primary m-0">Clapiers VB</h2>
+      <div class="sidebar-header p-4 border-bottom-1 surface-border">
+        <h2 class="text-2xl font-bold text-primary m-0 white-space-nowrap">
+          <span class="sidebar-label">Clapiers VB</span>
+          <span class="sidebar-icon-only"><i class="pi pi-volleyball text-2xl text-primary"></i></span>
+        </h2>
       </div>
 
       <!-- Navigation -->
@@ -20,7 +27,7 @@
             <template v-if="item.items">
               <div class="nav-group-label">
                 <i :class="item.icon"></i>
-                <span>{{ item.label }}</span>
+                <span class="sidebar-label">{{ item.label }}</span>
               </div>
               <ul class="nav-sublist">
                 <li v-for="subitem in item.items" :key="subitem.label">
@@ -28,9 +35,10 @@
                     class="nav-link"
                     :class="{ active: route.path === subitem.route }"
                     @click="subitem.command?.()"
+                    v-tooltip.right="sidebarCollapsed && !sidebarHovered ? subitem.label : undefined"
                   >
                     <i :class="subitem.icon"></i>
-                    <span>{{ subitem.label }}</span>
+                    <span class="sidebar-label">{{ subitem.label }}</span>
                   </a>
                 </li>
               </ul>
@@ -41,9 +49,10 @@
                 class="nav-link"
                 :class="{ active: route.path === item.route }"
                 @click="item.command?.()"
+                v-tooltip.right="sidebarCollapsed && !sidebarHovered ? item.label : undefined"
               >
                 <i :class="item.icon"></i>
-                <span>{{ item.label }}</span>
+                <span class="sidebar-label">{{ item.label }}</span>
                 <Badge
                   v-if="item.badge"
                   :value="item.badge"
@@ -61,11 +70,12 @@
         <!-- Logout Button -->
         <Button
           icon="pi pi-sign-out"
-          label="Déconnexion"
+          :label="sidebarCollapsed && !sidebarHovered ? undefined : 'Déconnexion'"
           severity="danger"
           text
           @click="handleLogout"
           class="w-full justify-content-start"
+          v-tooltip.right="sidebarCollapsed && !sidebarHovered ? 'Déconnexion' : undefined"
         />
       </div>
     </aside>
@@ -129,6 +139,9 @@ const authStore = useAuthStore();
 const route = useRoute();
 const { isSuperAdmin, isAdmin, hasRole } = useUserRole();
 const sidebarVisible = ref(false);
+const sidebarCollapsed = ref(true);
+const sidebarHovered = ref(false);
+const isDesktop = ref(false);
 const currentTime = ref('');
 const unreadMessagesCount = ref(0);
 let timeInterval: ReturnType<typeof setInterval> | null = null;
@@ -138,6 +151,16 @@ const closeSidebarOnMobile = () => {
   if (window.innerWidth < 1024) {
     sidebarVisible.value = false;
   }
+};
+
+const handleSidebarMouseEnter = () => {
+  if (window.innerWidth >= 1024 && sidebarCollapsed.value) {
+    sidebarHovered.value = true;
+  }
+};
+
+const handleSidebarMouseLeave = () => {
+  sidebarHovered.value = false;
 };
 
 const navigationItems = computed<MenuItem[]>(() => {
@@ -204,8 +227,8 @@ const handleLogout = () => {
 };
 
 const handleResize = () => {
-  // Auto-open sidebar on desktop, auto-close on mobile
-  sidebarVisible.value = window.innerWidth >= 1024;
+  isDesktop.value = window.innerWidth >= 1024;
+  sidebarVisible.value = isDesktop.value;
 };
 
 const updateTime = () => {
@@ -230,7 +253,8 @@ const fetchUnreadMessagesCount = async () => {
 };
 
 onMounted(async () => {
-  sidebarVisible.value = window.innerWidth >= 1024;
+  isDesktop.value = window.innerWidth >= 1024;
+  sidebarVisible.value = isDesktop.value;
   window.addEventListener('resize', handleResize);
   updateTime();
   timeInterval = setInterval(updateTime, 1000);
@@ -331,6 +355,78 @@ onUnmounted(() => {
 
 .sidebar-closed ~ .main-content {
   margin-left: 0;
+}
+
+/* Sidebar collapsed/expanded helpers */
+.sidebar-icon-only {
+  display: none;
+}
+
+.sidebar-label {
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+/* Collapsed sidebar (desktop only) */
+@media (min-width: 1024px) {
+  .sidebar.sidebar-collapsed:not(.sidebar-expanded) {
+    width: 4.5rem;
+    overflow: hidden;
+  }
+
+  .sidebar.sidebar-collapsed:not(.sidebar-expanded) .sidebar-label {
+    display: none;
+  }
+
+  .sidebar.sidebar-collapsed:not(.sidebar-expanded) .sidebar-icon-only {
+    display: inline-flex;
+  }
+
+  .sidebar.sidebar-collapsed:not(.sidebar-expanded) .sidebar-header {
+    display: flex;
+    justify-content: center;
+  }
+
+  .sidebar.sidebar-collapsed:not(.sidebar-expanded) .nav-link {
+    justify-content: center;
+    padding: 0.75rem;
+  }
+
+  .sidebar.sidebar-collapsed:not(.sidebar-expanded) .nav-group-label {
+    justify-content: center;
+    padding: 0.75rem;
+  }
+
+  .sidebar.sidebar-collapsed:not(.sidebar-expanded) .nav-group-label .sidebar-label {
+    display: none;
+  }
+
+  .sidebar.sidebar-collapsed:not(.sidebar-expanded) .nav-sublist {
+    padding-left: 0;
+  }
+
+  .sidebar.sidebar-collapsed:not(.sidebar-expanded) .nav-badge {
+    display: none;
+  }
+
+  .sidebar.sidebar-collapsed:not(.sidebar-expanded) :deep(.p-button-label) {
+    display: none;
+  }
+
+  .sidebar.sidebar-collapsed:not(.sidebar-expanded) :deep(.p-button) {
+    justify-content: center;
+  }
+
+  .sidebar.sidebar-collapsed ~ .main-content {
+    margin-left: 4.5rem;
+  }
+
+  /* Hover expanded state */
+  .sidebar.sidebar-collapsed.sidebar-expanded {
+    width: 18rem;
+    z-index: 10;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
+  }
 }
 
 /* Backdrop - hidden by default */
