@@ -5,6 +5,8 @@ namespace App\Controller;
 use App\Application\UseCase\Team\CreateUpdateTeam\CreateUpdateTeamCommand;
 use App\Application\UseCase\Team\CreateUpdateTeam\CreateUpdateTeamUseCase;
 use App\Application\UseCase\Team\GetAllTeamsUseCase;
+use App\Application\UseCase\Team\DownloadMyTeamMemberLicense\DownloadMyTeamMemberLicenseCommand;
+use App\Application\UseCase\Team\DownloadMyTeamMemberLicense\DownloadMyTeamMemberLicenseUseCase;
 use App\Application\UseCase\Team\GetMyTeam\GetMyTeamCommand;
 use App\Application\UseCase\Team\GetMyTeam\GetMyTeamUseCase;
 use App\Entity\AppUser;
@@ -43,5 +45,18 @@ class TeamController extends AbstractController
         $command = new GetMyTeamCommand($user);
 
         return $useCase->execute($command);
+    }
+
+    #[Route('/my-team/license/{memberId}', name: 'download_my_team_license', methods: ['GET'])]
+    #[IsGranted(AppUserRole::ROLE_ADMIN)]
+    public function downloadMyTeamMemberLicense(
+        int $memberId,
+        DownloadMyTeamMemberLicenseUseCase $useCase
+    ): Response {
+        /** @var AppUser $user */
+        $user = $this->getUser();
+        $command = new DownloadMyTeamMemberLicenseCommand($user, $memberId);
+
+        return $useCase->run($command);
     }
 }

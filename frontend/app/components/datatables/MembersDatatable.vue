@@ -18,13 +18,13 @@
         <span>{{ slotProps.data.phoneNumber }}</span>
       </template>
     </Column>
-    <Column field="email" header="Email" sortable style="width: 20%">
+    <Column field="email" header="Email" sortable style="width: 15%">
       <template #body="slotProps">
         <span>{{ slotProps.data.email }}</span>
       </template>
     </Column>
-    <Column field="team.name" header="Équipe" sortable style="width: 15%"></Column>
-    <Column field="licensePaid" header="Licence" sortable style="width: 10%">
+    <Column field="team.name" header="Équipe" sortable style="width: 10%"></Column>
+    <Column field="licensePaid" header="Payée" sortable style="width: 8%">
       <template #body="slotProps">
         <ToggleSwitch
           :modelValue="slotProps.data.licensePaid"
@@ -33,12 +33,45 @@
         />
       </template>
     </Column>
-    <Column field="createdAt" header="Date de création" sortable style="width: 10%">
+    <Column header="Fichier licence" style="width: 17%">
+      <template #body="slotProps">
+        <div class="flex align-items-center gap-2">
+          <Button
+            :icon="uploadingIds.has(slotProps.data.id) ? 'pi pi-spin pi-spinner' : 'pi pi-upload'"
+            severity="info"
+            text
+            rounded
+            size="small"
+            :disabled="uploadingIds.has(slotProps.data.id)"
+            @click="triggerUpload(slotProps.data)"
+            v-tooltip.top="'Importer licence'"
+          />
+          <Button
+            v-if="slotProps.data.licenseFileName"
+            icon="pi pi-download"
+            severity="success"
+            text
+            rounded
+            size="small"
+            @click="downloadLicense(slotProps.data)"
+            v-tooltip.top="'Télécharger licence'"
+          />
+          <Tag
+            v-if="slotProps.data.licenseFileName"
+            value="Fichier"
+            severity="success"
+            class="text-xs"
+          />
+          <span v-else class="text-color-secondary text-sm">-</span>
+        </div>
+      </template>
+    </Column>
+    <Column field="createdAt" header="Créé le" sortable style="width: 8%">
       <template #body="slotProps">
         {{ new Date(slotProps.data.createdAt).toLocaleDateString('fr-FR') }}
       </template>
     </Column>
-    <Column header="Actions" style="width: 10%">
+    <Column header="Actions" style="width: 7%">
       <template #body="slotProps">
         <Button
           icon="pi pi-pencil"
@@ -50,6 +83,14 @@
       </template>
     </Column>
   </DataTable>
+
+  <input
+    ref="fileInput"
+    type="file"
+    class="hidden"
+    accept=".pdf,.jpg,.jpeg,.png"
+    @change="handleFileSelected"
+  />
 </template>
 
 <script setup lang="ts">
@@ -70,6 +111,9 @@ const emit = defineEmits<{
 
 const { show } = useDialogManager();
 const togglingIds = ref(new Set<number>());
+const uploadingIds = ref(new Set<number>());
+const fileInput = ref<HTMLInputElement | null>(null);
+const uploadTargetMember = ref<Member | null>(null);
 
 const toggleLicense = async (member: Member) => {
   togglingIds.value.add(member.id);
@@ -81,6 +125,49 @@ const toggleLicense = async (member: Member) => {
   } finally {
     togglingIds.value.delete(member.id);
   }
+};
+
+const triggerUpload = (member: Member) => {
+  uploadTargetMember.value = member;
+  fileInput.value?.click();
+};
+
+const handleFileSelected = async (event: Event) => {
+  const input = event.target as HTMLInputElement;
+  const file = input.files?.[0];
+  const member = uploadTargetMember.value;
+
+  if (!file || !member) return;
+
+  uploadingIds.value.add(member.id);
+  try {
+    const { MemberRepository } = await import('~/repository/member-repository');
+    const memberRepository = new MemberRepository();
+    const updatedMember = await memberRepository.uploadLicense(member.id, file);
+    emit('memberUpdated', updatedMember);
+  } finally {
+    uploadingIds.value.delete(member.id);
+    uploadTargetMember.value = null;
+    // Reset input so the same file can be re-selected
+    input.value = '';
+  }
+};
+
+const downloadLicense = async (member: Member) => {
+  const config = useRuntimeConfig();
+  const url = `${config.public.apiBase}/member/${member.id}/download-license`;
+  const token = useCookie('auth_token').value;
+
+  const res = await fetch(url, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  const blob = await res.blob();
+  const blobUrl = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = blobUrl;
+  a.download = member.licenseFileName || 'licence';
+  a.click();
+  URL.revokeObjectURL(blobUrl);
 };
 
 // Open dialog for create or edit

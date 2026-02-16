@@ -1,7 +1,5 @@
 <template>
   <div>
-    <h2 class="text-3xl font-bold mb-4">Mon équipe</h2>
-
     <SkeletonLoader v-if="loading" type="card-grid" :count="6" />
 
     <!-- No team assigned -->
@@ -63,6 +61,29 @@
                       {{ member.email }}
                     </a>
                   </div>
+                  <div class="flex align-items-center justify-content-between mt-2 pt-2 border-top-1 surface-border">
+                    <div class="flex align-items-center gap-2">
+                      <i class="pi pi-id-card text-color-secondary"></i>
+                      <span class="text-sm">Licence</span>
+                    </div>
+                    <div class="flex align-items-center gap-2">
+                      <Tag
+                        :value="member.licensePaid ? 'Payée' : 'Non payée'"
+                        :severity="member.licensePaid ? 'success' : 'warn'"
+                        class="text-xs"
+                      />
+                      <Button
+                        v-if="member.licenseFileName"
+                        icon="pi pi-download"
+                        label="Fichier"
+                        severity="info"
+                        text
+                        size="small"
+                        class="text-xs p-0 pl-1"
+                        @click="downloadLicense(member)"
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
             </template>
@@ -96,6 +117,23 @@ const members = ref<Member[]>([]);
 const loading = ref(true);
 
 const userTeam = computed<Team | null>(() => authStore.user?.team ?? null);
+
+const downloadLicense = async (member: Member) => {
+  const config = useRuntimeConfig();
+  const url = `${config.public.apiBase}/team/my-team/license/${member.id}`;
+  const token = useCookie('auth_token').value;
+
+  const res = await fetch(url, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  const blob = await res.blob();
+  const blobUrl = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = blobUrl;
+  a.download = member.licenseFileName || 'licence';
+  a.click();
+  URL.revokeObjectURL(blobUrl);
+};
 
 onMounted(async () => {
   try {

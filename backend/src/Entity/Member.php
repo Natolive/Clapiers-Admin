@@ -33,8 +33,11 @@ class Member
     #[ORM\Column(length: 255)]
     private string $email;
 
-    #[ORM\Column(type: 'boolean')]
+    #[ORM\Column(type: 'boolean', options: ['default' => false])]
     private bool $licensePaid = false;
+
+    #[ORM\Column(length: 255, nullable: true)]
+    private ?string $licenseFileName = null;
 
     public function __construct()
     {
@@ -130,6 +133,18 @@ class Member
         return $this;
     }
 
+    public function getLicenseFileName(): ?string
+    {
+        return $this->licenseFileName;
+    }
+
+    public function setLicenseFileName(?string $licenseFileName): static
+    {
+        $this->licenseFileName = $licenseFileName;
+
+        return $this;
+    }
+
     public function toArray(): array
     {
         return [
@@ -140,6 +155,7 @@ class Member
             'phoneNumber' => $this->getPhoneNumber(),
             'email' => $this->getEmail(),
             'licensePaid' => $this->isLicensePaid(),
+            'licenseFileName' => $this->getLicenseFileName(),
             'team' => $this->getTeam()->toArray(),
             'createdAt' => $this->getCreatedAt()?->format(DATE_ATOM),
             'updatedAt' => $this->getUpdatedAt()?->format(DATE_ATOM),

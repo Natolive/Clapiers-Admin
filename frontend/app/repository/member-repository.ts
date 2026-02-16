@@ -22,6 +22,15 @@ export class MemberRepository {
         });
     }
 
+    async uploadLicense(id: number, file: File): Promise<Member> {
+        const formData = new FormData();
+        formData.append('file', file);
+        return await this.api<Member>(`/member/${id}/upload-license`, {
+            method: 'POST',
+            body: formData
+        });
+    }
+
     async getByTeam(teamId: number): Promise<Member[]> {
         return await this.api<Member[]>(`/member/team/${teamId}`, {
             method: 'GET'

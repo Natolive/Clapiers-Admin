@@ -8,6 +8,7 @@ export type Member = {
     phoneNumber: string;
     email: string;
     licensePaid: boolean;
+    licenseFileName: string | null;
     team: Team;
     createdAt: string;
     updatedAt: string;
