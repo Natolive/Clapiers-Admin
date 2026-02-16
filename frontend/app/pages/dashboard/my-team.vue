@@ -76,7 +76,7 @@
 <script setup lang="ts">
 import SkeletonLoader from '~/components/common/skeleton/SkeletonLoader.vue';
 import MemberAvatar from '~/components/common/MemberAvatar.vue';
-import { MemberRepository } from '~/repository/member-repository';
+import { TeamRepository } from '~/repository/team-repository';
 import type { Member } from '~/types/entity/Member';
 import type { Team } from '~/types/entity/Team';
 
@@ -100,8 +100,8 @@ const userTeam = computed<Team | null>(() => authStore.user?.team ?? null);
 onMounted(async () => {
   try {
     if (userTeam.value) {
-      const memberRepository = new MemberRepository();
-      members.value = await memberRepository.getByTeam(userTeam.value.id);
+      const teamRepository = new TeamRepository();
+      members.value = await teamRepository.getMyTeam();
     }
   } finally {
     loading.value = false;

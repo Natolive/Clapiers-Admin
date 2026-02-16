@@ -33,6 +33,9 @@ class Member
     #[ORM\Column(length: 255)]
     private string $email;
 
+    #[ORM\Column(type: 'boolean')]
+    private bool $licensePaid = false;
+
     public function __construct()
     {
         $this->color = $this->generateRandomHexColor();
@@ -115,6 +118,18 @@ class Member
         return $this;
     }
 
+    public function isLicensePaid(): bool
+    {
+        return $this->licensePaid;
+    }
+
+    public function setLicensePaid(bool $licensePaid): static
+    {
+        $this->licensePaid = $licensePaid;
+
+        return $this;
+    }
+
     public function toArray(): array
     {
         return [
@@ -124,6 +139,7 @@ class Member
             'color' => $this->getColor(),
             'phoneNumber' => $this->getPhoneNumber(),
             'email' => $this->getEmail(),
+            'licensePaid' => $this->isLicensePaid(),
             'team' => $this->getTeam()->toArray(),
             'createdAt' => $this->getCreatedAt()?->format(DATE_ATOM),
             'updatedAt' => $this->getUpdatedAt()?->format(DATE_ATOM),

@@ -16,6 +16,12 @@ export class MemberRepository {
         });
     }
 
+    async toggleLicense(id: number): Promise<Member> {
+        return await this.api<Member>(`/member/${id}/toggle-license`, {
+            method: 'PATCH'
+        });
+    }
+
     async getByTeam(teamId: number): Promise<Member[]> {
         return await this.api<Member[]>(`/member/team/${teamId}`, {
             method: 'GET'

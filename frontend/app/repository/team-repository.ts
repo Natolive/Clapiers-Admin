@@ -1,4 +1,5 @@
 import type {Team} from "~/types/entity/Team";
+import type {Member} from "~/types/entity/Member";
 
 export class TeamRepository {
     private api = useApi()
@@ -16,4 +17,9 @@ export class TeamRepository {
         });
     }
 
+    async getMyTeam(): Promise<Member[]> {
+        return await this.api<Member[]>('/team/my-team', {
+            method: 'GET'
+        });
+    }
 }

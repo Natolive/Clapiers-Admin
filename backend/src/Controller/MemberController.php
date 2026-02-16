@@ -8,6 +8,8 @@ use App\Application\UseCase\Member\GetAllMembersUseCase;
 use App\Application\UseCase\Member\GetMembersByTeam\GetMembersByTeamCommand;
 use App\Application\UseCase\Member\GetMembersByTeam\GetMembersByTeamUseCase;
 use App\Entity\Enum\AppUserRole;
+use App\Repository\MemberRepository;
+use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Attribute\MapRequestPayload;
@@ -35,10 +37,28 @@ class MemberController extends AbstractController
     }
 
     #[Route('/team/{teamId}', name: 'get_by_team', methods: ['GET'])]
-    #[IsGranted(AppUserRole::ROLE_ADMIN)]
     public function getByTeam(int $teamId, GetMembersByTeamUseCase $useCase): Response
     {
         $command = new GetMembersByTeamCommand($teamId);
         return $useCase->execute($command);
+    }
+
+    #[Route('/{id}/toggle-license', name: 'toggle_license', methods: ['PATCH'])]
+    #[IsGranted(AppUserRole::ROLE_SUPER_ADMIN)]
+    public function toggleLicense(
+        int $id,
+        MemberRepository $memberRepository,
+        EntityManagerInterface $entityManager
+    ): Response {
+        $member = $memberRepository->find($id);
+
+        if (!$member) {
+            return $this->json(['error' => 'Member not found'], 404);
+        }
+
+        $member->setLicensePaid(!$member->isLicensePaid());
+        $entityManager->flush();
+
+        return $this->json($member->toArray());
     }
 }

@@ -7,6 +7,7 @@ export type Member = {
     color: string;
     phoneNumber: string;
     email: string;
+    licensePaid: boolean;
     team: Team;
     createdAt: string;
     updatedAt: string;

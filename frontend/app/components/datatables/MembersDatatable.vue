@@ -23,8 +23,17 @@
         <span>{{ slotProps.data.email }}</span>
       </template>
     </Column>
-    <Column field="team.name" header="Équipe" sortable style="width: 20%"></Column>
-    <Column field="createdAt" header="Date de création" sortable style="width: 15%">
+    <Column field="team.name" header="Équipe" sortable style="width: 15%"></Column>
+    <Column field="licensePaid" header="Licence" sortable style="width: 10%">
+      <template #body="slotProps">
+        <ToggleSwitch
+          :modelValue="slotProps.data.licensePaid"
+          @update:modelValue="toggleLicense(slotProps.data)"
+          :disabled="togglingIds.has(slotProps.data.id)"
+        />
+      </template>
+    </Column>
+    <Column field="createdAt" header="Date de création" sortable style="width: 10%">
       <template #body="slotProps">
         {{ new Date(slotProps.data.createdAt).toLocaleDateString('fr-FR') }}
       </template>
@@ -60,6 +69,19 @@ const emit = defineEmits<{
 }>();
 
 const { show } = useDialogManager();
+const togglingIds = ref(new Set<number>());
+
+const toggleLicense = async (member: Member) => {
+  togglingIds.value.add(member.id);
+  try {
+    const { MemberRepository } = await import('~/repository/member-repository');
+    const memberRepository = new MemberRepository();
+    const updatedMember = await memberRepository.toggleLicense(member.id);
+    emit('memberUpdated', updatedMember);
+  } finally {
+    togglingIds.value.delete(member.id);
+  }
+};
 
 // Open dialog for create or edit
 const openDialog = (member?: Member) => {
