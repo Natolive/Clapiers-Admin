@@ -7,6 +7,8 @@ use App\Application\UseCase\Member\CreateUpdateMember\CreateUpdateMemberUseCase;
 use App\Application\UseCase\Member\GetAllMembersUseCase;
 use App\Application\UseCase\Member\GetMembersByTeam\GetMembersByTeamCommand;
 use App\Application\UseCase\Member\GetMembersByTeam\GetMembersByTeamUseCase;
+use App\Application\UseCase\Member\DeleteLicense\DeleteLicenseCommand;
+use App\Application\UseCase\Member\DeleteLicense\DeleteLicenseUseCase;
 use App\Application\UseCase\Member\UploadLicense\UploadLicenseCommand;
 use App\Application\UseCase\Member\UploadLicense\UploadLicenseUseCase;
 use App\Entity\Enum\AppUserRole;
@@ -72,6 +74,16 @@ class MemberController extends AbstractController
         UploadLicenseUseCase $useCase
     ): Response {
         $command = new UploadLicenseCommand($id, $file);
+
+        return $useCase->execute($command);
+    }
+
+    #[Route('/{id}/delete-license', name: 'delete_license', methods: ['DELETE'])]
+    public function deleteLicense(
+        int $id,
+        DeleteLicenseUseCase $useCase
+    ): Response {
+        $command = new DeleteLicenseCommand($id);
 
         return $useCase->execute($command);
     }

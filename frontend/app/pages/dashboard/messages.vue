@@ -64,6 +64,8 @@ definePageMeta({
   layout: 'dashboard'
 });
 
+useHead({ title: 'Messages' });
+
 const { hasRole } = useUserRole();
 const repository = new ContactMessageRepository();
 const loading = ref(true);

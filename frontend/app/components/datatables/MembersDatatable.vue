@@ -56,6 +56,16 @@
             @click="downloadLicense(slotProps.data)"
             v-tooltip.top="'Télécharger licence'"
           />
+          <Button
+            v-if="slotProps.data.licenseFileName"
+            icon="pi pi-trash"
+            severity="danger"
+            text
+            rounded
+            size="small"
+            @click="deleteLicense(slotProps.data)"
+            v-tooltip.top="'Supprimer licence'"
+          />
           <Tag
             v-if="slotProps.data.licenseFileName"
             value="Fichier"
@@ -95,6 +105,7 @@
 
 <script setup lang="ts">
 import CreateUpdateMemberDialog from '~/components/dialogs/CreateUpdateMemberDialog.vue';
+import ConfirmDeleteDialog from '~/components/dialogs/ConfirmDeleteDialog.vue';
 import MemberAvatar from '~/components/common/MemberAvatar.vue';
 import type { Member } from '~/types/entity/Member';
 import type { Team } from '~/types/entity/Team';
@@ -128,8 +139,23 @@ const toggleLicense = async (member: Member) => {
 };
 
 const triggerUpload = (member: Member) => {
-  uploadTargetMember.value = member;
-  fileInput.value?.click();
+  if (member.licenseFileName) {
+    show({
+      component: ConfirmDeleteDialog,
+      props: {
+        header: 'Remplacer la licence',
+        message: `Une licence existe déjà pour ${member.firstName} ${member.lastName}. Voulez-vous la remplacer ?`,
+        confirmLabel: 'Remplacer',
+        onConfirm: async () => {
+          uploadTargetMember.value = member;
+          fileInput.value?.click();
+        }
+      }
+    });
+  } else {
+    uploadTargetMember.value = member;
+    fileInput.value?.click();
+  }
 };
 
 const handleFileSelected = async (event: Event) => {
@@ -151,6 +177,21 @@ const handleFileSelected = async (event: Event) => {
     // Reset input so the same file can be re-selected
     input.value = '';
   }
+};
+
+const deleteLicense = (member: Member) => {
+  show({
+    component: ConfirmDeleteDialog,
+    props: {
+      message: `Êtes-vous sûr de vouloir supprimer la licence de ${member.firstName} ${member.lastName} ?`,
+      onConfirm: async () => {
+        const { MemberRepository } = await import('~/repository/member-repository');
+        const memberRepository = new MemberRepository();
+        const updatedMember = await memberRepository.deleteLicense(member.id);
+        emit('memberUpdated', updatedMember);
+      }
+    }
+  });
 };
 
 const downloadLicense = async (member: Member) => {

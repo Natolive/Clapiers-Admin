@@ -35,6 +35,8 @@ definePageMeta({
   layout: 'dashboard'
 });
 
+useHead({ title: 'Membres' });
+
 const { isSuperAdmin } = useUserRole();
 const { show } = useDialogManager();
 const memberRepository = new MemberRepository();

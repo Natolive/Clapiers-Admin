@@ -32,6 +32,8 @@ definePageMeta({
   layout: 'dashboard'
 });
 
+useHead({ title: 'Utilisateurs' });
+
 const { isSuperAdmin } = useUserRole();
 const { show } = useDialogManager();
 const userRepository = new UserRepository();

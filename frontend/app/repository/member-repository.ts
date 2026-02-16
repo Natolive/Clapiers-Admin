@@ -31,6 +31,12 @@ export class MemberRepository {
         });
     }
 
+    async deleteLicense(id: number): Promise<Member> {
+        return await this.api<Member>(`/member/${id}/delete-license`, {
+            method: 'DELETE'
+        });
+    }
+
     async getByTeam(teamId: number): Promise<Member[]> {
         return await this.api<Member[]>(`/member/team/${teamId}`, {
             method: 'GET'

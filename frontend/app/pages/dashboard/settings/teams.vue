@@ -32,6 +32,8 @@ definePageMeta({
   layout: 'dashboard'
 });
 
+useHead({ title: 'Équipes' });
+
 const { isSuperAdmin } = useUserRole();
 const { show } = useDialogManager();
 const teamRepository = new TeamRepository();

@@ -106,6 +106,8 @@ definePageMeta({
   layout: 'dashboard'
 });
 
+useHead({ title: 'Mon équipe' });
+
 const { isAdmin } = useUserRole();
 const authStore = useAuthStore();
 

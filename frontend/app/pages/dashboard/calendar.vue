@@ -29,6 +29,8 @@ definePageMeta({
   layout: 'dashboard'
 });
 
+useHead({ title: 'Calendrier' });
+
 const calendarRef = ref<InstanceType<typeof FullCalendar> | null>(null)
 const currentTitle = ref('')
 

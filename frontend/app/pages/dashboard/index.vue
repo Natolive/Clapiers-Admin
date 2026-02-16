@@ -7,4 +7,6 @@ definePageMeta({
   middleware: 'auth-middleware',
   layout: 'dashboard'
 })
+
+useHead({ title: 'Tableau de bord' })
 </script>
