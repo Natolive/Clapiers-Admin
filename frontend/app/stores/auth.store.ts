@@ -2,7 +2,6 @@ import { defineStore } from 'pinia'
 import type {Credentials} from "~/types/custom/Credentials";
 import {AuthenticationRepository} from "~/repository/authentication-repository";
 import type {AppUser} from "~/types/entity/AppUser";
-import { useSeasonsStore } from './seasons.store';
 
 export const useAuthStore = defineStore('auth', () => {
     const token = useCookie('auth_token')
@@ -22,19 +21,11 @@ export const useAuthStore = defineStore('auth', () => {
         const authenticateRepository = new AuthenticationRepository();
         const userData = await authenticateRepository.me();
         user.value = userData
-
-        // Fetch actual season after user data is loaded
-        const seasonsStore = useSeasonsStore();
-        await seasonsStore.fetchActualSeason();
     }
 
     function logout() {
         token.value = null // Clears the cookie
         user.value = null
-
-        // Clear actual season on logout
-        const seasonsStore = useSeasonsStore();
-        seasonsStore.clearActualSeason();
 
         navigateTo('/')
     }

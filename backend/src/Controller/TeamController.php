@@ -2,8 +2,6 @@
 
 namespace App\Controller;
 
-use App\Application\UseCase\Team\CountTeamsBySeason\CountTeamsBySeasonCommand;
-use App\Application\UseCase\Team\CountTeamsBySeason\CountTeamsBySeasonUseCase;
 use App\Application\UseCase\Team\CreateUpdateTeam\CreateUpdateTeamCommand;
 use App\Application\UseCase\Team\CreateUpdateTeam\CreateUpdateTeamUseCase;
 use App\Application\UseCase\Team\GetAllTeamsUseCase;
@@ -28,14 +26,6 @@ class TeamController extends AbstractController
     public function create(
         #[MapRequestPayload] CreateUpdateTeamCommand $command,
         CreateUpdateTeamUseCase $useCase
-    ): Response {
-        return $useCase->execute($command);
-    }
-
-    #[Route('/count-by-season', name: 'count_by_season', methods: ['POST'])]
-    public function countBySeason(
-        #[MapRequestPayload] CountTeamsBySeasonCommand $command,
-        CountTeamsBySeasonUseCase $useCase
     ): Response {
         return $useCase->execute($command);
     }

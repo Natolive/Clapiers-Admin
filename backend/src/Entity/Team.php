@@ -17,10 +17,6 @@ class Team
     #[ORM\Column(length: 255)]
     private string $name;
 
-    #[ORM\ManyToOne(targetEntity: Season::class)]
-    #[ORM\JoinColumn(nullable: false)]
-    private Season $season;
-
     public function getName(): string
     {
         return $this->name;
@@ -33,24 +29,11 @@ class Team
         return $this;
     }
 
-    public function getSeason(): Season
-    {
-        return $this->season;
-    }
-
-    public function setSeason(Season $season): static
-    {
-        $this->season = $season;
-
-        return $this;
-    }
-
     public function toArray(): array
     {
         return [
             'id' => $this->getId(),
             'name' => $this->getName(),
-            'season' => $this->getSeason()->toArray(),
             'createdAt' => $this->getCreatedAt()?->format(DATE_ATOM),
             'updatedAt' => $this->getUpdatedAt()?->format(DATE_ATOM),
         ];

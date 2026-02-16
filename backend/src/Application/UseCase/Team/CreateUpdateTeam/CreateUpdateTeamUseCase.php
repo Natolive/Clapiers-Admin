@@ -2,7 +2,6 @@
 
 namespace App\Application\UseCase\Team\CreateUpdateTeam;
 
-use App\Application\UseCase\Season\GetActualSeasonUseCase;
 use App\Common\Command\CommandInterface;
 use App\Common\Exception\UseCaseException;
 use App\Common\UseCase\AbstractUseCase;
@@ -16,7 +15,6 @@ use Doctrine\ORM\EntityManagerInterface;
 class CreateUpdateTeamUseCase extends AbstractUseCase
 {
     public function __construct(
-        private readonly GetActualSeasonUseCase $getActualSeasonUseCase,
         private readonly TeamRepository $teamRepository,
         private readonly EntityManagerInterface $entityManager
     ) {
@@ -29,23 +27,16 @@ class CreateUpdateTeamUseCase extends AbstractUseCase
         }
 
         if ($command->id === null) {
-            // Create new team
             return $this->createTeam($command);
         }
 
-        // Update existing team
         return $this->updateTeam($command);
     }
 
     private function createTeam(CreateUpdateTeamCommand $command): Team
     {
-        // Get actual season using the use case
-        $actualSeason = $this->getActualSeasonUseCase->run();
-
-        // Create team
         $team = new Team();
         $team->setName($command->name);
-        $team->setSeason($actualSeason);
 
         $this->entityManager->persist($team);
         $this->entityManager->flush();
