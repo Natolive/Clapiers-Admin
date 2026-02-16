@@ -13,11 +13,12 @@ export class UserRepository {
         email: string,
         role: AppUserRole,
         password: string | null = null,
-        id: number | null = null
+        id: number | null = null,
+        teamId: number | null = null
     ): Promise<AppUser> {
         return await this.api<AppUser>('/user', {
             method: 'POST',
-            body: { id, email, role, password }
+            body: { id, email, role, password, teamId }
         });
     }
 }

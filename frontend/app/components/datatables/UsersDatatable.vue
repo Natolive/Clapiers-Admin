@@ -14,7 +14,12 @@
         />
       </template>
     </Column>
-    <Column field="createdAt" header="Date de création" sortable style="width: 20%">
+    <Column field="team" header="Équipe" sortable style="width: 15%">
+      <template #body="slotProps">
+        {{ slotProps.data.team?.name || '-' }}
+      </template>
+    </Column>
+    <Column field="createdAt" header="Date de création" sortable style="width: 15%">
       <template #body="slotProps">
         {{ new Date(slotProps.data.createdAt).toLocaleDateString('fr-FR') }}
       </template>
@@ -60,14 +65,15 @@ const openDialog = (user?: AppUser) => {
     component: CreateUpdateUserDialog,
     props: {
       user: user || null,
-      onSubmit: async (values: { email: string; role: AppUserRole; password: string | null }) => {
+      onSubmit: async (values: { email: string; role: AppUserRole; password: string | null; teamId: number | null }) => {
         const { UserRepository } = await import('~/repository/user-repository');
         const userRepository = new UserRepository();
         const savedUser = await userRepository.createUpdate(
           values.email,
           values.role,
           values.password,
-          user?.id || null
+          user?.id || null,
+          values.teamId
         );
 
         if (user) {

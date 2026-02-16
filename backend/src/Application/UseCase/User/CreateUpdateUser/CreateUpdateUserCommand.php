@@ -13,6 +13,7 @@ class CreateUpdateUserCommand implements CommandInterface
         public readonly string $role,
         public readonly ?string $password = null,
         public readonly ?int $id = null,
+        public readonly ?int $teamId = null,
     ) {
     }
 }

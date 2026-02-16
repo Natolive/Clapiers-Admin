@@ -23,6 +23,14 @@
     </div>
 
     <div class="flex flex-column gap-2">
+      <label for="teamId" class="font-semibold">Équipe</label>
+      <TeamSelect
+        name="teamId"
+        :disabled="loading"
+      />
+    </div>
+
+    <div class="flex flex-column gap-2">
       <label for="password" class="font-semibold">
         {{ user ? 'Nouveau mot de passe (optionnel)' : 'Mot de passe' }}
       </label>
@@ -50,6 +58,7 @@ import type { FormSubmitEvent } from '@primevue/forms';
 import { z } from 'zod';
 import type { AppUser, AppUserRole } from '~/types/entity/AppUser';
 import RoleSelect from '~/components/form/select/RoleSelect.vue';
+import TeamSelect from '~/components/form/select/TeamSelect.vue';
 
 const props = defineProps({
   loading: Boolean,
@@ -60,13 +69,14 @@ const props = defineProps({
 });
 
 const emit = defineEmits<{
-  (e: 'submit', payload: { email: string; role: AppUserRole; password: string | null }): void;
+  (e: 'submit', payload: { email: string; role: AppUserRole; password: string | null; teamId: number | null }): void;
 }>();
 
 const schema = computed(() => {
   const baseSchema = {
     email: z.string().email({ message: 'Email invalide' }),
-    role: z.string().min(1, { message: 'Le rôle est requis' })
+    role: z.string().min(1, { message: 'Le rôle est requis' }),
+    teamId: z.number().nullable().optional()
   };
 
   if (props.user) {
@@ -90,6 +100,7 @@ const resolver = computed(() => zodResolver(schema.value));
 const initialValues = computed(() => ({
   email: props.user?.email || '',
   role: props.user?.roles?.[0] || '',
+  teamId: props.user?.team?.id || null,
   password: ''
 }));
 
@@ -99,7 +110,8 @@ const onFormSubmit = (event: FormSubmitEvent<Record<string, any>>) => {
     emit('submit', {
       email: values.email,
       role: values.role as AppUserRole,
-      password: values.password || null
+      password: values.password || null,
+      teamId: values.teamId ?? null
     });
   }
 };

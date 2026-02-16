@@ -6,10 +6,13 @@ export enum AppUserRole {
     CONFIRM_MESSAGE = "ROLE_CONFIRM_MESSAGE"
 }
 
+import type { Team } from './Team';
+
 export type AppUser = {
     id: number;
     email: string;
     roles: AppUserRole[];
+    team: Team | null;
     createdAt: string;
     updatedAt: string;
 };
