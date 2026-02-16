@@ -20,6 +20,7 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 #[IsGranted(AppUserRole::ROLE_SUPER_ADMIN)]
 class MemberController extends AbstractController
 {
+    #[IsGranted(AppUserRole::ROLE_ADMIN)]
     #[Route('', name: 'get_all', methods: ['GET'])]
     public function getAll(GetAllMembersUseCase $useCase): Response
     {
@@ -27,6 +28,7 @@ class MemberController extends AbstractController
     }
 
     #[Route('', name: 'create_update', methods: ['POST', 'PUT'])]
+     #[IsGranted(AppUserRole::ROLE_ADMIN)]
     public function create(
         #[MapRequestPayload] CreateUpdateMemberCommand $command,
         CreateUpdateMemberUseCase $useCase
@@ -35,12 +37,14 @@ class MemberController extends AbstractController
     }
 
     #[Route('/team/{teamId}', name: 'get_by_team', methods: ['GET'])]
+    #[IsGranted(AppUserRole::ROLE_ADMIN)]
     public function getByTeam(int $teamId, GetMembersByTeamUseCase $useCase): Response
     {
         $command = new GetMembersByTeamCommand($teamId);
         return $useCase->execute($command);
     }
 
+    #[IsGranted(AppUserRole::ROLE_ADMIN)]
     #[Route('/count-by-season', name: 'count_by_season', methods: ['POST'])]
     public function countBySeason(
         #[MapRequestPayload] CountMembersBySeasonCommand $command,
