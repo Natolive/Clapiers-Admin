@@ -1,9 +1,50 @@
 <template>
+  <div class="flex gap-3 mb-3">
+    <IconField class="flex-1">
+      <InputIcon class="pi pi-search" />
+      <InputText
+        v-model="searchValue"
+        placeholder="Rechercher par nom, prénom, email ou téléphone..."
+        class="w-full"
+      />
+    </IconField>
+    <Select
+      v-model="selectedTeamId"
+      :options="teamOptions"
+      optionLabel="label"
+      optionValue="value"
+      placeholder="Toutes les équipes"
+      showClear
+      class="w-15rem"
+    />
+    <div class="flex align-items-center gap-2">
+      <ToggleSwitch v-model="licensePaidFilter" />
+      <span class="white-space-nowrap">Licence payée</span>
+    </div>
+    <div class="flex align-items-center gap-2">
+      <ToggleSwitch v-model="hasLicenseFilter" />
+      <span class="white-space-nowrap">Fichier licence</span>
+    </div>
+  </div>
+
   <DataTable
     :value="members"
+    :loading="loading"
+    lazy
     stripedRows
     responsiveLayout="scroll"
     class="p-datatable-sm"
+    paginator
+    :rows="lazyParams.rows"
+    :totalRecords="totalRecords"
+    :rowsPerPageOptions="[10, 25, 50]"
+    paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink RowsPerPageDropdown CurrentPageReport"
+    currentPageReportTemplate="{first} à {last} sur {totalRecords} membres"
+    :first="lazyParams.first"
+    :sortField="lazyParams.sortField"
+    :sortOrder="lazyParams.sortOrder"
+    @page="onPage"
+    @sort="onSort"
   >
     <Column header="Membre" sortable field="firstName" style="width: 20%">
       <template #body="slotProps">
@@ -104,35 +145,112 @@
 </template>
 
 <script setup lang="ts">
+import type { DataTablePageEvent, DataTableSortEvent } from 'primevue/datatable';
 import CreateUpdateMemberDialog from '~/components/dialogs/CreateUpdateMemberDialog.vue';
 import ConfirmDeleteDialog from '~/components/dialogs/ConfirmDeleteDialog.vue';
 import MemberAvatar from '~/components/common/MemberAvatar.vue';
+import { MemberRepository } from '~/repository/member-repository';
 import type { Member } from '~/types/entity/Member';
 import type { Team } from '~/types/entity/Team';
 
 const props = defineProps<{
-  members: Member[]
   teams: Team[]
 }>();
 
-const emit = defineEmits<{
-  memberUpdated: [member: Member]
-  memberCreated: [member: Member]
-}>();
-
 const { show } = useDialogManager();
+const memberRepository = new MemberRepository();
+const members = ref<Member[]>([]);
+const totalRecords = ref(0);
+const loading = ref(false);
 const togglingIds = ref(new Set<number>());
 const uploadingIds = ref(new Set<number>());
 const fileInput = ref<HTMLInputElement | null>(null);
 const uploadTargetMember = ref<Member | null>(null);
 
+const searchValue = ref('');
+const selectedTeamId = ref<number | null>(null);
+const licensePaidFilter = ref(false);
+const hasLicenseFilter = ref(false);
+let searchTimeout: ReturnType<typeof setTimeout> | null = null;
+
+const teamOptions = computed(() =>
+  props.teams.map(t => ({ label: t.name, value: t.id }))
+);
+
+const lazyParams = ref({
+  first: 0,
+  rows: 10,
+  sortField: 'firstName',
+  sortOrder: 1 as 1 | -1,
+});
+
+watch(searchValue, () => {
+  if (searchTimeout) clearTimeout(searchTimeout);
+  searchTimeout = setTimeout(() => {
+    lazyParams.value.first = 0;
+    fetchData();
+  }, 300);
+});
+
+watch(selectedTeamId, () => {
+  lazyParams.value.first = 0;
+  fetchData();
+});
+
+watch(licensePaidFilter, () => {
+  lazyParams.value.first = 0;
+  fetchData();
+});
+
+watch(hasLicenseFilter, () => {
+  lazyParams.value.first = 0;
+  fetchData();
+});
+
+const fetchData = async () => {
+  loading.value = true;
+  try {
+    const result = await memberRepository.getPaginated({
+      page: Math.floor(lazyParams.value.first / lazyParams.value.rows) + 1,
+      limit: lazyParams.value.rows,
+      sortField: lazyParams.value.sortField,
+      sortOrder: lazyParams.value.sortOrder === 1 ? 'asc' : 'desc',
+      search: searchValue.value || undefined,
+      teamId: selectedTeamId.value || undefined,
+      licensePaid: licensePaidFilter.value ? true : undefined,
+      hasLicense: hasLicenseFilter.value ? true : undefined,
+    });
+    members.value = result.data;
+    totalRecords.value = result.total;
+  } finally {
+    loading.value = false;
+  }
+};
+
+const onPage = (event: DataTablePageEvent) => {
+  lazyParams.value.first = event.first;
+  lazyParams.value.rows = event.rows;
+  fetchData();
+};
+
+const onSort = (event: DataTableSortEvent) => {
+  lazyParams.value.sortField = event.sortField as string;
+  lazyParams.value.sortOrder = event.sortOrder as 1 | -1;
+  lazyParams.value.first = 0;
+  fetchData();
+};
+
+const refresh = () => {
+  fetchData();
+};
+
+defineExpose({ refresh });
+
 const toggleLicense = async (member: Member) => {
   togglingIds.value.add(member.id);
   try {
-    const { MemberRepository } = await import('~/repository/member-repository');
-    const memberRepository = new MemberRepository();
-    const updatedMember = await memberRepository.toggleLicense(member.id);
-    emit('memberUpdated', updatedMember);
+    await memberRepository.toggleLicense(member.id);
+    await fetchData();
   } finally {
     togglingIds.value.delete(member.id);
   }
@@ -167,14 +285,11 @@ const handleFileSelected = async (event: Event) => {
 
   uploadingIds.value.add(member.id);
   try {
-    const { MemberRepository } = await import('~/repository/member-repository');
-    const memberRepository = new MemberRepository();
-    const updatedMember = await memberRepository.uploadLicense(member.id, file);
-    emit('memberUpdated', updatedMember);
+    await memberRepository.uploadLicense(member.id, file);
+    await fetchData();
   } finally {
     uploadingIds.value.delete(member.id);
     uploadTargetMember.value = null;
-    // Reset input so the same file can be re-selected
     input.value = '';
   }
 };
@@ -185,10 +300,8 @@ const deleteLicense = (member: Member) => {
     props: {
       message: `Êtes-vous sûr de vouloir supprimer la licence de ${member.firstName} ${member.lastName} ?`,
       onConfirm: async () => {
-        const { MemberRepository } = await import('~/repository/member-repository');
-        const memberRepository = new MemberRepository();
-        const updatedMember = await memberRepository.deleteLicense(member.id);
-        emit('memberUpdated', updatedMember);
+        await memberRepository.deleteLicense(member.id);
+        await fetchData();
       }
     }
   });
@@ -211,7 +324,6 @@ const downloadLicense = async (member: Member) => {
   URL.revokeObjectURL(blobUrl);
 };
 
-// Open dialog for create or edit
 const openDialog = (member?: Member) => {
   show({
     component: CreateUpdateMemberDialog,
@@ -219,9 +331,7 @@ const openDialog = (member?: Member) => {
       member: member || null,
       teams: props.teams,
       onSubmit: async (values: { firstName: string; lastName: string; phoneNumber: string; email: string; teamId: number }) => {
-        const { MemberRepository } = await import('~/repository/member-repository');
-        const memberRepository = new MemberRepository();
-        const savedMember = await memberRepository.createUpdate(
+        await memberRepository.createUpdate(
           values.firstName,
           values.lastName,
           values.phoneNumber,
@@ -229,14 +339,13 @@ const openDialog = (member?: Member) => {
           values.teamId,
           member?.id || null
         );
-
-        if (member) {
-          emit('memberUpdated', savedMember);
-        } else {
-          emit('memberCreated', savedMember);
-        }
+        await fetchData();
       }
     }
   });
 };
+
+onMounted(() => {
+  fetchData();
+});
 </script>

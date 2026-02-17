@@ -7,6 +7,8 @@ use App\Application\UseCase\Member\CreateUpdateMember\CreateUpdateMemberUseCase;
 use App\Application\UseCase\Member\GetAllMembersUseCase;
 use App\Application\UseCase\Member\GetMembersByTeam\GetMembersByTeamCommand;
 use App\Application\UseCase\Member\GetMembersByTeam\GetMembersByTeamUseCase;
+use App\Application\UseCase\Member\GetPaginatedMembers\GetPaginatedMembersCommand;
+use App\Application\UseCase\Member\GetPaginatedMembers\GetPaginatedMembersUseCase;
 use App\Application\UseCase\Member\DeleteLicense\DeleteLicenseCommand;
 use App\Application\UseCase\Member\DeleteLicense\DeleteLicenseUseCase;
 use App\Application\UseCase\Member\UploadLicense\UploadLicenseCommand;
@@ -19,6 +21,7 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpKernel\Attribute\MapQueryString;
 use Symfony\Component\HttpKernel\Attribute\MapRequestPayload;
 use Symfony\Component\HttpKernel\Attribute\MapUploadedFile;
 use Symfony\Component\Routing\Attribute\Route;
@@ -38,6 +41,14 @@ class MemberController extends AbstractController
     public function create(
         #[MapRequestPayload] CreateUpdateMemberCommand $command,
         CreateUpdateMemberUseCase $useCase
+    ): Response {
+        return $useCase->execute($command);
+    }
+
+    #[Route('/paginated', name: 'get_paginated', methods: ['GET'])]
+    public function getPaginated(
+        #[MapQueryString] GetPaginatedMembersCommand $command,
+        GetPaginatedMembersUseCase $useCase
     ): Response {
         return $useCase->execute($command);
     }

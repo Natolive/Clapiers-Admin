@@ -11,10 +11,8 @@
     <Card v-else>
       <template #content>
         <MembersDatatable
-          :members="members"
+          ref="datatableRef"
           :teams="teams"
-          @member-updated="handleMemberUpdated"
-          @member-created="handleMemberCreated"
         />
       </template>
     </Card>
@@ -27,7 +25,6 @@ import MembersDatatable from '~/components/datatables/MembersDatatable.vue';
 import CreateUpdateMemberDialog from '~/components/dialogs/CreateUpdateMemberDialog.vue';
 import { MemberRepository } from '~/repository/member-repository';
 import { TeamRepository } from '~/repository/team-repository';
-import type { Member } from '~/types/entity/Member';
 import type { Team } from '~/types/entity/Team';
 
 definePageMeta({
@@ -41,24 +38,10 @@ const { isSuperAdmin } = useUserRole();
 const { show } = useDialogManager();
 const memberRepository = new MemberRepository();
 const teamRepository = new TeamRepository();
-const members = ref<Member[]>([]);
+const datatableRef = ref<InstanceType<typeof MembersDatatable> | null>(null);
 const teams = ref<Team[]>([]);
 const loading = ref(true);
 
-// Handle member updates
-const handleMemberUpdated = (updatedMember: Member) => {
-  const index = members.value.findIndex(m => m.id === updatedMember.id);
-  if (index !== -1) {
-    members.value[index] = updatedMember;
-  }
-};
-
-// Handle member creation
-const handleMemberCreated = (newMember: Member) => {
-  members.value.push(newMember);
-};
-
-// Open dialog for creating a new member
 const openCreateDialog = () => {
   show({
     component: CreateUpdateMemberDialog,
@@ -66,7 +49,7 @@ const openCreateDialog = () => {
       member: null,
       teams: teams.value,
       onSubmit: async (values: { firstName: string; lastName: string; phoneNumber: string; email: string; teamId: number }) => {
-        const savedMember = await memberRepository.createUpdate(
+        await memberRepository.createUpdate(
           values.firstName,
           values.lastName,
           values.phoneNumber,
@@ -74,7 +57,7 @@ const openCreateDialog = () => {
           values.teamId,
           null
         );
-        handleMemberCreated(savedMember);
+        datatableRef.value?.refresh();
       }
     }
   });
@@ -87,10 +70,7 @@ onMounted(async () => {
   }
 
   try {
-    [members.value, teams.value] = await Promise.all([
-      memberRepository.getAll(),
-      teamRepository.getAll()
-    ]);
+    teams.value = await teamRepository.getAll();
   } finally {
     loading.value = false;
   }
