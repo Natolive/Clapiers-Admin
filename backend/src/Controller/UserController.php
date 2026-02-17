@@ -5,10 +5,13 @@ namespace App\Controller;
 use App\Application\UseCase\User\CreateUpdateUser\CreateUpdateUserCommand;
 use App\Application\UseCase\User\CreateUpdateUser\CreateUpdateUserUseCase;
 use App\Application\UseCase\User\GetAllUsersUseCase;
+use App\Application\UseCase\User\GetPaginatedUsers\GetPaginatedUsersCommand;
+use App\Application\UseCase\User\GetPaginatedUsers\GetPaginatedUsersUseCase;
 use App\Entity\AppUser;
 use App\Entity\Enum\AppUserRole;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpKernel\Attribute\MapQueryString;
 use Symfony\Component\HttpKernel\Attribute\MapRequestPayload;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
@@ -22,6 +25,15 @@ class UserController extends AbstractController
         /** @var AppUser $user */
         $user = $this->getUser();
         return $this->json($user->toArray());
+    }
+
+    #[Route('/paginated', name: 'get_paginated', methods: ['GET'])]
+    #[IsGranted(AppUserRole::ROLE_SUPER_ADMIN)]
+    public function getPaginated(
+        #[MapQueryString] GetPaginatedUsersCommand $command,
+        GetPaginatedUsersUseCase $useCase
+    ): Response {
+        return $useCase->execute($command);
     }
 
     #[Route('', name: 'get_all', methods: ['GET'])]

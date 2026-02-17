@@ -34,28 +34,52 @@ class UserRepository extends ServiceEntityRepository implements PasswordUpgrader
         $this->getEntityManager()->flush();
     }
 
-    //    /**
-    //     * @return User[] Returns an array of User objects
-    //     */
-    //    public function findByExampleField($value): array
-    //    {
-    //        return $this->createQueryBuilder('u')
-    //            ->andWhere('u.exampleField = :val')
-    //            ->setParameter('val', $value)
-    //            ->orderBy('u.id', 'ASC')
-    //            ->setMaxResults(10)
-    //            ->getQuery()
-    //            ->getResult()
-    //        ;
-    //    }
+    /**
+     * @return array{data: AppUser[], total: int}
+     */
+    public function findPaginated(
+        int $page,
+        int $limit,
+        string $sortField,
+        string $sortOrder,
+        ?string $search = null,
+    ): array {
+        $allowedFields = [
+            'email' => 'u.email',
+            'createdAt' => 'u.createdAt',
+            'updatedAt' => 'u.updatedAt',
+            'team.name' => 't.name',
+        ];
 
-    //    public function findOneBySomeField($value): ?User
-    //    {
-    //        return $this->createQueryBuilder('u')
-    //            ->andWhere('u.exampleField = :val')
-    //            ->setParameter('val', $value)
-    //            ->getQuery()
-    //            ->getOneOrNullResult()
-    //        ;
-    //    }
+        $orderColumn = $allowedFields[$sortField] ?? 'u.email';
+        $orderDir = strtolower($sortOrder) === 'desc' ? 'DESC' : 'ASC';
+
+        $qb = $this->createQueryBuilder('u')
+            ->leftJoin('u.team', 't');
+
+        if ($search) {
+            $searchTerm = '%' . $search . '%';
+            $qb->andWhere('LOWER(u.email) LIKE LOWER(:search)')
+                ->setParameter('search', $searchTerm);
+        }
+
+        $total = (clone $qb)
+            ->select('COUNT(u.id)')
+            ->getQuery()
+            ->getSingleScalarResult();
+
+        $qb->orderBy($orderColumn, $orderDir);
+
+        if ($orderColumn !== 'u.email') {
+            $qb->addOrderBy('u.email', 'ASC');
+        }
+
+        $data = $qb
+            ->setFirstResult(($page - 1) * $limit)
+            ->setMaxResults($limit)
+            ->getQuery()
+            ->getResult();
+
+        return ['data' => $data, 'total' => (int) $total];
+    }
 }
