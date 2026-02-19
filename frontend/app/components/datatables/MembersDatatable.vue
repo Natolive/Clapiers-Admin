@@ -49,7 +49,13 @@
     <Column header="Membre" sortable field="firstName" style="width: 20%">
       <template #body="slotProps">
         <div class="flex align-items-center gap-3">
-          <MemberAvatar :member="slotProps.data" size="normal" />
+          <MemberAvatar
+            :member="slotProps.data"
+            size="normal"
+            editable
+            @upload="(file: File) => onUploadProfilePicture(slotProps.data, file)"
+            @delete="onDeleteProfilePicture(slotProps.data)"
+          />
           <span>{{ slotProps.data.firstName }} {{ slotProps.data.lastName }}</span>
         </div>
       </template>
@@ -292,6 +298,16 @@ const handleFileSelected = async (event: Event) => {
     uploadTargetMember.value = null;
     input.value = '';
   }
+};
+
+const onUploadProfilePicture = async (member: Member, file: File) => {
+  await memberRepository.uploadProfilePicture(member.id, file);
+  await fetchData();
+};
+
+const onDeleteProfilePicture = async (member: Member) => {
+  await memberRepository.deleteProfilePicture(member.id);
+  await fetchData();
 };
 
 const deleteLicense = (member: Member) => {

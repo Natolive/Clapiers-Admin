@@ -39,6 +39,9 @@ class Member
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $licenseFileName = null;
 
+    #[ORM\Column(length: 255, nullable: true)]
+    private ?string $profilePicture = null;
+
     public function __construct()
     {
         $this->color = $this->generateRandomHexColor();
@@ -145,6 +148,18 @@ class Member
         return $this;
     }
 
+    public function getProfilePicture(): ?string
+    {
+        return $this->profilePicture;
+    }
+
+    public function setProfilePicture(?string $profilePicture): static
+    {
+        $this->profilePicture = $profilePicture;
+
+        return $this;
+    }
+
     public function toArray(): array
     {
         return [
@@ -156,6 +171,7 @@ class Member
             'email' => $this->getEmail(),
             'licensePaid' => $this->isLicensePaid(),
             'licenseFileName' => $this->getLicenseFileName(),
+            'profilePicture' => $this->getProfilePicture(),
             'team' => $this->getTeam()->toArray(),
             'createdAt' => $this->getCreatedAt()?->format(DATE_ATOM),
             'updatedAt' => $this->getUpdatedAt()?->format(DATE_ATOM),

@@ -44,7 +44,13 @@
           <Card>
             <template #content>
               <div class="flex flex-column align-items-center gap-3">
-                <MemberAvatar :member="member" size="xlarge" />
+                <MemberAvatar
+                  :member="member"
+                  size="xlarge"
+                  editable
+                  @upload="(file: File) => onUploadProfilePicture(member, file)"
+                  @delete="onDeleteProfilePicture(member)"
+                />
                 <div class="text-center">
                   <p class="text-xl font-semibold m-0">{{ member.firstName }} {{ member.lastName }}</p>
                 </div>
@@ -104,6 +110,7 @@
 import SkeletonLoader from '~/components/common/skeleton/SkeletonLoader.vue';
 import MemberAvatar from '~/components/common/MemberAvatar.vue';
 import { TeamRepository } from '~/repository/team-repository';
+import { MemberRepository } from '~/repository/member-repository';
 import type { Member } from '~/types/entity/Member';
 import type { Team } from '~/types/entity/Team';
 
@@ -121,10 +128,23 @@ if (!isAdmin.value) {
   await navigateTo('/dashboard');
 }
 
+const memberRepository = new MemberRepository();
 const members = ref<Member[]>([]);
 const loading = ref(true);
 
 const userTeam = computed<Team | null>(() => authStore.user?.member?.team ?? null);
+
+const onUploadProfilePicture = async (member: Member, file: File) => {
+  const updated = await memberRepository.uploadProfilePicture(member.id, file);
+  const idx = members.value.findIndex(m => m.id === member.id);
+  if (idx !== -1) members.value[idx] = updated;
+};
+
+const onDeleteProfilePicture = async (member: Member) => {
+  const updated = await memberRepository.deleteProfilePicture(member.id);
+  const idx = members.value.findIndex(m => m.id === member.id);
+  if (idx !== -1) members.value[idx] = updated;
+};
 
 const downloadLicense = async (member: Member) => {
   const config = useRuntimeConfig();

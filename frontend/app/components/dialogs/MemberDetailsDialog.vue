@@ -7,7 +7,13 @@
     @update:visible="handleVisibilityChange"
   >
     <div class="flex flex-column align-items-center gap-3 mb-4">
-      <MemberAvatar :member="member" size="xlarge" />
+      <MemberAvatar
+        :member="member"
+        size="xlarge"
+        :editable="isAdmin"
+        @upload="onUpload"
+        @delete="onDelete"
+      />
       <div class="text-center">
         <div class="text-xl font-semibold">{{ member.firstName }} {{ member.lastName }}</div>
         <div class="text-color-secondary">{{ member.team.name }}</div>
@@ -41,6 +47,7 @@
 <script setup lang="ts">
 import type { Member } from '~/types/entity/Member';
 import MemberAvatar from '~/components/common/MemberAvatar.vue';
+import { MemberRepository } from '~/repository/member-repository';
 
 interface Props {
   visible?: boolean;
@@ -49,7 +56,7 @@ interface Props {
   style?: string | object;
 }
 
-withDefaults(defineProps<Props>(), {
+const props = withDefaults(defineProps<Props>(), {
   visible: true,
   modal: true,
   style: () => ({ width: '25rem' })
@@ -57,10 +64,24 @@ withDefaults(defineProps<Props>(), {
 
 const emit = defineEmits<{
   'update:visible': [value: boolean];
+  'update:member': [member: Member];
 }>();
+
+const { isAdmin } = useUserRole();
+const memberRepository = new MemberRepository();
 
 const handleVisibilityChange = (value: boolean) => {
   emit('update:visible', value);
+};
+
+const onUpload = async (file: File) => {
+  const updated = await memberRepository.uploadProfilePicture(props.member.id, file);
+  emit('update:member', updated);
+};
+
+const onDelete = async () => {
+  const updated = await memberRepository.deleteProfilePicture(props.member.id);
+  emit('update:member', updated);
 };
 </script>
 

@@ -41,7 +41,13 @@
             <Column header="Membre" sortable field="firstName">
               <template #body="memberProps">
                 <div class="flex align-items-center gap-3">
-                  <MemberAvatar :member="memberProps.data" size="normal" />
+                  <MemberAvatar
+                    :member="memberProps.data"
+                    size="normal"
+                    editable
+                    @upload="(file: File) => onUploadProfilePicture(memberProps.data, file)"
+                    @delete="onDeleteProfilePicture(memberProps.data)"
+                  />
                   <span>{{ memberProps.data.firstName }} {{ memberProps.data.lastName }}</span>
                 </div>
               </template>
@@ -82,6 +88,26 @@ const memberRepository = new MemberRepository();
 const expandedRows = ref<Team[]>([]);
 const teamMembers = ref<Record<number, Member[]>>({});
 const loadingMembers = ref<Record<number, boolean>>({});
+
+const onUploadProfilePicture = async (member: Member, file: File) => {
+  const updated = await memberRepository.uploadProfilePicture(member.id, file);
+  const teamId = member.team.id;
+  const members = teamMembers.value[teamId];
+  if (members) {
+    const idx = members.findIndex(m => m.id === member.id);
+    if (idx !== -1) members[idx] = updated;
+  }
+};
+
+const onDeleteProfilePicture = async (member: Member) => {
+  const updated = await memberRepository.deleteProfilePicture(member.id);
+  const teamId = member.team.id;
+  const members = teamMembers.value[teamId];
+  if (members) {
+    const idx = members.findIndex(m => m.id === member.id);
+    if (idx !== -1) members[idx] = updated;
+  }
+};
 
 // Handle row expansion to load members
 const onRowExpand = async (event: { data: Team }) => {

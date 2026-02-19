@@ -11,8 +11,12 @@ use App\Application\UseCase\Member\GetPaginatedMembers\GetPaginatedMembersComman
 use App\Application\UseCase\Member\GetPaginatedMembers\GetPaginatedMembersUseCase;
 use App\Application\UseCase\Member\DeleteLicense\DeleteLicenseCommand;
 use App\Application\UseCase\Member\DeleteLicense\DeleteLicenseUseCase;
+use App\Application\UseCase\Member\DeleteProfilePicture\DeleteProfilePictureCommand;
+use App\Application\UseCase\Member\DeleteProfilePicture\DeleteProfilePictureUseCase;
 use App\Application\UseCase\Member\UploadLicense\UploadLicenseCommand;
 use App\Application\UseCase\Member\UploadLicense\UploadLicenseUseCase;
+use App\Application\UseCase\Member\UploadProfilePicture\UploadProfilePictureCommand;
+use App\Application\UseCase\Member\UploadProfilePicture\UploadProfilePictureUseCase;
 use App\Entity\Enum\AppUserRole;
 use App\Repository\MemberRepository;
 use Doctrine\ORM\EntityManagerInterface;
@@ -115,6 +119,51 @@ class MemberController extends AbstractController
 
         if (!file_exists($filePath)) {
             return $this->json(['error' => 'License file not found'], 404);
+        }
+
+        return new BinaryFileResponse($filePath);
+    }
+
+    #[Route('/{id}/upload-profile-picture', name: 'upload_profile_picture', methods: ['POST'])]
+    #[IsGranted(AppUserRole::ROLE_ADMIN)]
+    public function uploadProfilePicture(
+        int $id,
+        #[MapUploadedFile] UploadedFile $file,
+        UploadProfilePictureUseCase $useCase
+    ): Response {
+        $command = new UploadProfilePictureCommand($id, $file);
+
+        return $useCase->execute($command);
+    }
+
+    #[Route('/{id}/delete-profile-picture', name: 'delete_profile_picture', methods: ['DELETE'])]
+    #[IsGranted(AppUserRole::ROLE_ADMIN)]
+    public function deleteProfilePicture(
+        int $id,
+        DeleteProfilePictureUseCase $useCase
+    ): Response {
+        $command = new DeleteProfilePictureCommand($id);
+
+        return $useCase->execute($command);
+    }
+
+    #[Route('/{id}/profile-picture', name: 'profile_picture', methods: ['GET'])]
+    #[IsGranted(AppUserRole::ROLE_ADMIN)]
+    public function profilePicture(
+        int $id,
+        MemberRepository $memberRepository,
+        #[Autowire('%upload_directory%')] string $uploadDirectory
+    ): Response {
+        $member = $memberRepository->find($id);
+
+        if (!$member || !$member->getProfilePicture()) {
+            return $this->json(['error' => 'Profile picture not found'], 404);
+        }
+
+        $filePath = $uploadDirectory . '/profile-pictures/' . $member->getProfilePicture();
+
+        if (!file_exists($filePath)) {
+            return $this->json(['error' => 'Profile picture not found'], 404);
         }
 
         return new BinaryFileResponse($filePath);

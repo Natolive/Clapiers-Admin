@@ -69,6 +69,21 @@ export class MemberRepository {
         });
     }
 
+    async uploadProfilePicture(id: number, file: File): Promise<Member> {
+        const formData = new FormData();
+        formData.append('file', file);
+        return await this.api<Member>(`/member/${id}/upload-profile-picture`, {
+            method: 'POST',
+            body: formData
+        });
+    }
+
+    async deleteProfilePicture(id: number): Promise<Member> {
+        return await this.api<Member>(`/member/${id}/delete-profile-picture`, {
+            method: 'DELETE'
+        });
+    }
+
     async getByTeam(teamId: number): Promise<Member[]> {
         return await this.api<Member[]>(`/member/team/${teamId}`, {
             method: 'GET'

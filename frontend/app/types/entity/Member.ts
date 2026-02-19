@@ -9,6 +9,7 @@ export type Member = {
     email: string;
     licensePaid: boolean;
     licenseFileName: string | null;
+    profilePicture: string | null;
     team: Team;
     createdAt: string;
     updatedAt: string;
