@@ -124,7 +124,7 @@ if (!isAdmin.value) {
 const members = ref<Member[]>([]);
 const loading = ref(true);
 
-const userTeam = computed<Team | null>(() => authStore.user?.team ?? null);
+const userTeam = computed<Team | null>(() => authStore.user?.member?.team ?? null);
 
 const downloadLicense = async (member: Member) => {
   const config = useRuntimeConfig();

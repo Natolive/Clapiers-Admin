@@ -28,11 +28,23 @@ export class UserRepository {
         role: AppUserRole,
         password: string | null = null,
         id: number | null = null,
-        teamId: number | null = null
     ): Promise<AppUser> {
         return await this.api<AppUser>('/user', {
             method: 'POST',
-            body: { id, email, role, password, teamId }
+            body: { id, email, role, password }
+        });
+    }
+
+    async linkMember(userId: number, memberId: number): Promise<AppUser> {
+        return await this.api<AppUser>(`/user/${userId}/link-member`, {
+            method: 'PATCH',
+            body: { memberId }
+        });
+    }
+
+    async unlinkMember(userId: number): Promise<AppUser> {
+        return await this.api<AppUser>(`/user/${userId}/unlink-member`, {
+            method: 'PATCH'
         });
     }
 }

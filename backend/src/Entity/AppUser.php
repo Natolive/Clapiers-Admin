@@ -33,9 +33,9 @@ class AppUser implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column]
     private ?string $password = null;
 
-    #[ORM\ManyToOne(targetEntity: Team::class)]
-    #[ORM\JoinColumn(nullable: true)]
-    private ?Team $team = null;
+    #[ORM\OneToOne(targetEntity: Member::class)]
+    #[ORM\JoinColumn(nullable: true, unique: true)]
+    private ?Member $member = null;
 
     public function getEmail(): ?string
     {
@@ -113,14 +113,14 @@ class AppUser implements UserInterface, PasswordAuthenticatedUserInterface
         // @deprecated, to be removed when upgrading to Symfony 8
     }
 
-    public function getTeam(): ?Team
+    public function getMember(): ?Member
     {
-        return $this->team;
+        return $this->member;
     }
 
-    public function setTeam(?Team $team): static
+    public function setMember(?Member $member): static
     {
-        $this->team = $team;
+        $this->member = $member;
 
         return $this;
     }
@@ -131,7 +131,7 @@ class AppUser implements UserInterface, PasswordAuthenticatedUserInterface
             'id' => $this->getId(),
             'email' => $this->getEmail(),
             'roles' => $this->getRoles(),
-            'team' => $this->getTeam()?->toArray(),
+            'member' => $this->getMember()?->toArray(),
             'createdAt' => $this->getCreatedAt()?->format(DATE_ATOM),
             'updatedAt' => $this->getUpdatedAt()?->format(DATE_ATOM),
         ];

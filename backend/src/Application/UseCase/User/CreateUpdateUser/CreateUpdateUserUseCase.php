@@ -6,7 +6,6 @@ use App\Common\Command\CommandInterface;
 use App\Common\Exception\UseCaseException;
 use App\Common\UseCase\AbstractUseCase;
 use App\Entity\AppUser;
-use App\Repository\TeamRepository;
 use App\Repository\UserRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
@@ -18,7 +17,6 @@ class CreateUpdateUserUseCase extends AbstractUseCase
 {
     public function __construct(
         private readonly UserRepository $userRepository,
-        private readonly TeamRepository $teamRepository,
         private readonly EntityManagerInterface $entityManager,
         private readonly UserPasswordHasherInterface $passwordHasher
     ) {
@@ -60,8 +58,6 @@ class CreateUpdateUserUseCase extends AbstractUseCase
         $hashedPassword = $this->passwordHasher->hashPassword($user, $command->password);
         $user->setPassword($hashedPassword);
 
-        $user->setTeam($command->teamId ? $this->teamRepository->find($command->teamId) : null);
-
         $this->entityManager->persist($user);
         $this->entityManager->flush();
 
@@ -92,8 +88,6 @@ class CreateUpdateUserUseCase extends AbstractUseCase
             $hashedPassword = $this->passwordHasher->hashPassword($user, $command->password);
             $user->setPassword($hashedPassword);
         }
-
-        $user->setTeam($command->teamId ? $this->teamRepository->find($command->teamId) : null);
 
         $this->entityManager->flush();
 

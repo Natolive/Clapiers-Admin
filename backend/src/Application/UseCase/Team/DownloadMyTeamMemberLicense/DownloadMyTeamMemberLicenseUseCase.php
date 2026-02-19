@@ -27,11 +27,13 @@ class DownloadMyTeamMemberLicenseUseCase extends AbstractUseCase
             throw new UseCaseException('Invalid command');
         }
 
-        $userTeam = $command->user->getTeam();
+        $userMember = $command->user->getMember();
 
-        if (!$userTeam) {
+        if (!$userMember) {
             throw new UseCaseException('You are not assigned to a team', 403);
         }
+
+        $userTeam = $userMember->getTeam();
 
         $member = $this->memberRepository->find($command->memberId);
 

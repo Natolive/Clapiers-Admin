@@ -48,18 +48,20 @@ class UserRepository extends ServiceEntityRepository implements PasswordUpgrader
             'email' => 'u.email',
             'createdAt' => 'u.createdAt',
             'updatedAt' => 'u.updatedAt',
-            'team.name' => 't.name',
+            'member.name' => 'm.firstName',
         ];
 
         $orderColumn = $allowedFields[$sortField] ?? 'u.email';
         $orderDir = strtolower($sortOrder) === 'desc' ? 'DESC' : 'ASC';
+        $isMemberNameSort = $sortField === 'member.name';
 
         $qb = $this->createQueryBuilder('u')
-            ->leftJoin('u.team', 't');
+            ->leftJoin('u.member', 'm')
+            ->addSelect('m');
 
         if ($search) {
             $searchTerm = '%' . $search . '%';
-            $qb->andWhere('LOWER(u.email) LIKE LOWER(:search)')
+            $qb->andWhere('LOWER(u.email) LIKE LOWER(:search) OR LOWER(m.firstName) LIKE LOWER(:search) OR LOWER(m.lastName) LIKE LOWER(:search) OR LOWER(CONCAT(m.firstName, \' \', m.lastName)) LIKE LOWER(:search)')
                 ->setParameter('search', $searchTerm);
         }
 
@@ -69,6 +71,10 @@ class UserRepository extends ServiceEntityRepository implements PasswordUpgrader
             ->getSingleScalarResult();
 
         $qb->orderBy($orderColumn, $orderDir);
+
+        if ($isMemberNameSort) {
+            $qb->addOrderBy('m.lastName', $orderDir);
+        }
 
         if ($orderColumn !== 'u.email') {
             $qb->addOrderBy('u.email', 'ASC');

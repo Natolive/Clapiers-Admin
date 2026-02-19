@@ -23,11 +23,13 @@ class GetMyTeamUseCase extends AbstractUseCase
             throw new UseCaseException('Invalid command');
         }
 
-        $team = $command->user->getTeam();
+        $member = $command->user->getMember();
 
-        if (!$team) {
+        if (!$member) {
             return [];
         }
+
+        $team = $member->getTeam();
 
         return $this->memberRepository->findByTeam($team);
     }
