@@ -80,6 +80,13 @@
       <excludeFolder url="file://$MODULE_DIR$/backend/vendor/phpstan/phpdoc-parser" />
       <excludeFolder url="file://$MODULE_DIR$/backend/vendor/symfony/serializer" />
       <excludeFolder url="file://$MODULE_DIR$/backend/vendor/webmozart/assert" />
+      <excludeFolder url="file://$MODULE_DIR$/backend/vendor/giggsey/libphonenumber-for-php" />
+      <excludeFolder url="file://$MODULE_DIR$/backend/vendor/giggsey/locale" />
+      <excludeFolder url="file://$MODULE_DIR$/backend/vendor/symfony/mime" />
+      <excludeFolder url="file://$MODULE_DIR$/backend/vendor/symfony/polyfill-intl-idn" />
+      <excludeFolder url="file://$MODULE_DIR$/backend/vendor/symfony/polyfill-uuid" />
+      <excludeFolder url="file://$MODULE_DIR$/backend/vendor/symfony/uid" />
+      <excludeFolder url="file://$MODULE_DIR$/backend/vendor/symfony/validator" />
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />

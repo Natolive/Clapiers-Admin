@@ -1,0 +1,37 @@
+FROM php:8.4-fpm-alpine
+
+# System deps
+RUN apk add --no-cache \
+    git \
+    unzip \
+    curl \
+    icu-dev \
+    libpq-dev \
+    linux-headers \
+    $PHPIZE_DEPS
+
+# PHP extensions
+RUN docker-php-ext-install \
+    pdo_pgsql \
+    intl \
+    opcache
+
+# Xdebug (disabled by default, enable via XDEBUG_MODE env var)
+RUN pecl install xdebug && docker-php-ext-enable xdebug
+
+# Composer
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+
+WORKDIR /var/www/html
+
+# PHP config
+COPY docker/php.ini /usr/local/etc/php/conf.d/app.ini
+COPY docker/php-fpm.conf /usr/local/etc/php-fpm.d/zz-app.conf
+
+COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
+EXPOSE 9000
+
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+CMD ["php-fpm"]

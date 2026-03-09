@@ -1,0 +1,20 @@
+# Docker local env (contains secrets)
+.env
+
+# Backend
+backend/.env.local
+backend/.env.*.local
+backend/var/
+backend/vendor/
+backend/config/jwt/
+
+# Frontend
+frontend/.nuxt/
+frontend/.output/
+frontend/node_modules/
+frontend/.env
+
+# IDE
+.idea/
+.vscode/
+*.swp

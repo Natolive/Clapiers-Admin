@@ -2,9 +2,18 @@ import Aura from '@primeuix/themes/aura';
 
 export default defineNuxtConfig({
     compatibilityDate: '2026-01-01',
+    devServer: {
+        host: '0.0.0.0',
+        port: 3000,
+    },
+    vite: {
+        server: {
+            allowedHosts: ['app.clapiers.local'],
+        },
+    },
     runtimeConfig: {
         public: {
-            apiBase: 'http://127.0.0.1:8000/api', // accessible on client
+            apiBase: process.env.NUXT_PUBLIC_API_BASE ?? 'http://127.0.0.1:8000/api',
         }
     },
     app: {
