@@ -45,6 +45,40 @@ class GameRepository extends ServiceEntityRepository
         return $qb->getQuery()->getResult();
     }
 
+    public function countGamesByTeamAndDate(Team $team, \DateTimeImmutable $date, ?int $excludeGameId = null): int
+    {
+        $qb = $this->createQueryBuilder('g')
+            ->select('COUNT(g.id)')
+            ->andWhere('g.team = :team')
+            ->andWhere('g.date = :date')
+            ->setParameter('team', $team)
+            ->setParameter('date', $date);
+
+        if ($excludeGameId !== null) {
+            $qb->andWhere('g.id != :excludeId')
+                ->setParameter('excludeId', $excludeGameId);
+        }
+
+        return (int) $qb->getQuery()->getSingleScalarResult();
+    }
+
+    public function countHomeGamesByDate(\DateTimeImmutable $date, ?int $excludeGameId = null): int
+    {
+        $qb = $this->createQueryBuilder('g')
+            ->select('COUNT(g.id)')
+            ->andWhere('g.date = :date')
+            ->andWhere('g.venue = :venue')
+            ->setParameter('date', $date)
+            ->setParameter('venue', \App\Entity\Enum\GameVenue::HOME);
+
+        if ($excludeGameId !== null) {
+            $qb->andWhere('g.id != :excludeId')
+                ->setParameter('excludeId', $excludeGameId);
+        }
+
+        return (int) $qb->getQuery()->getSingleScalarResult();
+    }
+
     private function applyDateRange(\Doctrine\ORM\QueryBuilder $qb, ?string $start, ?string $end): void
     {
         if ($start) {

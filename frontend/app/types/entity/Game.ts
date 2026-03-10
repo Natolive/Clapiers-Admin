@@ -1,11 +1,12 @@
 import type { Team } from '~/types/entity/Team';
+import type {GameVenue} from "~/types/enum/GameVenue";
 
 export type Game = {
     id: number;
     opponent: string;
     date: string; // 'YYYY-MM-DD'
     meetingTime: string | null; // e.g. '14h30', informative only
-    venue: string; // 'home' | 'away'
+    venue: GameVenue; // 'home' | 'away'
     location: string | null;
     team: Team;
     createdAt: string;

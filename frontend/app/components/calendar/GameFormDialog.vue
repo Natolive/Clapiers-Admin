@@ -59,6 +59,24 @@
                 />
             </div>
 
+            <Message
+                v-if="teamLimitWarning"
+                severity="error"
+                :closable="false"
+                size="small"
+            >
+                {{ teamLimitWarning }}
+            </Message>
+
+            <Message
+                v-if="homeCountWarning"
+                :severity="homeCountWarning.startsWith('Journée') ? 'error' : 'warn'"
+                :closable="false"
+                size="small"
+            >
+                {{ homeCountWarning }}
+            </Message>
+
             <!-- Meeting time (informative) -->
             <div class="flex flex-column gap-2">
                 <label class="font-medium text-sm">
@@ -100,6 +118,8 @@ const props = defineProps<{
     initialDate?: Date | null;
     teams?: Team[];
     userTeamId?: number | null;
+    homeCountByDate?: Record<string, number>;
+    teamDateMap?: Record<string, number>;
 }>();
 
 const emit = defineEmits<{
@@ -114,6 +134,35 @@ const loading = ref(false);
 const errors = ref<Record<string, string>>({});
 
 const isEdit = computed(() => !!props.game?.id);
+
+const homeCountWarning = computed(() => {
+    if (form.value.venue !== GameVenue.HOME || !form.value.date) return null;
+    const y = form.value.date.getFullYear();
+    const m = String(form.value.date.getMonth() + 1).padStart(2, '0');
+    const d = String(form.value.date.getDate()).padStart(2, '0');
+    const dateKey = `${y}-${m}-${d}`;
+    const total = props.homeCountByDate?.[dateKey] ?? 0;
+    // When editing a home game on the same date, don't count itself
+    const isSameDayHomeEdit = isEdit.value && props.game?.venue === GameVenue.HOME && props.game?.date === dateKey;
+    const effective = isSameDayHomeEdit ? total - 1 : total;
+    if (effective >= 3) return 'Journée complète — 3 matchs à domicile déjà planifiés.';
+    if (effective === 2) return `Attention — 2/3 matchs à domicile ce jour.`;
+    return null;
+});
+
+const teamLimitWarning = computed(() => {
+    if (!form.value.date) return null;
+    const y = form.value.date.getFullYear();
+    const m = String(form.value.date.getMonth() + 1).padStart(2, '0');
+    const d = String(form.value.date.getDate()).padStart(2, '0');
+    const dateKey = `${y}-${m}-${d}`;
+    const teamId = isSuperAdmin.value ? form.value.teamId : props.userTeamId;
+    if (!teamId) return null;
+    const existingGameId = props.teamDateMap?.[`${dateKey}|${teamId}`];
+    if (existingGameId === undefined) return null;
+    if (isEdit.value && existingGameId === props.game?.id) return null;
+    return 'Cette équipe a déjà un match planifié ce jour.';
+});
 
 type FormState = {
     opponent: string;
@@ -169,6 +218,8 @@ const toDateString = (d: Date): string => {
 
 const handleSubmit = async () => {
     if (!validate()) return;
+    if (teamLimitWarning.value) return;
+    if (homeCountWarning.value?.startsWith('Journée')) return;
     loading.value = true;
     try {
         const dto: CreateUpdateGameDto = {

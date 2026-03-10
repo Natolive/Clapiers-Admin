@@ -6,6 +6,7 @@ use App\Common\Command\CommandInterface;
 use App\Common\Exception\UseCaseException;
 use App\Common\UseCase\AbstractUseCase;
 use App\Entity\Enum\AppUserRole;
+use App\Entity\Enum\GameVenue;
 use App\Entity\Game;
 use App\Repository\GameRepository;
 use App\Repository\TeamRepository;
@@ -32,12 +33,44 @@ class CreateUpdateGameUseCase extends AbstractUseCase
         }
 
         $team = $this->resolveTeam($command);
+        $this->assertTeamDailyLimit($team, $command);
+        $this->assertHomeGameLimit($command);
 
         if ($command->id === null) {
             return $this->createGame($command, $team);
         }
 
         return $this->updateGame($command, $team);
+    }
+
+    private function assertTeamDailyLimit(\App\Entity\Team $team, CreateUpdateGameCommand $command): void
+    {
+        $date  = new DateTimeImmutable($command->date);
+        $count = $this->gameRepository->countGamesByTeamAndDate($team, $date, $command->id);
+
+        if ($count >= 1) {
+            throw new UseCaseException(
+                'Cette équipe a déjà un match planifié ce jour.',
+                Response::HTTP_UNPROCESSABLE_ENTITY
+            );
+        }
+    }
+
+    private function assertHomeGameLimit(CreateUpdateGameCommand $command): void
+    {
+        if ($command->venue !== GameVenue::HOME) {
+            return;
+        }
+
+        $date  = new DateTimeImmutable($command->date);
+        $count = $this->gameRepository->countHomeGamesByDate($date, $command->id);
+
+        if ($count >= 3) {
+            throw new UseCaseException(
+                'Le nombre maximum de matchs à domicile pour ce jour est atteint (3/3)',
+                Response::HTTP_UNPROCESSABLE_ENTITY
+            );
+        }
     }
 
     private function resolveTeam(CreateUpdateGameCommand $command): \App\Entity\Team
