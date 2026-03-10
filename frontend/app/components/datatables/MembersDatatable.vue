@@ -153,6 +153,7 @@
 <script setup lang="ts">
 import type { DataTablePageEvent, DataTableSortEvent } from 'primevue/datatable';
 import CreateUpdateMemberDialog from '~/components/dialogs/CreateUpdateMemberDialog.vue';
+import MemberDetailsDialog from '~/components/dialogs/MemberDetailsDialog.vue';
 import ConfirmDeleteDialog from '~/components/dialogs/ConfirmDeleteDialog.vue';
 import MemberAvatar from '~/components/common/MemberAvatar.vue';
 import { MemberRepository } from '~/repository/member-repository';
@@ -341,24 +342,25 @@ const downloadLicense = async (member: Member) => {
 };
 
 const openDialog = (member?: Member) => {
-  show({
-    component: CreateUpdateMemberDialog,
-    props: {
-      member: member || null,
-      teams: props.teams,
-      onSubmit: async (values: { firstName: string; lastName: string; phoneNumber: string; email: string; teamId: number }) => {
-        await memberRepository.createUpdate(
-          values.firstName,
-          values.lastName,
-          values.phoneNumber,
-          values.email,
-          values.teamId,
-          member?.id || null
-        );
-        await fetchData();
+  if (member) {
+    show({
+      component: MemberDetailsDialog,
+      props: {
+        member,
+        teams: props.teams,
+        onSaved: () => fetchData(),
       }
-    }
-  });
+    });
+  } else {
+    show({
+      component: CreateUpdateMemberDialog,
+      props: {
+        member: null,
+        teams: props.teams,
+        onSaved: () => fetchData()
+      }
+    });
+  }
 };
 
 onMounted(() => {

@@ -6,6 +6,7 @@ use App\Common\Command\CommandInterface;
 use App\Common\Exception\UseCaseException;
 use App\Common\UseCase\AbstractUseCase;
 use App\Entity\Member;
+use App\Entity\ValueObject\Address;
 use App\Repository\MemberRepository;
 use App\Repository\TeamRepository;
 use Doctrine\ORM\EntityManagerInterface;
@@ -53,6 +54,11 @@ class CreateUpdateMemberUseCase extends AbstractUseCase
         $member->setTeam($team);
         $member->setPhoneNumber($command->phoneNumber);
         $member->setEmail($command->email);
+        $member->setLicenseNumber($command->licenseNumber);
+        $member->setAddress(new Address($command->addressStreet, $command->addressZip, $command->addressCity));
+        $member->setGender($command->gender);
+        $member->setBirthDate(new \DateTimeImmutable($command->birthDate));
+        $member->setNationality($command->nationality);
 
         $this->entityManager->persist($member);
         $this->entityManager->flush();
@@ -80,6 +86,11 @@ class CreateUpdateMemberUseCase extends AbstractUseCase
         $member->setTeam($team);
         $member->setPhoneNumber($command->phoneNumber);
         $member->setEmail($command->email);
+        $member->setLicenseNumber($command->licenseNumber);
+        $member->setAddress(new Address($command->addressStreet, $command->addressZip, $command->addressCity));
+        $member->setGender($command->gender);
+        $member->setBirthDate(new \DateTimeImmutable($command->birthDate));
+        $member->setNationality($command->nationality);
 
         $this->entityManager->flush();
 

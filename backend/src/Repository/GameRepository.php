@@ -61,6 +61,35 @@ class GameRepository extends ServiceEntityRepository
             ->getResult();
     }
 
+    public function getStats(): array
+    {
+        $total = (int) $this->createQueryBuilder('g')
+            ->select('COUNT(g.id)')
+            ->getQuery()->getSingleScalarResult();
+
+        $now = new \DateTimeImmutable();
+        $seasonYear = (int) $now->format('n') >= 9 ? (int) $now->format('Y') : (int) $now->format('Y') - 1;
+        $seasonStart = new \DateTimeImmutable($seasonYear . '-09-01');
+
+        $thisSeason = (int) $this->createQueryBuilder('g')
+            ->select('COUNT(g.id)')
+            ->andWhere('g.date >= :seasonStart')
+            ->setParameter('seasonStart', $seasonStart)
+            ->getQuery()->getSingleScalarResult();
+
+        $upcoming = (int) $this->createQueryBuilder('g')
+            ->select('COUNT(g.id)')
+            ->andWhere('g.date >= :today')
+            ->setParameter('today', new \DateTimeImmutable('today'))
+            ->getQuery()->getSingleScalarResult();
+
+        return [
+            'total' => $total,
+            'thisSeason' => $thisSeason,
+            'upcoming' => $upcoming,
+        ];
+    }
+
     public function countGamesByTeamAndDate(Team $team, \DateTimeImmutable $date, ?int $excludeGameId = null): int
     {
         $qb = $this->createQueryBuilder('g')

@@ -4,6 +4,7 @@ namespace App\Controller;
 
 use App\Application\UseCase\ContactMessage\CreateContactMessage\CreateContactMessageCommand;
 use App\Application\UseCase\ContactMessage\CreateContactMessage\CreateContactMessageUseCase;
+use App\Entity\Enum\MemberNationality;
 use App\Repository\GameRepository;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Response;
@@ -27,6 +28,12 @@ class PublicController extends AbstractController
         $games = $gameRepository->findUpcomingHomeGames(10);
 
         return $this->json(array_map(fn ($g) => $g->toArray(), $games));
+    }
+
+    #[Route('/nationalities', name: 'nationalities', methods: ['GET'])]
+    public function nationalities(): Response
+    {
+        return $this->json(MemberNationality::values());
     }
 
     #[Route('/games', name: 'games', methods: ['GET'])]

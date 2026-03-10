@@ -23,7 +23,6 @@
 import SkeletonLoader from '~/components/common/skeleton/SkeletonLoader.vue';
 import MembersDatatable from '~/components/datatables/MembersDatatable.vue';
 import CreateUpdateMemberDialog from '~/components/dialogs/CreateUpdateMemberDialog.vue';
-import { MemberRepository } from '~/repository/member-repository';
 import { TeamRepository } from '~/repository/team-repository';
 import type { Team } from '~/types/entity/Team';
 
@@ -36,7 +35,6 @@ useHead({ title: 'Membres' });
 
 const { isSuperAdmin } = useUserRole();
 const { show } = useDialogManager();
-const memberRepository = new MemberRepository();
 const teamRepository = new TeamRepository();
 const datatableRef = ref<InstanceType<typeof MembersDatatable> | null>(null);
 const teams = ref<Team[]>([]);
@@ -48,17 +46,7 @@ const openCreateDialog = () => {
     props: {
       member: null,
       teams: teams.value,
-      onSubmit: async (values: { firstName: string; lastName: string; phoneNumber: string; email: string; teamId: number }) => {
-        await memberRepository.createUpdate(
-          values.firstName,
-          values.lastName,
-          values.phoneNumber,
-          values.email,
-          values.teamId,
-          null
-        );
-        datatableRef.value?.refresh();
-      }
+      onSaved: () => datatableRef.value?.refresh(),
     }
   });
 };

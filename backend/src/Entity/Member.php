@@ -2,8 +2,10 @@
 
 namespace App\Entity;
 
+use App\Entity\Enum\MemberGender;
 use App\Entity\Trait\IdTrait;
 use App\Entity\Trait\TimestampableTrait;
+use App\Entity\ValueObject\Address;
 use App\Repository\MemberRepository;
 use Doctrine\ORM\Mapping as ORM;
 
@@ -42,9 +44,25 @@ class Member
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $profilePicture = null;
 
+    #[ORM\Column(length: 50, nullable: true)]
+    private ?string $licenseNumber = null;
+
+    #[ORM\Embedded(class: Address::class, columnPrefix: 'address_')]
+    private Address $address;
+
+    #[ORM\Column(length: 10, enumType: MemberGender::class)]
+    private MemberGender $gender;
+
+    #[ORM\Column(type: 'date_immutable')]
+    private \DateTimeImmutable $birthDate;
+
+    #[ORM\Column(length: 100)]
+    private string $nationality;
+
     public function __construct()
     {
-        $this->color = $this->generateRandomHexColor();
+        $this->color   = $this->generateRandomHexColor();
+        $this->address = new Address();
     }
 
     private function generateRandomHexColor(): string
@@ -160,6 +178,48 @@ class Member
         return $this;
     }
 
+    public function getLicenseNumber(): ?string { return $this->licenseNumber; }
+    public function setLicenseNumber(?string $licenseNumber): static { $this->licenseNumber = $licenseNumber; return $this; }
+
+    public function getAddress(): Address { return $this->address; }
+    public function setAddress(Address $address): static { $this->address = $address; return $this; }
+
+    public function getGender(): MemberGender
+    {
+        return $this->gender;
+    }
+
+    public function setGender(MemberGender $gender): static
+    {
+        $this->gender = $gender;
+
+        return $this;
+    }
+
+    public function getBirthDate(): \DateTimeImmutable
+    {
+        return $this->birthDate;
+    }
+
+    public function setBirthDate(\DateTimeImmutable $birthDate): static
+    {
+        $this->birthDate = $birthDate;
+
+        return $this;
+    }
+
+    public function getNationality(): string
+    {
+        return $this->nationality;
+    }
+
+    public function setNationality(string $nationality): static
+    {
+        $this->nationality = $nationality;
+
+        return $this;
+    }
+
     public function toArray(): array
     {
         return [
@@ -172,6 +232,11 @@ class Member
             'licensePaid' => $this->isLicensePaid(),
             'licenseFileName' => $this->getLicenseFileName(),
             'profilePicture' => $this->getProfilePicture(),
+            'licenseNumber' => $this->getLicenseNumber(),
+            'address'       => $this->getAddress()->toArray(),
+            'gender' => $this->getGender()->value,
+            'birthDate' => $this->getBirthDate()->format('Y-m-d'),
+            'nationality' => $this->getNationality(),
             'team' => $this->getTeam()->toArray(),
             'createdAt' => $this->getCreatedAt()?->format(DATE_ATOM),
             'updatedAt' => $this->getUpdatedAt()?->format(DATE_ATOM),
