@@ -4,6 +4,7 @@ namespace App\Controller;
 
 use App\Application\UseCase\ContactMessage\CreateContactMessage\CreateContactMessageCommand;
 use App\Application\UseCase\ContactMessage\CreateContactMessage\CreateContactMessageUseCase;
+use App\Repository\GameRepository;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Attribute\MapRequestPayload;
@@ -18,5 +19,23 @@ class PublicController extends AbstractController
         CreateContactMessageUseCase $useCase
     ): Response {
         return $useCase->execute($command);
+    }
+
+    #[Route('/home-games', name: 'home_games', methods: ['GET'])]
+    public function homeGames(GameRepository $gameRepository): Response
+    {
+        $games = $gameRepository->findUpcomingHomeGames(10);
+
+        return $this->json(array_map(fn ($g) => $g->toArray(), $games));
+    }
+
+    #[Route('/games', name: 'games', methods: ['GET'])]
+    public function games(
+        #[MapQueryString] \App\Controller\Input\GetGamesInput $input,
+        GameRepository $gameRepository
+    ): Response {
+        $games = $gameRepository->findAllByDateRange($input->start, $input->end);
+
+        return $this->json(array_map(fn ($g) => $g->toArray(), $games));
     }
 }

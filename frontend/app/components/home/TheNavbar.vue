@@ -1,5 +1,5 @@
 <template>
-  <header class="navbar" :class="{ scrolled: isScrolled }">
+  <header class="navbar" :class="{ scrolled: isScrolled, solid: !isHome && !isScrolled }">
     <div class="navbar-container">
       <NuxtLink to="/" class="logo">
         <span class="logo-icon">🏐</span>
@@ -10,11 +10,11 @@
       </NuxtLink>
 
       <nav class="nav-links hide-mobile">
-        <a href="#accueil" class="nav-link">Accueil</a>
-        <a href="#club" class="nav-link">Le Club</a>
-        <a href="#galerie" class="nav-link">Galerie</a>
-        <a href="#horaires" class="nav-link">Horaires</a>
-        <a href="#contact" class="nav-link">Contact</a>
+        <NuxtLink to="/" class="nav-link">Accueil</NuxtLink>
+        <NuxtLink to="/club" class="nav-link">Le Club</NuxtLink>
+        <NuxtLink to="/horaires" class="nav-link">Horaires</NuxtLink>
+        <NuxtLink to="/calendrier" class="nav-link">Calendrier</NuxtLink>
+        <NuxtLink to="/contact" class="nav-link">Contact</NuxtLink>
       </nav>
 
       <div class="nav-actions">
@@ -32,17 +32,19 @@
     <!-- Mobile menu -->
     <Transition name="slide-down">
       <div v-if="menuOpen" class="mobile-menu">
-        <a href="#accueil" class="mobile-link" @click="closeMenu">Accueil</a>
-        <a href="#club" class="mobile-link" @click="closeMenu">Le Club</a>
-        <a href="#galerie" class="mobile-link" @click="closeMenu">Galerie</a>
-        <a href="#horaires" class="mobile-link" @click="closeMenu">Horaires</a>
-        <a href="#contact" class="mobile-link" @click="closeMenu">Contact</a>
+        <NuxtLink to="/" class="mobile-link" @click="closeMenu">Accueil</NuxtLink>
+        <NuxtLink to="/club" class="mobile-link" @click="closeMenu">Le Club</NuxtLink>
+        <NuxtLink to="/horaires" class="mobile-link" @click="closeMenu">Horaires</NuxtLink>
+        <NuxtLink to="/calendrier" class="mobile-link" @click="closeMenu">Calendrier</NuxtLink>
+        <NuxtLink to="/contact" class="mobile-link" @click="closeMenu">Contact</NuxtLink>
       </div>
     </Transition>
   </header>
 </template>
 
 <script setup lang="ts">
+const route = useRoute()
+const isHome = computed(() => route.path === '/')
 const isScrolled = ref(false)
 const menuOpen = ref(false)
 
@@ -82,6 +84,12 @@ const handleScroll = () => {
   background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(10px);
   box-shadow: 0 2px 20px rgba(0, 0, 0, 0.08);
+  padding: 0.75rem 2rem;
+}
+
+.navbar.solid {
+  background: var(--club-primary, #1e3a5f);
+  box-shadow: 0 2px 20px rgba(0, 0, 0, 0.15);
   padding: 0.75rem 2rem;
 }
 
@@ -159,7 +167,8 @@ const handleScroll = () => {
   transition: width 0.2s ease;
 }
 
-.nav-link:hover::after {
+.nav-link:hover::after,
+.nav-link.router-link-active::after {
   width: 100%;
 }
 
@@ -233,7 +242,8 @@ const handleScroll = () => {
   transition: background 0.2s ease;
 }
 
-.mobile-link:hover {
+.mobile-link:hover,
+.mobile-link.router-link-active {
   background: var(--club-light);
 }
 

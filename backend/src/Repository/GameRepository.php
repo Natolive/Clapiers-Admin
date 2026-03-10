@@ -45,6 +45,22 @@ class GameRepository extends ServiceEntityRepository
         return $qb->getQuery()->getResult();
     }
 
+    /**
+     * @return Game[]
+     */
+    public function findUpcomingHomeGames(int $limit = 10): array
+    {
+        return $this->createQueryBuilder('g')
+            ->andWhere('g.venue = :venue')
+            ->andWhere('g.date >= :today')
+            ->setParameter('venue', \App\Entity\Enum\GameVenue::HOME)
+            ->setParameter('today', new \DateTimeImmutable('today'))
+            ->orderBy('g.date', 'ASC')
+            ->setMaxResults($limit)
+            ->getQuery()
+            ->getResult();
+    }
+
     public function countGamesByTeamAndDate(Team $team, \DateTimeImmutable $date, ?int $excludeGameId = null): int
     {
         $qb = $this->createQueryBuilder('g')

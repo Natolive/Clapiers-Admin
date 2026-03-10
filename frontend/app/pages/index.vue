@@ -1,10 +1,7 @@
 <template>
   <div class="home-page">
     <HomeHeroSection />
-    <HomeAboutSection />
-    <HomeGallerySection />
-    <HomeScheduleSection />
-    <HomeContactSection />
+    <HomeGamesSection />
   </div>
 </template>
 

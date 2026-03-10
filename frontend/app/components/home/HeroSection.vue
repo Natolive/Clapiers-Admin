@@ -25,14 +25,14 @@
         </p>
 
         <div class="hero-actions">
-          <a href="#contact" class="btn-primary">
+          <NuxtLink to="/contact" class="btn-primary">
             <i class="pi pi-send"></i>
             Nous rejoindre
-          </a>
-          <a href="#horaires" class="btn-secondary">
+          </NuxtLink>
+          <NuxtLink to="/horaires" class="btn-secondary">
             <i class="pi pi-calendar"></i>
             Voir les horaires
-          </a>
+          </NuxtLink>
         </div>
 
         <div class="hero-stats">
