@@ -29,7 +29,7 @@
         </div>
 
         <!-- Calendar -->
-        <div class="cal-wrapper">
+        <div class="cal-wrapper" ref="calendarWrapperRef">
             <FullCalendar ref="calendarRef" :options="calendarOptions">
                 <template #dayCellContent="arg">
                     <div class="fc-cell-top">
@@ -67,10 +67,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue';
+import { ref, reactive, computed, onMounted, onUnmounted } from 'vue';
 import { GameVenue } from '~/types/enum/GameVenue';
 import FullCalendar from '@fullcalendar/vue3';
 import dayGridPlugin from '@fullcalendar/daygrid';
+import listPlugin from '@fullcalendar/list';
 import interactionPlugin from '@fullcalendar/interaction';
 import type { CalendarOptions, EventClickArg, DateSelectArg, EventDropArg, EventInput } from '@fullcalendar/core';
 import frLocale from '@fullcalendar/core/locales/fr';
@@ -84,6 +85,8 @@ import GameFormDialog from '~/components/calendar/GameFormDialog.vue';
 import GameDetailDialog from '~/components/calendar/GameDetailDialog.vue';
 
 definePageMeta({ middleware: 'auth-middleware', layout: 'dashboard' });
+
+onUnmounted(() => resizeObserver?.disconnect());
 useHead({ title: 'Calendrier' });
 
 const { isSuperAdmin } = useUserRole();
@@ -93,6 +96,7 @@ const gameRepository = new GameRepository();
 const teamRepository = new TeamRepository();
 
 const calendarRef = ref<InstanceType<typeof FullCalendar> | null>(null);
+const calendarWrapperRef = ref<HTMLElement | null>(null);
 const calendarApi = computed(() => calendarRef.value?.getApi());
 const currentTitle = ref('');
 const teams = ref<Team[]>([]);
@@ -261,10 +265,11 @@ const handleEventDrop = async (info: EventDropArg) => {
 // ── Responsive view ──────────────────────────────────
 
 const isMobile = () => typeof window !== 'undefined' && window.innerWidth < 768;
+const getMobileView = () => 'listMonth';
 
 const calendarOptions: CalendarOptions = {
-    plugins: [dayGridPlugin, interactionPlugin],
-    initialView: isMobile() ? 'dayGridWeek' : 'dayGridMonth',
+    plugins: [dayGridPlugin, listPlugin, interactionPlugin],
+    initialView: isMobile() ? getMobileView() : 'dayGridMonth',
     locale: frLocale,
     headerToolbar: false,
     editable: true,
@@ -280,11 +285,12 @@ const calendarOptions: CalendarOptions = {
         return { html: `<div class="fc-event-inner"><span class="fc-event-title">${arg.event.title}</span><span class="fc-event-venue">${emoji}</span></div>` };
     },
     windowResize: () => {
-        const view = isMobile() ? 'dayGridWeek' : 'dayGridMonth';
+        const view = isMobile() ? getMobileView() : 'dayGridMonth';
         if (calendarApi.value?.view.type !== view) {
             calendarApi.value?.changeView(view);
         }
     },
+    noEventsContent: 'Aucun match ce mois-ci',
     eventClick: (info: EventClickArg) => {
         detailDialog.game = info.event.extendedProps.game as Game;
         detailDialog.visible = true;
@@ -301,7 +307,16 @@ const calendarOptions: CalendarOptions = {
     },
 };
 
+let resizeObserver: ResizeObserver | null = null;
+
 onMounted(async () => {
+    if (calendarWrapperRef.value) {
+        resizeObserver = new ResizeObserver(() => {
+            calendarApi.value?.updateSize();
+        });
+        resizeObserver.observe(calendarWrapperRef.value);
+    }
+
     if (isSuperAdmin.value) {
         teams.value = await teamRepository.getAll().catch(() => []);
     } else {
@@ -452,19 +467,56 @@ onMounted(async () => {
     .cal-add-btn { display: none; }
     .cal-add-btn--icon { display: inline-flex; }
     .cal-wrapper {
-        padding: 0.5rem;
+        padding: 0.25rem 0;
+        border: none;
         border-radius: 8px;
+        box-shadow: none;
     }
-    :deep(.fc-daygrid-day-number) {
+
+    /* List view styles */
+    :deep(.fc-list) {
+        border: none;
+    }
+    :deep(.fc-list-day-cushion) {
+        background: var(--p-surface-ground);
+        padding: 0.5rem 1rem;
         font-size: 0.75rem;
-        padding: 2px 4px;
+        font-weight: 600;
+        text-transform: capitalize;
+        color: var(--p-text-muted-color);
+        letter-spacing: 0.04em;
     }
-    :deep(.fc-col-header-cell-cushion) {
-        font-size: 0.75rem;
+    :deep(.fc-list-event) {
+        cursor: pointer;
     }
-    :deep(.fc-event) {
-        font-size: 0.7rem;
-        padding: 1px 3px;
+    :deep(.fc-list-event-dot) {
+        border-width: 6px;
+    }
+    :deep(.fc-list-event-title) {
+        font-size: 0.875rem;
+        font-weight: 500;
+        padding: 0.625rem 1rem;
+    }
+    :deep(.fc-list-event:hover td) {
+        background: var(--p-surface-hover);
+    }
+    :deep(.fc-list-empty) {
+        background: transparent;
+        color: var(--p-text-muted-color);
+        font-size: 0.875rem;
+    }
+    :deep(.fc-list-day th) {
+        border: none;
+    }
+    :deep(.fc-list-event td) {
+        border: none;
+    }
+    :deep(.fc-theme-standard .fc-list) {
+        border: none;
+    }
+    :deep(.fc-theme-standard td),
+    :deep(.fc-theme-standard th) {
+        border: none;
     }
 }
 </style>

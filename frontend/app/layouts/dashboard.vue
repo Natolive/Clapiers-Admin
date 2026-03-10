@@ -9,6 +9,7 @@
         sidebarCollapsed && isDesktop ? 'sidebar--collapsed' : '',
         sidebarHovered ? 'sidebar--hovered' : ''
       ]"
+      :style="!isDesktop ? { background: 'var(--p-surface-card, #ffffff)', backdropFilter: 'none' } : {}"
       @mouseenter="handleSidebarMouseEnter"
       @mouseleave="handleSidebarMouseLeave"
     >
@@ -98,7 +99,7 @@
       <!-- Topbar -->
       <header class="topbar">
         <div class="topbar__left">
-          <button class="menu-btn" @click="sidebarVisible = !sidebarVisible" style="display: none" ref="menuBtnRef">
+          <button class="menu-btn" @click="sidebarVisible = !sidebarVisible" aria-label="Menu">
             <i class="pi pi-bars"></i>
           </button>
           <span class="page-title">{{ pageTitle }}</span>
@@ -143,7 +144,6 @@ const SIDEBAR_COLLAPSED = '4rem';
 const authStore = useAuthStore();
 const route = useRoute();
 const { isSuperAdmin, isAdmin, hasRole } = useUserRole();
-const menuBtnRef = ref<HTMLElement | null>(null);
 
 const sidebarVisible = ref(false);
 const sidebarCollapsed = ref(true);
@@ -237,9 +237,6 @@ const handleLogout = () => authStore.logout();
 const handleResize = () => {
   isDesktop.value = window.innerWidth >= 1024;
   sidebarVisible.value = isDesktop.value;
-  if (menuBtnRef.value) {
-    menuBtnRef.value.style.display = isDesktop.value ? 'none' : 'flex';
-  }
 };
 
 const updateTime = () => {
@@ -260,9 +257,6 @@ const fetchUnreadMessages = async () => {
 onMounted(async () => {
   isDesktop.value = window.innerWidth >= 1024;
   sidebarVisible.value = isDesktop.value;
-  if (menuBtnRef.value) {
-    menuBtnRef.value.style.display = isDesktop.value ? 'none' : 'flex';
-  }
   window.addEventListener('resize', handleResize);
   updateTime();
   timeInterval = setInterval(updateTime, 1000);
@@ -560,33 +554,47 @@ onUnmounted(() => {
     width: 4rem;
   }
 
+  /* hide text elements */
   .sidebar--collapsed:not(.sidebar--hovered) .brand-text,
   .sidebar--collapsed:not(.sidebar--hovered) .nav-text,
   .sidebar--collapsed:not(.sidebar--hovered) .nav-badge,
-  .sidebar--collapsed:not(.sidebar--hovered) .nav-group-label .nav-text,
   .sidebar--collapsed:not(.sidebar--hovered) .user-info,
   .sidebar--collapsed:not(.sidebar--hovered) .logout-btn {
     opacity: 0;
     width: 0;
     overflow: hidden;
+    flex-shrink: 1;
+  }
+
+  /* nav: remove horizontal padding so icons hit true center */
+  .sidebar--collapsed:not(.sidebar--hovered) .sidebar__nav {
+    padding-left: 0;
+    padding-right: 0;
   }
 
   .sidebar--collapsed:not(.sidebar--hovered) .nav-link {
     justify-content: center;
-    padding: 0.5625rem;
-  }
-
-  .sidebar--collapsed:not(.sidebar--hovered) .nav-link--sub {
-    padding-left: 0.5625rem;
+    padding: 0.5625rem 0;
+    gap: 0;
   }
 
   .sidebar--collapsed:not(.sidebar--hovered) .nav-group-label {
     justify-content: center;
     padding: 0.875rem 0 0.375rem;
+    gap: 0;
+  }
+
+  /* footer: remove horizontal padding + center user-card */
+  .sidebar--collapsed:not(.sidebar--hovered) .sidebar__footer {
+    padding-left: 0;
+    padding-right: 0;
   }
 
   .sidebar--collapsed:not(.sidebar--hovered) .user-card {
     justify-content: center;
+    gap: 0;
+    padding-left: 0;
+    padding-right: 0;
   }
 
   .sidebar--hovered {
@@ -627,6 +635,7 @@ onUnmounted(() => {
 }
 
 .menu-btn {
+  display: none; /* hidden on desktop by default, shown on mobile via media query */
   width: 2.25rem;
   height: 2.25rem;
   border: 1px solid var(--p-surface-border);
@@ -699,10 +708,24 @@ onUnmounted(() => {
 @media (max-width: 1023px) {
   .sidebar {
     transform: translateX(-100%);
+    width: 15rem;
+    border-right: none;
+  }
+  .topbar {
+    border-bottom: none;
+  }
+  .sidebar__footer {
+    border-top: none;
+  }
+  .main__content {
+    padding: 0.5rem;
   }
   .sidebar--open {
     transform: translateX(0);
-    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.12);
+    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.18);
+  }
+  .menu-btn {
+    display: flex;
   }
 }
 </style>
