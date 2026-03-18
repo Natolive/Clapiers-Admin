@@ -51,7 +51,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: backend/
-          file: Dockerfile.prod
+          file: backend/Dockerfile.prod
           push: true
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/clapiers-admin:stable
           sbom: true
@@ -91,7 +91,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: frontend/
-          file: Dockerfile.prod
+          file: frontend/Dockerfile.prod
           push: true
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/clapiers-admin:frontend
           sbom: true
