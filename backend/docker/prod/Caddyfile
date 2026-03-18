@@ -4,10 +4,9 @@
     }
 }
 
-:443 {
+:80 {
     encode zstd br gzip
     root public/
-    tls /etc/ssl/certs/selfsigned.crt /etc/ssl/certs/selfsigned.key
 
     request_header X-Sendfile-Type x-accel-redirect
     request_header X-Accel-Mapping ../private-files=/private-files
