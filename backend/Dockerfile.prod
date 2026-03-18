@@ -1,0 +1,58 @@
+FROM dunglas/frankenphp:php8.4-alpine
+USER root
+
+RUN apk add --no-cache \
+        curl \
+        gnupg \
+        git \
+        icu-dev \
+        postgresql-dev \
+        zlib-dev \
+        oniguruma-dev
+
+RUN docker-php-ext-configure pgsql -with-pgsql=/usr/include/postgresql/
+RUN docker-php-ext-install \
+    intl \
+    mbstring \
+    pdo_pgsql \
+    pgsql
+
+RUN cp $PHP_INI_DIR/php.ini-production $PHP_INI_DIR/php.ini
+
+WORKDIR /app
+
+COPY --from=composer:latest /usr/bin/composer /usr/local/bin/composer
+COPY composer.json .
+COPY composer.lock .
+RUN composer install --no-scripts
+
+COPY . .
+
+ARG USER=appuser
+
+RUN \
+    adduser -D ${USER} && \
+    chown -R ${USER}:${USER} /data/caddy && \
+    chown -R ${USER}:${USER} /config/caddy && \
+    chown -R ${USER}:${USER} /app
+
+
+RUN mkdir -p /etc/frankenphp && \
+    chown -R ${USER}:${USER} /etc/frankenphp
+
+
+RUN mkdir -p /etc/ssl/certs
+
+RUN openssl req -x509 -newkey rsa:4096 \
+  -keyout /etc/ssl/certs/selfsigned.key \
+  -out /etc/ssl/certs/selfsigned.crt \
+  -sha256 -days 365 -nodes \
+  -subj "/CN=0.0.0.0"
+RUN chown -R ${USER}:${USER} /etc/ssl/certs
+COPY docker/prod/Caddyfile /etc/frankenphp/Caddyfile
+
+USER ${USER}
+
+WORKDIR /app
+
+COPY --chown=${USER}:${USER} . .

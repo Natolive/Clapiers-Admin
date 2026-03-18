@@ -1,0 +1,28 @@
+{
+    frankenphp {
+        {$FRANKENPHP_CONFIG}
+    }
+}
+
+:443 {
+    encode zstd br gzip
+    root public/
+    tls /etc/ssl/certs/selfsigned.crt /etc/ssl/certs/selfsigned.key
+
+    request_header X-Sendfile-Type x-accel-redirect
+    request_header X-Accel-Mapping ../private-files=/private-files
+    intercept {
+        @sendfile header X-Accel-Redirect *
+        handle_response @sendfile {
+            root private-files/
+            rewrite * {resp.header.X-Accel-Redirect}
+            method * GET
+            header -X-Accel-Redirect
+            file_server
+        }
+    }
+
+    php_server {
+        try_files {path} index.php
+    }
+}
