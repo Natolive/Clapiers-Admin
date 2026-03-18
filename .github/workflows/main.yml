@@ -53,7 +53,7 @@ jobs:
           context: backend/
           file: backend/Dockerfile.prod
           push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/clapiers-admin:stable
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/clapiers-admin:stable-backend
           sbom: true
           provenance: true
           network: host
@@ -93,7 +93,7 @@ jobs:
           context: frontend/
           file: frontend/Dockerfile.prod
           push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/clapiers-admin:frontend
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/clapiers-admin:stable-frontend
           sbom: true
           provenance: true
           network: host
