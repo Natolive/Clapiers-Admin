@@ -1,37 +1,20 @@
 <template>
     <div class="calendar-page">
 
-        <!-- Toolbar -->
-        <div class="cal-toolbar">
-            <div class="cal-toolbar__nav">
-                <Button icon="pi pi-chevron-left" text rounded @click="calendarApi?.prev()" />
-                <Button icon="pi pi-chevron-right" text rounded @click="calendarApi?.next()" />
-                <Button label="Aujourd'hui" outlined size="small" @click="calendarApi?.today()" />
-            </div>
+        <CalendarToolbar
+            :title="currentTitle"
+            :active-view="activeView"
+            :readonly="readonly"
+            :teams="teams"
+            v-model:selected-team-id="selectedTeamId"
+            @prev="calendarApi?.prev()"
+            @next="calendarApi?.next()"
+            @today="calendarApi?.today()"
+            @switch-view="switchView"
+            @team-change="calendarApi?.refetchEvents()"
+            @open-create="openCreateDialog(null)"
+        />
 
-            <h2 class="cal-toolbar__title capitalize">{{ currentTitle }}</h2>
-
-            <div class="cal-toolbar__actions">
-                <Select
-                    v-if="!readonly && teams.length > 1"
-                    class="cal-team-select"
-                    v-model="selectedTeamId"
-                    :options="[{ id: null, name: 'Toutes les équipes' }, ...teams]"
-                    option-label="name"
-                    option-value="id"
-                    placeholder="Toutes les équipes"
-                    size="small"
-                    style="min-width: 12rem"
-                    @change="loadGames"
-                />
-                <template v-if="!readonly">
-                    <Button class="cal-add-btn" label="Nouveau match" icon="pi pi-plus" size="small" @click="openCreateDialog(null)" />
-                    <Button class="cal-add-btn--icon" icon="pi pi-plus" rounded size="small" @click="openCreateDialog(null)" />
-                </template>
-            </div>
-        </div>
-
-        <!-- Calendar -->
         <div class="cal-wrapper" ref="calendarWrapperRef">
             <FullCalendar ref="calendarRef" :options="calendarOptions">
                 <template #dayCellContent="arg">
@@ -49,7 +32,6 @@
             </FullCalendar>
         </div>
 
-        <!-- Dialogs (admin only) -->
         <template v-if="!readonly">
             <GameFormDialog
                 v-model:visible="formDialog.visible"
@@ -77,16 +59,18 @@ import { ref, reactive, computed, onMounted, onUnmounted } from 'vue';
 import FullCalendar from '@fullcalendar/vue3';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import listPlugin from '@fullcalendar/list';
+import multiMonthPlugin from '@fullcalendar/multimonth';
 import interactionPlugin from '@fullcalendar/interaction';
-import type { CalendarOptions, EventClickArg, DateSelectArg, EventDropArg, EventInput } from '@fullcalendar/core';
+import type { CalendarOptions, EventClickArg, DateSelectArg } from '@fullcalendar/core';
 import frLocale from '@fullcalendar/core/locales/fr';
 import type { Game } from '~/types/entity/Game';
 import type { Team } from '~/types/entity/Team';
 import { GameVenue } from '~/types/enum/GameVenue';
-import { getTeamColor } from '~/utils/teamColors';
 import GameFormDialog from '~/components/calendar/GameFormDialog.vue';
 import GameDetailDialog from '~/components/calendar/GameDetailDialog.vue';
-import { GameRepository } from '~/repository/game-repository';
+import CalendarToolbar from '~/components/calendar/CalendarToolbar.vue';
+import type { CalendarViewType } from '~/components/calendar/CalendarToolbar.vue';
+import { useCalendarEvents } from '~/composables/useCalendarEvents';
 
 type FetchFn = (params: { start: string; end: string; teamId?: number | null }) => Promise<Game[]>;
 
@@ -102,17 +86,35 @@ const props = withDefaults(defineProps<{
 });
 
 const { isSuperAdmin } = useUserRole();
-const toast = usePVToastService();
-const gameRepository = new GameRepository();
+
+// ── Refs ──────────────────────────────────────────────
 
 const calendarRef = ref<InstanceType<typeof FullCalendar> | null>(null);
 const calendarWrapperRef = ref<HTMLElement | null>(null);
 const calendarApi = computed(() => calendarRef.value?.getApi());
 const currentTitle = ref('');
+const activeView = ref<CalendarViewType>('dayGridMonth');
 const selectedTeamId = ref<number | null>(null);
-const currentDateRange = ref<{ start: string; end: string } | null>(null);
-const homeCountByDate = ref<Record<string, number>>({});
-const teamDateMap = ref<Record<string, number>>({});
+
+// ── Events composable ─────────────────────────────────
+
+const {
+    homeCountByDate,
+    teamDateMap,
+    eventSourceFn,
+    recomputeCounts,
+    handleGameSaved,
+    handleGameDeleted,
+    handleEventDrop,
+} = useCalendarEvents(
+    calendarApi,
+    props.fetchFn,
+    selectedTeamId,
+    computed(() => props.readonly),
+    isSuperAdmin,
+);
+
+// ── Dialogs ───────────────────────────────────────────
 
 const formDialog = reactive<{ visible: boolean; game: Game | null; initialDate: Date | null }>({
     visible: false, game: null, initialDate: null,
@@ -120,78 +122,6 @@ const formDialog = reactive<{ visible: boolean; game: Game | null; initialDate: 
 const detailDialog = reactive<{ visible: boolean; game: Game | null }>({
     visible: false, game: null,
 });
-
-// ── Helpers ──────────────────────────────────────────
-
-const cellDateKey = (date: Date): string => {
-    const y = date.getFullYear();
-    const m = String(date.getMonth() + 1).padStart(2, '0');
-    const d = String(date.getDate()).padStart(2, '0');
-    return `${y}-${m}-${d}`;
-};
-
-const toDateString = (d: Date): string => {
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    return `${y}-${m}-${day}`;
-};
-
-const gameToEvent = (game: Game): EventInput => ({
-    id: String(game.id),
-    title: `vs ${game.opponent}`,
-    start: game.date,
-    allDay: true,
-    backgroundColor: getTeamColor(game.team.id),
-    borderColor: getTeamColor(game.team.id),
-    extendedProps: { game },
-});
-
-const recomputeCounts = (api: ReturnType<typeof calendarApi.value>) => {
-    const counts: Record<string, number> = {};
-    const tdMap: Record<string, number> = {};
-    api?.getEvents().forEach(e => {
-        const g: Game | undefined = e.extendedProps.game;
-        if (!g) return;
-        if (g.venue === GameVenue.HOME) counts[g.date] = (counts[g.date] ?? 0) + 1;
-        tdMap[`${g.date}|${g.team.id}`] = g.id;
-    });
-    homeCountByDate.value = counts;
-    teamDateMap.value = tdMap;
-};
-
-// ── Fetch ────────────────────────────────────────────
-
-const loadGames = async () => {
-    if (!currentDateRange.value) return;
-    try {
-        const games = await props.fetchFn({
-            start: currentDateRange.value.start,
-            end: currentDateRange.value.end,
-            teamId: selectedTeamId.value,
-        });
-
-        const counts: Record<string, number> = {};
-        const tdMap: Record<string, number> = {};
-        games.forEach(g => {
-            if (g.venue === GameVenue.HOME) counts[g.date] = (counts[g.date] ?? 0) + 1;
-            tdMap[`${g.date}|${g.team.id}`] = g.id;
-        });
-        homeCountByDate.value = counts;
-        teamDateMap.value = tdMap;
-
-        const api = calendarApi.value;
-        if (!api) return;
-        api.removeAllEvents();
-        games.forEach(g => api.addEvent(gameToEvent(g)));
-    } catch {
-        if (!props.readonly) {
-            toast.add({ severity: 'error', summary: 'Erreur', detail: 'Impossible de charger les matchs', life: 4000 });
-        }
-    }
-};
-
-// ── Dialog actions ────────────────────────────────────
 
 const openCreateDialog = (date: Date | null) => {
     formDialog.game = null;
@@ -206,69 +136,54 @@ const handleEditGame = (game: Game) => {
     formDialog.visible = true;
 };
 
-const handleGameSaved = (game: Game) => {
-    const api = calendarApi.value;
-    if (!api) return;
-    api.getEventById(String(game.id))?.remove();
-    api.addEvent(gameToEvent(game));
-    recomputeCounts(api);
+// ── Helpers ───────────────────────────────────────────
+
+const cellDateKey = (date: Date): string => {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
 };
 
-const handleGameDeleted = (id: number) => {
-    const api = calendarApi.value;
-    if (!api) return;
-    api.getEventById(String(id))?.remove();
-    recomputeCounts(api);
-};
+const isMobile = () => typeof window !== 'undefined' && window.innerWidth < 768;
 
-// ── Drag & drop ──────────────────────────────────────
-
-const handleEventDrop = async (info: EventDropArg) => {
-    const game: Game = info.event.extendedProps.game;
-    try {
-        const updated = await gameRepository.update(game.id, {
-            opponent:    game.opponent,
-            date:        toDateString(info.event.start as Date),
-            meetingTime: game.meetingTime,
-            venue:       game.venue,
-            location:    game.location,
-            teamId:      isSuperAdmin.value ? game.team.id : undefined,
-        });
-        info.event.setExtendedProp('game', updated);
-        recomputeCounts(calendarApi.value);
-        toast.add({ severity: 'success', summary: 'Match déplacé', life: 2000 });
-    } catch {
-        info.revert();
-        toast.add({ severity: 'error', summary: 'Erreur', detail: 'Impossible de déplacer le match', life: 4000 });
-    }
+const switchView = (view: CalendarViewType) => {
+    activeView.value = view;
+    calendarApi.value?.changeView(view);
 };
 
 // ── Calendar options ──────────────────────────────────
 
-const isMobile = () => typeof window !== 'undefined' && window.innerWidth < 768;
-
 const calendarOptions: CalendarOptions = {
-    plugins: [dayGridPlugin, listPlugin, interactionPlugin],
+    plugins: [dayGridPlugin, listPlugin, multiMonthPlugin, interactionPlugin],
     initialView: isMobile() ? 'listMonth' : 'dayGridMonth',
     locale: frLocale,
     headerToolbar: false,
     editable: !props.readonly,
     selectable: !props.readonly,
     selectMirror: !props.readonly,
+    dayCellClassNames: (arg) => {
+        const day = arg.date.getDay();
+        return (day === 1 || day === 5) ? ['fc-home-day'] : [];
+    },
     dayMaxEvents: true,
     weekends: true,
     height: '100%',
-    events: [],
+    events: eventSourceFn,
+    eventsSet: () => recomputeCounts(calendarApi.value),
     eventContent: (arg) => {
         const venue: string = arg.event.extendedProps.game?.venue ?? '';
         const emoji = venue === GameVenue.HOME ? '🏠' : '✈️';
         return { html: `<div class="fc-event-inner"><span class="fc-event-title">${arg.event.title}</span><span class="fc-event-venue">${emoji}</span></div>` };
     },
     windowResize: () => {
-        const view = isMobile() ? 'listMonth' : 'dayGridMonth';
-        if (calendarApi.value?.view.type !== view) calendarApi.value?.changeView(view);
+        if (isMobile()) {
+            if (calendarApi.value?.view.type !== 'listMonth') calendarApi.value?.changeView('listMonth');
+        } else {
+            if (calendarApi.value?.view.type === 'listMonth') calendarApi.value?.changeView(activeView.value);
+        }
     },
-    noEventsContent: 'Aucun match ce mois-ci',
+    noEventsContent: 'Aucun match',
     eventClick: (info: EventClickArg) => {
         detailDialog.game = info.event.extendedProps.game as Game;
         detailDialog.visible = true;
@@ -280,8 +195,6 @@ const calendarOptions: CalendarOptions = {
     eventDrop: props.readonly ? undefined : handleEventDrop,
     datesSet: (info) => {
         currentTitle.value = info.view.title;
-        currentDateRange.value = { start: info.startStr, end: info.endStr };
-        loadGames();
     },
 };
 
@@ -305,35 +218,6 @@ onUnmounted(() => resizeObserver?.disconnect());
     flex-direction: column;
     height: 100%;
     gap: 1rem;
-}
-
-.cal-toolbar {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    flex-shrink: 0;
-    flex-wrap: wrap;
-}
-
-.cal-toolbar__nav {
-    display: flex;
-    align-items: center;
-    gap: 0.25rem;
-}
-
-.cal-toolbar__title {
-    font-size: 1.25rem;
-    font-weight: 600;
-    margin: 0;
-    color: var(--p-text-color);
-    flex: 1;
-    text-align: center;
-}
-
-.cal-toolbar__actions {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
 }
 
 .cal-wrapper {
@@ -387,6 +271,20 @@ onUnmounted(() => resizeObserver?.disconnect());
     background: color-mix(in srgb, var(--p-primary-color) 8%, transparent);
 }
 
+:deep(.fc-daygrid-day.fc-home-day) {
+    background: color-mix(in srgb, #f59e0b 12%, transparent);
+}
+
+:deep(.fc-daygrid-day.fc-home-day.fc-day-today) {
+    background: color-mix(in srgb, #f59e0b 18%, transparent);
+}
+
+:deep(.fc-col-header-cell:nth-child(1) .fc-col-header-cell-cushion),
+:deep(.fc-col-header-cell:nth-child(5) .fc-col-header-cell-cushion) {
+    color: #f59e0b;
+    font-weight: 700;
+}
+
 :deep(.fc-cell-top) {
     display: flex;
     align-items: center;
@@ -412,14 +310,7 @@ onUnmounted(() => resizeObserver?.disconnect());
     color: var(--p-red-500, #ef4444);
 }
 
-.cal-add-btn--icon { display: none; }
-
 @media (max-width: 768px) {
-    .cal-toolbar { gap: 0.5rem; }
-    .cal-toolbar__title { font-size: 0.95rem; }
-    .cal-team-select { display: none; }
-    .cal-add-btn { display: none; }
-    .cal-add-btn--icon { display: inline-flex; }
     .cal-wrapper { padding: 0.25rem 0; border: none; border-radius: 8px; box-shadow: none; }
 
     :deep(.fc-list) { border: none; }
