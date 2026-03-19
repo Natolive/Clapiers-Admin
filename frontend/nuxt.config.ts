@@ -18,9 +18,6 @@ export default defineNuxtConfig({
         }
     },
     app: {
-        head: {
-            titleTemplate: '%s - Clapiers Admin',
-        },
         pageTransition: {
             name: 'page',
             mode: 'out-in'

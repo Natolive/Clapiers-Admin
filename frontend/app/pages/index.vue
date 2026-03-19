@@ -11,11 +11,11 @@ definePageMeta({
 })
 
 useHead({
-  title: 'VBC Clapiers - Volleyball Club de Clapiers',
+  title: 'Clapiers Volley Ball',
   meta: [
     {
       name: 'description',
-      content: 'Rejoignez le Volleyball Club de Clapiers. Loisir ou compétition, débutant ou confirmé, venez partager notre passion du volleyball.'
+      content: 'Rejoignez le Clapiers Volley Ball. Loisir ou compétition, débutant ou confirmé, venez partager notre passion du volleyball.'
     }
   ]
 })

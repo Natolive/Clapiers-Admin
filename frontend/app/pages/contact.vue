@@ -4,5 +4,5 @@
 
 <script setup lang="ts">
 definePageMeta({ layout: 'public' })
-useHead({ title: 'Contact — VBC Clapiers' })
+useHead({ title: 'Contact - CVB' })
 </script>

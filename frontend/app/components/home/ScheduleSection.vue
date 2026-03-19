@@ -1,3 +1,5 @@
+<script setup lang="ts">
+</script>
 <template>
   <section id="horaires" class="schedule-section">
     <div class="container">
@@ -47,7 +49,7 @@
               <h3 class="location-name">Gymnase Joël Abati</h3>
               <p class="location-address">
                 <i class="pi pi-map"></i>
-                Rue du Stade, 34830 Clapiers
+                1 Rue du Paraguay, 34830 Clapiers
               </p>
             </div>
 

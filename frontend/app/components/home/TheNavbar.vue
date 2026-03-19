@@ -4,8 +4,8 @@
       <NuxtLink to="/" class="logo">
         <span class="logo-icon">🏐</span>
         <span class="logo-text">
-          <span class="logo-main">VBC</span>
-          <span class="logo-sub">Clapiers</span>
+          <span class="logo-main">Clapiers</span>
+          <span class="logo-sub">Volley Ball</span>
         </span>
       </NuxtLink>
 

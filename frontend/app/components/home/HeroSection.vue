@@ -14,8 +14,8 @@
         </span>
 
         <h1 class="home-title">
-          Volleyball Club
-          <span class="text-accent">Clapiers</span>
+          Clapiers
+          <span class="text-accent">Volley Ball</span>
         </h1>
 
         <p class="home-subtitle">

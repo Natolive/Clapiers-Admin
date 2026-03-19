@@ -20,7 +20,7 @@
               </div>
               <div class="method-content">
                 <span class="method-label">Email</span>
-                <span class="method-value">contact@vbc-clapiers.fr</span>
+                <span class="method-value">info@clapiersvb.fr</span>
               </div>
             </a>
 
@@ -30,7 +30,7 @@
               </div>
               <div class="method-content">
                 <span class="method-label">Téléphone</span>
-                <span class="method-value">06 00 00 00 00</span>
+                <span class="method-value">+33609851673</span>
               </div>
             </a>
 

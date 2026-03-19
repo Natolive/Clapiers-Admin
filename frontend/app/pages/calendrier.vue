@@ -14,7 +14,7 @@
 import CalendarView from '~/components/calendar/CalendarView.vue';
 
 definePageMeta({ layout: 'public' });
-useHead({ title: 'Calendrier — VBC Clapiers' });
+useHead({ title: 'Calendrier - CVB' });
 
 const config = useRuntimeConfig();
 
