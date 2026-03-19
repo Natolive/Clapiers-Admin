@@ -41,11 +41,11 @@
             <ul class="footer-list contact-list">
               <li>
                 <i class="pi pi-envelope"></i>
-                <a href="mailto:contact@vbc-clapiers.fr">contact@vbc-clapiers.fr</a>
+                <a href="mailto:info@clapiersvb.fr">info@clapiersvb.fr</a>
               </li>
               <li>
                 <i class="pi pi-map-marker"></i>
-                <span>Gymnase de Clapiers, 34830</span>
+                <span>1 Rue du Paraguay, 34830 Clapiers</span>
               </li>
             </ul>
           </div>
