@@ -97,3 +97,84 @@ jobs:
           sbom: true
           provenance: true
           network: host
+
+
+  sync-builds:
+    runs-on: ubuntu-latest
+    needs:
+      - changes
+      - build-backend
+      - build-frontend
+    if: always() && (
+      needs.changes.outputs.backend == 'true' ||
+      needs.changes.outputs.frontend == 'true'
+      )
+    steps:
+      - name: Sync point
+        run: echo "All required builds finished"
+
+
+
+  deploy-frontend:
+    name: Deploy Repair Network
+    runs-on:  ubuntu-latest
+    needs:
+      - sync-builds
+      - changes
+    strategy:
+      fail-fast: true
+      matrix:
+        php-versions: [ '8.1.18' ]
+    if: always() && needs.changes.outputs.frontend == 'true'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure kubectl
+        uses: azure/k8s-set-context@v3
+        with:
+          method: kubeconfig
+          kubeconfig: ${{ secrets.KUBECONFIG_SECRET }}
+
+      - name: Rollout restart
+        run: |
+          kubectl rollout restart deployment/clapieradmin-frontend -n clapier-admin-prod
+
+  deploy-backend:
+    name: Deploy Repair Network
+    runs-on:  ubuntu-latest
+    needs:
+      - sync-builds
+      - changes
+    permissions:
+      id-token: write
+      contents: write
+    strategy:
+      fail-fast: true
+      matrix:
+        php-versions: [ '8.1.18' ]
+    if: always() && needs.changes.outputs.backend == 'true'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure kubectl
+        uses: azure/k8s-set-context@v3
+        with:
+          method: kubeconfig
+          kubeconfig: ${{ secrets.KUBECONFIG_SECRET }}
+
+      - name: Rollout restart
+        run: kubectl rollout restart deployment/clapieradmin-backend-php -n clapier-admin-prod
+
+      - name: Wait for rollout
+        run: kubectl rollout status deployment/clapieradmin-backend-php -n clapier-admin-prod
+
+      - name: Run command in pod
+        run: |
+          POD=$(kubectl get pods -n clapier-admin-prod -l app=clapieradmin-backend-php | grep Running | awk '{print $1}' | head -n1)
+          kubectl exec -n clapier-admin-prod $POD -- bin/console doctrine:migrations:migrate --no-interaction
