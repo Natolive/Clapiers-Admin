@@ -113,20 +113,17 @@ import { TeamRepository } from '~/repository/team-repository';
 import { MemberRepository } from '~/repository/member-repository';
 import type { Member } from '~/types/entity/Member';
 import type { Team } from '~/types/entity/Team';
-
+import {AppUserRole} from "~/types/entity/AppUser";
 definePageMeta({
   middleware: 'auth-middleware',
-  layout: 'dashboard'
+  layout: 'dashboard',
+  requiredRoles: [AppUserRole.ADMIN],
+  redirectTo: '/dashboard/calendar'
 });
 
 useHead({ title: 'Mon équipe' });
 
-const { isAdmin } = useUserRole();
 const authStore = useAuthStore();
-
-if (!isAdmin.value) {
-  await navigateTo('/dashboard');
-}
 
 const memberRepository = new MemberRepository();
 const members = ref<Member[]>([]);

@@ -25,10 +25,13 @@ import MembersDatatable from '~/components/datatables/MembersDatatable.vue';
 import CreateUpdateMemberDialog from '~/components/dialogs/CreateUpdateMemberDialog.vue';
 import { TeamRepository } from '~/repository/team-repository';
 import type { Team } from '~/types/entity/Team';
+import { AppUserRole } from '~/types/entity/AppUser';
 
 definePageMeta({
   middleware: 'auth-middleware',
-  layout: 'dashboard'
+  layout: 'dashboard',
+  requiredRoles: [AppUserRole.SUPER_ADMIN],
+  redirectTo: '/dashboard/calendar'
 });
 
 useHead({ title: 'Membres' });

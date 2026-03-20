@@ -61,7 +61,9 @@ import { AppUserRole } from '~/types/entity/AppUser';
 
 definePageMeta({
   middleware: 'auth-middleware',
-  layout: 'dashboard'
+  layout: 'dashboard',
+  requiredRoles: [AppUserRole.VIEW_MESSAGE],
+  redirectTo: '/dashboard/calendar'
 });
 
 useHead({ title: 'Messages' });

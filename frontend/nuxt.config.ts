@@ -1,8 +1,12 @@
 import Aura from '@primeuix/themes/aura';
 
 export default defineNuxtConfig({
-    ssr: false,
     compatibilityDate: '2026-01-01',
+    routeRules: {
+        '/login': { ssr: false },
+        '/dashboard/**': { ssr: false },
+        '/dashboard': { ssr: false },
+    },
     devServer: {
         host: '0.0.0.0',
         port: 3000,

@@ -110,15 +110,16 @@
 
 <script setup lang="ts">
 import { StatsRepository } from '~/repository/stats-repository';
-
-definePageMeta({ middleware: 'auth-middleware', layout: 'dashboard' });
+import {AppUserRole} from "~/types/entity/AppUser";
+definePageMeta({
+    middleware: 'auth-middleware',
+    layout: 'dashboard',
+    requiredRoles: [AppUserRole.SUPER_ADMIN],
+    redirectTo: '/dashboard/calendar'
+});
 useHead({ title: 'Tableau de bord' });
 
-const { isSuperAdmin, isAdmin } = useUserRole();
-
-if (isAdmin.value && !isSuperAdmin.value) {
-    await navigateTo('/dashboard/calendar');
-}
+const { isSuperAdmin } = useUserRole();
 
 const statsRepository = new StatsRepository();
 const { data: stats, pending } = await useAsyncData('dashboard-stats', () =>

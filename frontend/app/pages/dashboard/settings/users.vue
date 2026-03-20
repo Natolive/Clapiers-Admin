@@ -18,11 +18,13 @@
 import UsersDatatable from '~/components/datatables/UsersDatatable.vue';
 import CreateUpdateUserDialog from '~/components/dialogs/CreateUpdateUserDialog.vue';
 import { UserRepository } from '~/repository/user-repository';
-import type { AppUserRole } from '~/types/entity/AppUser';
+import { AppUserRole } from '~/types/entity/AppUser';
 
 definePageMeta({
   middleware: 'auth-middleware',
-  layout: 'dashboard'
+  layout: 'dashboard',
+  requiredRoles: [AppUserRole.SUPER_ADMIN],
+  redirectTo: '/dashboard/calendar'
 });
 
 useHead({ title: 'Utilisateurs' });

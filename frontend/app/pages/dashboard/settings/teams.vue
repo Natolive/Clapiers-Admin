@@ -26,10 +26,13 @@ import TeamsDatatable from '~/components/datatables/TeamsDatatable.vue';
 import CreateUpdateTeamDialog from '~/components/dialogs/CreateUpdateTeamDialog.vue';
 import { TeamRepository } from '~/repository/team-repository';
 import type { Team } from '~/types/entity/Team';
+import { AppUserRole } from '~/types/entity/AppUser';
 
 definePageMeta({
   middleware: 'auth-middleware',
-  layout: 'dashboard'
+  layout: 'dashboard',
+  requiredRoles: [AppUserRole.SUPER_ADMIN],
+  redirectTo: '/dashboard/calendar'
 });
 
 useHead({ title: 'Équipes' });
@@ -68,10 +71,6 @@ const openCreateDialog = () => {
 };
 
 onMounted(async () => {
-  if (!isSuperAdmin.value) {
-    await navigateTo('/dashboard');
-    return;
-  }
 
   try {
     teams.value = await teamRepository.getAll();

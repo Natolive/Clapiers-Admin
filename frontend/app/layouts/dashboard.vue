@@ -175,9 +175,12 @@ const handleSidebarMouseLeave = () => {
 
 const navigationItems = computed<MenuItem[]>(() => {
   const items: MenuItem[] = [
-    { label: 'Tableau de bord', icon: 'pi pi-home', route: '/dashboard', command: () => { navigateTo('/dashboard'); closeSidebarOnMobile(); } },
     { label: 'Calendrier', icon: 'pi pi-calendar', route: '/dashboard/calendar', command: () => { navigateTo('/dashboard/calendar'); closeSidebarOnMobile(); } },
   ];
+
+  if (isSuperAdmin.value) {
+    items.unshift({ label: 'Tableau de bord', icon: 'pi pi-home', route: '/dashboard', command: () => { navigateTo('/dashboard'); closeSidebarOnMobile(); } });
+  }
 
   if (isAdmin.value) {
     items.push({ label: 'Mon équipe', icon: 'pi pi-users', route: '/dashboard/my-team', command: () => { navigateTo('/dashboard/my-team'); closeSidebarOnMobile(); } });

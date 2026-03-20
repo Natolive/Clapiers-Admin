@@ -18,6 +18,8 @@ import LoginForm from "~/components/forms/login-form.vue";
 import type {Credentials} from "~/types/custom/Credentials";
 import {useAuthStore} from "~/stores/auth.store";
 
+useHead({ title: 'Connexion - CVB' })
+
 const isSubmitting = ref<boolean>(false);
 
 const handleLogin = async (credentials: Credentials) => {
