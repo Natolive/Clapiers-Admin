@@ -2,7 +2,7 @@
   <header class="navbar" :class="{ scrolled: isScrolled, solid: !isHome && !isScrolled }">
     <div class="navbar-container">
       <NuxtLink to="/" class="logo">
-        <span class="logo-icon">🏐</span>
+        <img src="/logo.png" alt="Clapiers Volley Ball" class="logo-img">
         <span class="logo-text">
           <span class="logo-main">Clapiers</span>
           <span class="logo-sub">Volley Ball</span>
@@ -114,8 +114,10 @@ const handleScroll = () => {
   color: var(--club-dark);
 }
 
-.logo-icon {
-  font-size: 2rem;
+.logo-img {
+  height: 2.5rem;
+  width: auto;
+  object-fit: contain;
 }
 
 .logo-text {

@@ -56,7 +56,8 @@
       <div class="hero-visual">
         <div class="visual-container">
           <div class="volleyball-wrapper">
-            <div class="volleyball animate-float">🏐</div>
+            <img src="/logo.png" alt="Clapiers Volley Ball" class="volleyball animate-float">
+          
           </div>
           <div class="visual-card card-1">
             <i class="pi pi-users"></i>
@@ -230,7 +231,9 @@
 }
 
 .volleyball {
-  font-size: 12rem;
+  width: 12rem;
+  height: 12rem;
+  object-fit: contain;
   filter: drop-shadow(0 20px 40px rgba(0, 0, 0, 0.3));
 }
 

@@ -3,7 +3,7 @@
     <div class="surface-card p-6 shadow-2 border-round w-full" style="max-width: 450px">
 
       <div class="text-center mb-5">
-        <img src="https://primefaces.org/cdn/primevue/images/logo.svg" alt="Logo" height="50" class="mb-3">
+        <img src="/logo.png" alt="Clapiers Volley Ball" height="100" class="mb-3">
         <h1 class="text-3xl font-medium mb-3">Connexion</h1>
         <span class="text-600 font-medium">Accédez à votre compte</span>
       </div>
