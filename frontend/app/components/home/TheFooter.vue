@@ -4,10 +4,10 @@
       <div class="footer-content">
         <div class="footer-brand">
           <div class="logo">
-            <span class="logo-icon">🏐</span>
+            <img src="/logo.png" alt="Clapiers Volley Ball" class="logo-img">
             <span class="logo-text">
-              <span class="logo-main">VBC Clapiers</span>
-              <span class="logo-sub">Volleyball Club</span>
+              <span class="logo-main">Clapiers</span>
+              <span class="logo-sub">Volley Ball</span>
             </span>
           </div>
           <p class="footer-tagline">
@@ -54,7 +54,7 @@
 
       <div class="footer-bottom">
         <p class="copyright">
-          &copy; {{ currentYear }} VBC Clapiers. Tous droits réservés.
+          &copy; {{ currentYear }} Clapiers Volley Ball. Tous droits réservés.
         </p>
         <div class="footer-badges">
           <span class="badge">FSGT</span>
@@ -95,8 +95,10 @@ const currentYear = new Date().getFullYear()
   margin-bottom: 1rem;
 }
 
-.logo-icon {
-  font-size: 2.5rem;
+.logo-img {
+  height: 2.5rem;
+  width: auto;
+  object-fit: contain;
 }
 
 .logo-text {
