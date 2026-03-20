@@ -83,11 +83,17 @@ export default defineNuxtConfig({
         url: 'https://clapiersvb.fr',
     },
     routeRules: {
+        '/': { prerender: true },
+        '/club': { prerender: true },
+        '/horaires': { prerender: true },
+        '/calendrier': { prerender: true },
+        '/contact': { prerender: true },
         '/login': { ssr: false },
         '/dashboard/**': { ssr: false },
         '/dashboard': { ssr: false },
     },
     sitemap: {
+        discoverImages: true,
         exclude: ['/login', '/dashboard/**'],
     },
     primevue: {
