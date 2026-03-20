@@ -14,7 +14,7 @@
           </p>
 
           <div class="contact-methods">
-            <a href="mailto:contact@vbc-clapiers.fr" class="contact-method">
+            <a href="mailto:info@clapiersvb.fr" class="contact-method">
               <div class="method-icon">
                 <i class="pi pi-envelope"></i>
               </div>
