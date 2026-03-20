@@ -18,6 +18,11 @@ export default defineNuxtConfig({
         }
     },
     app: {
+        head: {
+            meta: [
+                { name: 'google-site-verification', content: 'pn8nl5hSqc7don08zbejN8u2Gb4vnaPNdj8-9JFg4pA' }
+            ]
+        },
         pageTransition: {
             name: 'page',
             mode: 'out-in'
