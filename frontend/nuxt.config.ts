@@ -18,9 +18,47 @@ export default defineNuxtConfig({
     },
     app: {
         head: {
+            htmlAttrs: { lang: 'fr' },
+            charset: 'utf-8',
+            viewport: 'width=device-width, initial-scale=1',
             meta: [
-                { name: 'google-site-verification', content: 'pn8nl5hSqc7don08zbejN8u2Gb4vnaPNdj8-9JFg4pA' }
-            ]
+                { name: 'google-site-verification', content: 'pn8nl5hSqc7don08zbejN8u2Gb4vnaPNdj8-9JFg4pA' },
+                { property: 'og:site_name', content: 'Clapiers Volley Ball' },
+                { property: 'og:type', content: 'website' },
+                { name: 'twitter:card', content: 'summary_large_image' },
+            ],
+            script: [
+                {
+                    type: 'application/ld+json',
+                    innerHTML: JSON.stringify({
+                        '@context': 'https://schema.org',
+                        '@type': 'SportsOrganization',
+                        name: 'Clapiers Volley Ball',
+                        url: 'https://clapiersvb.fr',
+                        sport: 'Volleyball',
+                        email: 'info@clapiersvb.fr',
+                        telephone: '+33609851673',
+                        address: {
+                            '@type': 'PostalAddress',
+                            streetAddress: '1 Rue du Paraguay',
+                            addressLocality: 'Clapiers',
+                            postalCode: '34830',
+                            addressCountry: 'FR',
+                        },
+                        location: {
+                            '@type': 'SportsActivityLocation',
+                            name: 'Gymnase Joël Abati',
+                            address: {
+                                '@type': 'PostalAddress',
+                                streetAddress: '1 Rue du Paraguay',
+                                addressLocality: 'Clapiers',
+                                postalCode: '34830',
+                                addressCountry: 'FR',
+                            },
+                        },
+                    }),
+                },
+            ],
         },
         pageTransition: {
             name: 'page',
@@ -33,7 +71,7 @@ export default defineNuxtConfig({
     },
     modules: ['@primevue/nuxt-module', '@pinia/nuxt', '@nuxtjs/sitemap'],
     site: {
-        url: 'https://www.clapiers-volley.fr',
+        url: 'https://clapiersvb.fr',
     },
     routeRules: {
         '/login': { ssr: false },

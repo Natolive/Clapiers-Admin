@@ -14,7 +14,18 @@
 import CalendarView from '~/components/calendar/CalendarView.vue';
 
 definePageMeta({ layout: 'public' });
-useHead({ title: 'Calendrier - CVB' });
+useSeoMeta({
+  title: 'Calendrier des matchs - Clapiers Volley Ball',
+  description: 'Consultez le calendrier des matchs du Clapiers Volley Ball. Retrouvez toutes les dates et horaires des rencontres de nos équipes.',
+  ogTitle: 'Calendrier des matchs - Clapiers Volley Ball',
+  ogDescription: 'Consultez le calendrier des matchs du Clapiers Volley Ball. Retrouvez toutes les dates et horaires des rencontres de nos équipes.',
+  ogUrl: 'https://clapiersvb.fr/calendrier',
+  twitterTitle: 'Calendrier des matchs - Clapiers Volley Ball',
+  twitterDescription: 'Consultez le calendrier des matchs du Clapiers Volley Ball. Toutes les dates et horaires des rencontres.',
+});
+useHead({
+  link: [{ rel: 'canonical', href: 'https://clapiersvb.fr/calendrier' }],
+});
 
 const config = useRuntimeConfig();
 
