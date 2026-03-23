@@ -2,7 +2,7 @@
   <Form :resolver="resolver" @submit="onFormSubmit" v-slot="$form" class="flex flex-column gap-4">
     <div class="flex flex-column gap-2">
       <label for="email" class="font-bold">Adresse e-mail</label>
-      <InputText name="email" :disabled="loading" type="text" fluid placeholder="exemple@email.com" />
+      <InputText name="email" :disabled="loading" type="text" fluid placeholder="exemple@email.com" autocomplete="username" />
 
       <small v-if="$form.email?.invalid" class="p-error text-red-500 text-sm">
         {{ $form.email?.error?.message }}
@@ -11,7 +11,7 @@
 
     <div class="flex flex-column gap-2">
       <label for="password" class="font-bold">Mot de passe</label>
-      <Password name="password" :disabled="loading" :feedback="false" toggleMask fluid placeholder="••••••••" />
+      <Password name="password" :disabled="loading" :feedback="false" toggleMask fluid placeholder="••••••••" autocomplete="current-password" />
 
       <small v-if="$form.password?.invalid" class="p-error text-red-500 text-sm">
         {{ $form.password?.error?.message }}

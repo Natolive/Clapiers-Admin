@@ -70,6 +70,7 @@
                   id="firstName"
                   v-model="form.firstName"
                   placeholder="Votre prénom"
+                  autocomplete="given-name"
                 />
               </div>
               <div class="form-group">
@@ -78,6 +79,7 @@
                   id="lastName"
                   v-model="form.lastName"
                   placeholder="Votre nom"
+                  autocomplete="family-name"
                 />
               </div>
             </div>
@@ -89,6 +91,7 @@
                 v-model="form.email"
                 type="email"
                 placeholder="votre@email.com"
+                autocomplete="email"
               />
             </div>
 
@@ -109,6 +112,7 @@
                 v-model="form.message"
                 rows="4"
                 placeholder="Votre message..."
+                autocomplete="off"
               />
             </div>
 
