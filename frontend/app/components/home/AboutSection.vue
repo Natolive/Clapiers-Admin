@@ -8,7 +8,7 @@
           <span class="text-accent">une passion commune</span>
         </h2>
         <p class="section-desc">
-          Depuis plus de 25 ans, le VBC Clapiers accueille tous les passionnés
+          Depuis plus de 25 ans, Clapiers Volley Ball accueille tous les passionnés
           de volleyball dans une ambiance conviviale et sportive.
         </p>
       </div>

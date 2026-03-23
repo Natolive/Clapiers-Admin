@@ -10,7 +10,7 @@
       <div class="hero-text">
         <span class="hero-badge">
           <span class="badge-dot"></span>
-          Inscriptions ouvertes
+          Inscriptions 2025-2026 clôturées
         </span>
 
         <h1 class="home-title">
@@ -161,7 +161,7 @@
 .badge-dot {
   width: 8px;
   height: 8px;
-  background: #4ade80;
+  background: #d4134f;
   border-radius: 50%;
   animation: pulse-soft 2s ease-in-out infinite;
 }

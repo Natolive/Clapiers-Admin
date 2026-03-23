@@ -19,19 +19,20 @@
           <div class="footer-col">
             <h4 class="footer-title">Navigation</h4>
             <ul class="footer-list">
-              <li><a href="#accueil">Accueil</a></li>
-              <li><a href="#club">Le Club</a></li>
-              <li><a href="#horaires">Horaires</a></li>
-              <li><a href="#contact">Contact</a></li>
+              <li><NuxtLink to="/">Accueil</NuxtLink></li>
+              <li><NuxtLink to="/club">Le Club</NuxtLink></li>
+              <li><NuxtLink to="/horaires">Horaires</NuxtLink></li>
+              <li><NuxtLink to="/calendrier">Calendrier</NuxtLink></li>
+              <li><NuxtLink to="/contact">Contact</NuxtLink></li>
             </ul>
           </div>
 
           <div class="footer-col">
             <h4 class="footer-title">Informations</h4>
             <ul class="footer-list">
-              <li><a href="#">Inscriptions</a></li>
-              <li><a href="#">Tarifs</a></li>
-              <li><a href="#">Documents</a></li>
+              <li><NuxtLink to="/inscriptions">Inscriptions</NuxtLink></li>
+              <li><NuxtLink to="/tarifs">Tarifs</NuxtLink></li>
+              <li><NuxtLink to="/documents">Documents</NuxtLink></li>
               <li><NuxtLink to="/dashboard">Espace membre</NuxtLink></li>
             </ul>
           </div>
