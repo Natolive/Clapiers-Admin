@@ -113,8 +113,7 @@ export default defineNuxtConfig({
         }
     },
     css: [
-        'primeflex/primeflex.css',
-        'primeicons/primeicons.css',
+        '~/assets/css/global.css',
         '~/assets/css/home.css'
     ]
 })

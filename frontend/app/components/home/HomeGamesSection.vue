@@ -49,7 +49,7 @@
 <script setup lang="ts">
 const { data: games, pending } = await useFetch<any[]>(
   `${useRuntimeConfig().public.apiBase}/public/home-games`,
-  { default: () => [] }
+  { default: () => [], server: false, lazy: true }
 );
 
 const formatDay = (dateStr: string) =>

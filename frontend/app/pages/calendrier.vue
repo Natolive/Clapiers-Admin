@@ -5,7 +5,9 @@
             <p class="public-calendar-sub">Retrouvez tous les matchs de nos équipes</p>
         </div>
         <div class="public-calendar-wrapper">
-            <CalendarView :readonly="true" :fetch-fn="fetchFn" />
+            <ClientOnly>
+                <CalendarView :readonly="true" :fetch-fn="fetchFn" />
+            </ClientOnly>
         </div>
     </div>
 </template>
