@@ -181,9 +181,12 @@ const calendarOptions: CalendarOptions = {
     events: eventSourceFn,
     eventsSet: () => recomputeCounts(calendarApi.value),
     eventContent: (arg) => {
-        const venue: string = arg.event.extendedProps.game?.venue ?? '';
+        const game: Game = arg.event.extendedProps.game;
+        const venue: string = game?.venue ?? '';
         const emoji = venue === GameVenue.HOME ? '🏠' : '✈️';
-        return { html: `<div class="fc-event-inner"><span class="fc-event-title">${arg.event.title}</span><span class="fc-event-venue">${emoji}</span></div>` };
+        const teamName = game?.team?.name ?? '';
+        const opponent = game?.opponent ?? '';
+        return { html: `<div class="fc-event-inner"><div class="fc-event-main"><span class="fc-event-team">${teamName} vs.</span><span class="fc-event-opponent">${opponent}</span></div><span class="fc-event-venue">${emoji}</span></div>` };
     },
     windowResize: () => {
         if (isMobile()) {
@@ -245,29 +248,49 @@ onUnmounted(() => resizeObserver?.disconnect());
 :deep(.fc-event) {
     border-radius: 6px;
     border: none !important;
-    padding: 1px 5px;
-    font-size: 0.8125rem;
+    padding: 1px 4px;
+    font-size: 0.7rem;
     font-weight: 500;
     cursor: pointer;
 }
 
 :deep(.fc-event-inner) {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: space-between;
     gap: 4px;
     width: 100%;
     overflow: hidden;
 }
 
-:deep(.fc-event-title) {
+:deep(.fc-event-main) {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    flex: 1;
+    min-width: 0;
+}
+
+:deep(.fc-event-team) {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    flex: 1;
+    font-weight: 600;
+    font-size: 0.7rem;
+    line-height: 1.3;
 }
 
-:deep(.fc-event-venue) { font-size: 0.7rem; flex-shrink: 0; }
+:deep(.fc-event-opponent) {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.6rem;
+    font-weight: 400;
+    opacity: 0.75;
+    line-height: 1.3;
+}
+
+:deep(.fc-event-venue) { font-size: 0.7rem; flex-shrink: 0; margin-top: 1px; }
 :deep(.fc-event:hover) { filter: brightness(0.9); }
 
 :deep(.fc-col-header-cell-cushion),

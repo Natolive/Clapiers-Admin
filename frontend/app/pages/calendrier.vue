@@ -40,11 +40,11 @@ const fetchFn = ({ start, end }: { start: string; end: string }) =>
 <style scoped>
 .public-calendar-page {
     min-height: calc(100vh - 4rem);
-    padding: 6rem 2rem 3rem;
+    padding: 6rem 2rem 2rem;
     background: var(--club-light, #f8fafc);
     display: flex;
     flex-direction: column;
-    gap: 2rem;
+    gap: 1rem;
 }
 
 .public-calendar-header {
@@ -69,9 +69,9 @@ const fetchFn = ({ start, end }: { start: string; end: string }) =>
     border-radius: 16px;
     padding: 1.5rem;
     box-shadow: 0 2px 20px rgba(0, 0, 0, 0.06);
-    /* navbar ~4rem + page padding 6rem + header ~6rem + gap 2rem */
-    height: calc(100vh - 18rem);
-    min-height: 500px;
+    /* navbar ~4rem + page padding 6rem + header ~3rem + gap 1rem */
+    height: calc(100vh - 8rem);
+    min-height: 640px;
 }
 
 @media (max-width: 768px) {
@@ -83,7 +83,7 @@ const fetchFn = ({ start, end }: { start: string; end: string }) =>
     }
     .public-calendar-wrapper {
         padding: 0.75rem;
-        height: calc(100vh - 14rem);
+        height: calc(100vh - 8rem);
     }
 }
 </style>
