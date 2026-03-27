@@ -13,6 +13,7 @@
             @switch-view="switchView"
             @team-change="calendarApi?.refetchEvents()"
             @open-create="openCreateDialog(null)"
+            @open-import="csvImportVisible = true"
         />
 
         <div class="cal-wrapper" ref="calendarWrapperRef">
@@ -43,6 +44,11 @@
                 :team-date-map="teamDateMap"
                 @saved="handleGameSaved"
             />
+            <CsvImportDialog
+                v-if="isSuperAdmin"
+                v-model:visible="csvImportVisible"
+                @imported="calendarApi?.refetchEvents()"
+            />
         </template>
 
         <GameDetailDialog
@@ -69,6 +75,7 @@ import { GameVenue } from '~/types/enum/GameVenue';
 import GameFormDialog from '~/components/calendar/GameFormDialog.vue';
 import GameDetailDialog from '~/components/calendar/GameDetailDialog.vue';
 import CalendarToolbar from '~/components/calendar/CalendarToolbar.vue';
+import CsvImportDialog from '~/components/calendar/CsvImportDialog.vue';
 import type { CalendarViewType } from '~/components/calendar/CalendarToolbar.vue';
 import { useCalendarEvents } from '~/composables/useCalendarEvents';
 
@@ -115,6 +122,8 @@ const {
 );
 
 // ── Dialogs ───────────────────────────────────────────
+
+const csvImportVisible = ref(false);
 
 const formDialog = reactive<{ visible: boolean; game: Game | null; initialDate: Date | null }>({
     visible: false, game: null, initialDate: null,

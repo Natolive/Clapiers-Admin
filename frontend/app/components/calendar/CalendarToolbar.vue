@@ -46,6 +46,15 @@
                 @update:model-value="onTeamChange"
             />
             <template v-if="!readonly">
+                <Button
+                    v-if="isSuperAdmin"
+                    class="cal-add-btn"
+                    label="Importer CSV"
+                    icon="pi pi-upload"
+                    severity="secondary"
+                    size="small"
+                    @click="emit('openImport')"
+                />
                 <Button class="cal-add-btn" label="Nouveau match" icon="pi pi-plus" size="small" @click="emit('openCreate')" />
                 <Button class="cal-add-btn--icon" icon="pi pi-plus" rounded size="small" @click="emit('openCreate')" />
             </template>
@@ -57,6 +66,8 @@
 import type { Team } from '~/types/entity/Team';
 
 export type CalendarViewType = 'dayGridMonth' | 'multiMonthYear' | 'listYear';
+
+const { isSuperAdmin } = useUserRole();
 
 const props = defineProps<{
     title: string;
@@ -74,6 +85,7 @@ const emit = defineEmits<{
     'update:selectedTeamId': [id: number | null];
     teamChange: [];
     openCreate: [];
+    openImport: [];
 }>();
 
 // Met à jour le teamId dans le parent AVANT d'émettre teamChange

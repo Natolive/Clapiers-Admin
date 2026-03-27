@@ -37,4 +37,13 @@ export class GameRepository {
     async delete(id: number): Promise<void> {
         await this.api<void>(`/game/${id}`, { method: 'DELETE' });
     }
+
+    async importCsv(file: File): Promise<{ imported: number }> {
+        const formData = new FormData();
+        formData.append('file', file);
+        return await this.api<{ imported: number }>('/game/import', {
+            method: 'POST',
+            body: formData,
+        });
+    }
 }
