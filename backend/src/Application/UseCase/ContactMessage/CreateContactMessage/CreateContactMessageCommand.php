@@ -23,6 +23,9 @@ class CreateContactMessageCommand implements CommandInterface
 
         #[Assert\NotBlank]
         public readonly string $message,
+
+        #[Assert\NotBlank]
+        public readonly string $recaptchaToken,
     ) {
     }
 }

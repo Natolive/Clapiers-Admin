@@ -1,0 +1,50 @@
+{% extends 'emails/layout.html.twig' %}
+
+{% block title %}Nouveau message de contact{% endblock %}
+
+{% block hero_eyebrow %}Formulaire de contact{% endblock %}
+
+{% block hero_title %}
+Nouveau<br><span style="color:#f4a261;">message reçu</span>
+{% endblock %}
+
+{% block hero_meta %}
+{% include 'emails/components/hero_badge.html.twig' with {label: 'Reçu le ' ~ receivedAt} %}
+{% endblock %}
+
+{% block body %}
+
+{% embed 'emails/components/card.html.twig' %}
+{% block eyebrow %}Expéditeur{% endblock %}
+{% block content %}
+<div style="font-size:20px;font-weight:700;color:#1a1a2e;letter-spacing:-0.01em;line-height:1.25;">{{ fullName }}</div>
+<a href="mailto:{{ senderEmail }}" style="display:inline-block;margin-top:4px;font-size:14px;color:#1e3a5f;text-decoration:none;font-weight:500;">{{ senderEmail }}</a>
+{% endblock %}
+{% endembed %}
+
+{% embed 'emails/components/card.html.twig' %}
+{% block eyebrow %}Sujet{% endblock %}
+{% block content %}
+<div style="font-size:17px;font-weight:600;color:#1a1a2e;">{{ subject }}</div>
+{% endblock %}
+{% endembed %}
+
+{% embed 'emails/components/card.html.twig' %}
+{% block eyebrow %}Message{% endblock %}
+{% block content %}
+<div style="font-size:15px;line-height:1.7;color:#1a1a2e;">{{ message|nl2br }}</div>
+{% endblock %}
+{% endembed %}
+
+<div style="margin-top:28px;">
+{% include 'emails/components/button.html.twig' with {
+  href: 'mailto:' ~ senderEmail,
+  label: 'Répondre à ' ~ fullName,
+} %}
+</div>
+
+{% endblock %}
+
+{% block footer_note %}
+Message envoyé via le formulaire de contact de <a href="https://clapiersvb.fr" style="color:#f4a261;text-decoration:none;">clapiersvb.fr</a>
+{% endblock %}

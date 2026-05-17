@@ -55,12 +55,18 @@ services:
       APP_SECRET: ${APP_SECRET:-local_dev_secret_change_me}
       APP_SHARE_DIR: var/share
       DATABASE_URL: postgresql://${POSTGRES_USER:-symfony}:${POSTGRES_PASSWORD:-symfony}@postgres:5432/${POSTGRES_DB:-clapiers_db}?serverVersion=16&charset=utf8
-      DEFAULT_URI: http://api.clapiers.local
+      DEFAULT_URI: ${DEFAULT_URI:-http://api.clapiers.local}
+      CORS_ALLOW_ORIGIN: ${CORS_ALLOW_ORIGIN:-^https?://(app\.clapiers\.local|localhost)(:[0-9]+)?$$}
       JWT_SECRET_KEY: "%kernel.project_dir%/config/jwt/private.pem"
       JWT_PUBLIC_KEY: "%kernel.project_dir%/config/jwt/public.pem"
       JWT_PASSPHRASE: ${JWT_PASSPHRASE:-dev_passphrase}
+      JWT_TOKEN_TTL: ${JWT_TOKEN_TTL:-3600}
       XDEBUG_MODE: ${XDEBUG_MODE:-off}
       XDEBUG_CONFIG: "client_host=host.docker.internal"
+      MAILER_DSN: ${MAILER_DSN:-null://null}
+      CONTACT_RECIPIENT_EMAIL: ${CONTACT_RECIPIENT_EMAIL:-info@clapiersvb.fr}
+      CONTACT_SENDER_EMAIL: ${CONTACT_SENDER_EMAIL:-info@clapiersvb.fr}
+      RECAPTCHA_SECRET_KEY: ${RECAPTCHA_SECRET_KEY:-}
     depends_on:
       postgres:
         condition: service_healthy
@@ -92,7 +98,8 @@ services:
       - ./frontend:/app
     environment:
       NODE_ENV: development
-      NUXT_PUBLIC_API_BASE: http://api.clapiers.local/api
+      NUXT_PUBLIC_API_BASE: ${NUXT_PUBLIC_API_BASE:-http://api.clapiers.local/api}
+      NUXT_PUBLIC_RECAPTCHA_SITE_KEY: ${NUXT_PUBLIC_RECAPTCHA_SITE_KEY:-}
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.frontend.rule=Host(`app.clapiers.local`)"
