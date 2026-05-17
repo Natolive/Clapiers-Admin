@@ -246,19 +246,19 @@ onUnmounted(() => resizeObserver?.disconnect());
 :deep(.fc-daygrid-day:hover) { background: var(--p-surface-hover); cursor: pointer; }
 
 :deep(.fc-event) {
-    border-radius: 6px;
+    border-radius: 4px;
     border: none !important;
-    padding: 1px 4px;
-    font-size: 0.7rem;
+    padding: 0 3px;
+    font-size: 0.65rem;
     font-weight: 500;
     cursor: pointer;
 }
 
 :deep(.fc-event-inner) {
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     justify-content: space-between;
-    gap: 4px;
+    gap: 3px;
     width: 100%;
     overflow: hidden;
 }
@@ -276,22 +276,35 @@ onUnmounted(() => resizeObserver?.disconnect());
     text-overflow: ellipsis;
     white-space: nowrap;
     font-weight: 600;
-    font-size: 0.7rem;
-    line-height: 1.3;
+    font-size: 0.65rem;
+    line-height: 1.15;
 }
 
 :deep(.fc-event-opponent) {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    font-size: 0.6rem;
+    font-size: 0.55rem;
     font-weight: 400;
     opacity: 0.75;
-    line-height: 1.3;
+    line-height: 1.15;
 }
 
-:deep(.fc-event-venue) { font-size: 0.7rem; flex-shrink: 0; margin-top: 1px; }
+:deep(.fc-event-venue) { font-size: 0.65rem; flex-shrink: 0; line-height: 1; }
 :deep(.fc-event:hover) { filter: brightness(0.9); }
+
+:deep(.fc-daygrid-event) { margin-top: 1px; }
+:deep(.fc-daygrid-day-events) { margin-top: 1px; }
+:deep(.fc-daygrid-day-bottom) { font-size: 0.6rem; padding: 1px 3px; }
+
+@media (max-width: 1366px) {
+    :deep(.fc-event) { padding: 0 2px; font-size: 0.6rem; }
+    :deep(.fc-event-team) { font-size: 0.6rem; line-height: 1.1; }
+    :deep(.fc-event-opponent) { font-size: 0.52rem; line-height: 1.1; }
+    :deep(.fc-event-venue) { font-size: 0.6rem; }
+    :deep(.fc-col-header-cell-cushion) { font-size: 0.75rem; padding: 4px; }
+    :deep(.fc-daygrid-day-number) { font-size: 0.75rem; padding: 2px 4px; }
+}
 
 :deep(.fc-col-header-cell-cushion),
 :deep(.fc-daygrid-day-number) {
@@ -327,14 +340,14 @@ onUnmounted(() => resizeObserver?.disconnect());
 }
 
 :deep(.fc-home-badge) {
-    font-size: 0.6rem;
+    font-size: 0.55rem;
     font-weight: 600;
     background: color-mix(in srgb, var(--p-primary-color) 15%, transparent);
     color: var(--p-primary-color);
-    border-radius: 4px;
-    padding: 1px 4px;
+    border-radius: 3px;
+    padding: 0 3px;
     white-space: nowrap;
-    line-height: 1.4;
+    line-height: 1.3;
 }
 
 :deep(.fc-home-badge--full) {

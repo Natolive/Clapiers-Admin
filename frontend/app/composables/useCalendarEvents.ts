@@ -70,12 +70,10 @@ export function useCalendarEvents(
 
     // ── Mutations locales ─────────────────────────────
 
-    const handleGameSaved = (game: Game) => {
+    const handleGameSaved = (_game: Game) => {
         const api = calendarApi.value;
         if (!api) return;
-        api.getEventById(String(game.id))?.remove();
-        api.addEvent(gameToEvent(game));
-        recomputeCounts(api);
+        api.refetchEvents();
     };
 
     const handleGameDeleted = (id: number) => {
@@ -95,7 +93,7 @@ export function useCalendarEvents(
         const dateStr = `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, '0')}-${String(start.getDate()).padStart(2, '0')}`;
 
         try {
-            const updated = await gameRepository.update(game.id, {
+            await gameRepository.update(game.id, {
                 opponent:    game.opponent,
                 date:        dateStr,
                 meetingTime: game.meetingTime,
@@ -103,8 +101,7 @@ export function useCalendarEvents(
                 location:    game.location,
                 teamId:      isSuperAdmin.value ? game.team.id : undefined,
             });
-            info.event.setExtendedProp('game', updated);
-            recomputeCounts(calendarApi.value);
+            calendarApi.value?.refetchEvents();
             toast.add({ severity: 'success', summary: 'Match déplacé', life: 2000 });
         } catch {
             info.revert();
