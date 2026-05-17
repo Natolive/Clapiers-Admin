@@ -87,6 +87,7 @@ jobs:
       - name: Setup env frontend
         run: |
           echo 'NUXT_PUBLIC_API_BASE=https://clapiersvb.fr/api' > frontend/.env
+          echo 'NUXT_PUBLIC_RECAPTCHA_SITE_KEY=6LfHh-4sAAAAAEX2r_rk4ivvEUvxxYQ1ut9etJCc' >> frontend/.env
       - name: Build & Push frontend Docker image
         uses: docker/build-push-action@v5
         with:
