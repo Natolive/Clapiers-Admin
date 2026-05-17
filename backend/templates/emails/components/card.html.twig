@@ -1,0 +1,16 @@
+{#
+  White card with optional eyebrow label + free content.
+  Usage:
+    {% embed 'emails/components/card.html.twig' %}
+      {% block eyebrow %}Sujet{% endblock %}
+      {% block content %}<div>...</div>{% endblock %}
+    {% endembed %}
+#}
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:18px;">
+<tr><td style="background-color:#ffffff;border:1px solid rgba(0,0,0,0.06);border-radius:16px;padding:22px;box-shadow:0 4px 20px rgba(0,0,0,0.04);">
+{% if block('eyebrow') is not empty %}
+<div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.15em;color:#e63946;margin-bottom:10px;">{{ block('eyebrow') }}</div>
+{% endif %}
+{% block content %}{% endblock %}
+</td></tr>
+</table>

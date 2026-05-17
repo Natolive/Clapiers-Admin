@@ -116,6 +116,8 @@
               />
             </div>
 
+            <CommonRecaptcha ref="recaptcha" v-model="recaptchaToken" class="form-group" />
+
             <Button
               type="submit"
               label="Envoyer le message"
@@ -132,9 +134,14 @@
 
 <script setup lang="ts">
 const api = usePublicApi()
+const config = useRuntimeConfig()
+const recaptchaEnabled = !!config.public.recaptchaSiteKey
+
 const sending = ref(false)
 const success = ref(false)
 const error = ref('')
+const recaptchaToken = ref('')
+const recaptcha = ref<{ reset: () => void } | null>(null)
 
 const form = ref({
   firstName: '',
@@ -167,6 +174,11 @@ const handleSubmit = async () => {
     return
   }
 
+  if (recaptchaEnabled && !recaptchaToken.value) {
+    error.value = 'Veuillez valider le captcha'
+    return
+  }
+
   sending.value = true
   error.value = ''
   success.value = false
@@ -179,13 +191,16 @@ const handleSubmit = async () => {
         lastName: form.value.lastName,
         email: form.value.email,
         subject: form.value.subject,
-        message: form.value.message
+        message: form.value.message,
+        recaptchaToken: recaptchaToken.value
       }
     })
     success.value = true
     resetForm()
+    recaptcha.value?.reset()
   } catch (e: any) {
     error.value = e?.data?.message || 'Une erreur est survenue. Veuillez réessayer.'
+    recaptcha.value?.reset()
   } finally {
     sending.value = false
   }

@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light only">
+<meta name="supported-color-schemes" content="light">
+<title>{% block title %}Clapiers Volley Ball{% endblock %}</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f8f9fa;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#1a1a2e;-webkit-font-smoothing:antialiased;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f8f9fa;padding:32px 16px;">
+<tr><td align="center">
+<table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;width:100%;background-color:#ffffff;border-radius:20px;overflow:hidden;box-shadow:0 20px 60px rgba(30,58,95,0.18);">
+
+<tr><td style="background-color:#1e3a5f;background-image:linear-gradient(135deg,#1e3a5f 0%,#2d5a87 100%);padding:48px 40px 44px;color:#ffffff;">
+
+<table role="presentation" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td style="vertical-align:middle;padding-right:14px;">
+<img src="https://clapiersvb.fr/logo.png" alt="Clapiers Volley Ball" width="48" height="48" style="display:block;width:48px;height:48px;border:0;">
+</td>
+<td style="vertical-align:middle;color:#ffffff;font-weight:800;font-size:15px;line-height:1.1;letter-spacing:-0.01em;">
+<span style="color:#ffffff;">Clapiers</span><br><span style="color:#f4a261;">Volley Ball</span>
+</td>
+</tr>
+</table>
+
+{% if block('hero_eyebrow') is not empty %}
+<div style="margin-top:36px;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.15em;color:#f4a261;">{{ block('hero_eyebrow') }}</div>
+{% endif %}
+
+<h1 style="margin:10px 0 0;font-size:34px;line-height:1.1;color:#ffffff;font-weight:800;letter-spacing:-0.02em;">{% block hero_title %}{% endblock %}</h1>
+
+{% if block('hero_meta') is not empty %}
+<div style="margin-top:16px;color:#ffffff;">{{ block('hero_meta') }}</div>
+{% endif %}
+
+</td></tr>
+
+<tr><td style="padding:40px;">
+{% block body %}{% endblock %}
+</td></tr>
+
+<tr><td style="background-color:#1a1a2e;padding:32px 40px;color:#ffffff;">
+<table role="presentation" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td style="vertical-align:middle;padding-right:12px;">
+<img src="https://clapiersvb.fr/logo.png" alt="" width="36" height="36" style="display:block;width:36px;height:36px;border:0;">
+</td>
+<td style="vertical-align:middle;color:#ffffff;">
+<div style="font-size:14px;font-weight:700;color:#ffffff;line-height:1.2;">Clapiers Volley Ball</div>
+<div style="font-size:12px;color:#a9adba;margin-top:4px;">Depuis plus de 25 ans, le volleyball à Clapiers.</div>
+</td>
+</tr>
+</table>
+<div style="margin-top:20px;padding-top:16px;border-top:1px solid #2c2c44;font-size:11px;color:#a9adba;">
+{% block footer_note %}<span style="color:#a9adba;">Email envoyé via</span> <a href="https://clapiersvb.fr" style="color:#f4a261;text-decoration:none;">clapiersvb.fr</a>{% endblock %}
+</div>
+</td></tr>
+
+</table>
+</td></tr>
+</table>
+</body>
+</html>
