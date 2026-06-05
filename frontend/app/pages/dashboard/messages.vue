@@ -89,4 +89,16 @@ onMounted(async () => {
 .stat i {
   font-size: 1rem;
 }
+
+/* ── Mobile ──────────────────────────────────────── */
+@media (max-width: 640px) {
+  .page-header {
+    margin-bottom: 1rem;
+  }
+
+  .stat {
+    padding: 0.375rem 0.75rem;
+    font-size: 0.8125rem;
+  }
+}
 </style>

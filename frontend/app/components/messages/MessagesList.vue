@@ -26,7 +26,7 @@ defineProps<{
 
 <style scoped>
 .messages-list {
-  padding: 1rem 0;
+  padding: 0;
 }
 
 .empty-state {
@@ -52,6 +52,6 @@ defineProps<{
 .messages-grid {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 0.5rem;
 }
 </style>
