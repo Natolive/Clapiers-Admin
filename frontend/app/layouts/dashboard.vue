@@ -121,101 +121,28 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { computed } from 'vue';
 import { useAuthStore } from '~/stores/auth.store';
 import DialogContainer from '~/components/common/DialogContainer.vue';
-import { AppUserRole } from '~/types/entity/AppUser';
-
-type MenuItem = {
-  label: string;
-  icon: string;
-  route?: string;
-  command?: () => void;
-  items?: MenuItem[];
-};
-
-const SIDEBAR_FULL = '15rem';
-const SIDEBAR_COLLAPSED = '4rem';
 
 const authStore = useAuthStore();
 const route = useRoute();
-const { isSuperAdmin, isAdmin, hasRole } = useUserRole();
+const { isSuperAdmin, isAdmin } = useUserRole();
 
-const sidebarVisible = ref(false);
-const sidebarCollapsed = ref(true);
-const sidebarHovered = ref(false);
-const isDesktop = ref(false);
-const currentTime = ref('');
-let timeInterval: ReturnType<typeof setInterval> | null = null;
+const {
+  sidebarVisible,
+  sidebarCollapsed,
+  sidebarHovered,
+  isDesktop,
+  isCollapsedOnly,
+  mainStyle,
+  closeSidebarOnMobile,
+  handleSidebarMouseEnter,
+  handleSidebarMouseLeave
+} = useSidebar();
 
-const isCollapsedOnly = computed(() => sidebarCollapsed.value && isDesktop.value && !sidebarHovered.value);
-
-// Reactive margin avoids CSS sibling selector issues in scoped styles
-const mainStyle = computed(() => {
-  if (!isDesktop.value) return { marginLeft: '0' };
-  return { marginLeft: isCollapsedOnly.value ? SIDEBAR_COLLAPSED : SIDEBAR_FULL };
-});
-
-const closeSidebarOnMobile = () => {
-  if (window.innerWidth < 1024) sidebarVisible.value = false;
-};
-
-const handleSidebarMouseEnter = () => {
-  if (window.innerWidth >= 1024 && sidebarCollapsed.value) sidebarHovered.value = true;
-};
-const handleSidebarMouseLeave = () => {
-  sidebarHovered.value = false;
-};
-
-const navigationItems = computed<MenuItem[]>(() => {
-  const items: MenuItem[] = [
-    { label: 'Calendrier', icon: 'pi pi-calendar', route: '/dashboard/calendar', command: () => { navigateTo('/dashboard/calendar'); closeSidebarOnMobile(); } },
-  ];
-
-  if (isSuperAdmin.value) {
-    items.unshift({ label: 'Tableau de bord', icon: 'pi pi-home', route: '/dashboard', command: () => { navigateTo('/dashboard'); closeSidebarOnMobile(); } });
-  }
-
-  if (isAdmin.value) {
-    items.push({ label: 'Mon équipe', icon: 'pi pi-users', route: '/dashboard/my-team', command: () => { navigateTo('/dashboard/my-team'); closeSidebarOnMobile(); } });
-  }
-
-  if (hasRole(AppUserRole.VIEW_MESSAGE)) {
-    items.push({
-      label: 'Messages',
-      icon: 'pi pi-envelope',
-      route: '/dashboard/messages',
-      command: () => { navigateTo('/dashboard/messages'); closeSidebarOnMobile(); }
-    });
-  }
-
-  if (isSuperAdmin.value) {
-    items.push({
-      label: 'Paramètres',
-      icon: 'pi pi-cog',
-      items: [
-        { label: 'Utilisateurs', icon: 'pi pi-users', route: '/dashboard/settings/users', command: () => { navigateTo('/dashboard/settings/users'); closeSidebarOnMobile(); } },
-        { label: 'Équipes', icon: 'pi pi-sitemap', route: '/dashboard/settings/teams', command: () => { navigateTo('/dashboard/settings/teams'); closeSidebarOnMobile(); } },
-        { label: 'Licenciés', icon: 'pi pi-id-card', route: '/dashboard/settings/members', command: () => { navigateTo('/dashboard/settings/members'); closeSidebarOnMobile(); } },
-      ]
-    });
-  }
-
-  return items;
-});
-
-const pageTitle = computed(() => {
-  let found = navigationItems.value.find(i => i.route === route.path);
-  if (!found) {
-    for (const item of navigationItems.value) {
-      if (item.items) {
-        found = item.items.find(s => s.route === route.path);
-        if (found) break;
-      }
-    }
-  }
-  return found?.label || 'Tableau de bord';
-});
+const { navigationItems, pageTitle } = useDashboardNav(closeSidebarOnMobile);
+const { currentTime } = useClock();
 
 const userName = computed(() => authStore.user?.email?.split('@')[0] ?? 'Utilisateur');
 const userInitials = computed(() => userName.value.slice(0, 2).toUpperCase());
@@ -226,30 +153,6 @@ const userRoleLabel = computed(() => {
 });
 
 const handleLogout = () => authStore.logout();
-
-const handleResize = () => {
-  isDesktop.value = window.innerWidth >= 1024;
-  sidebarVisible.value = isDesktop.value;
-};
-
-const updateTime = () => {
-  currentTime.value = new Date().toLocaleTimeString('fr-FR', {
-    hour: '2-digit', minute: '2-digit', second: '2-digit'
-  });
-};
-
-onMounted(() => {
-  isDesktop.value = window.innerWidth >= 1024;
-  sidebarVisible.value = isDesktop.value;
-  window.addEventListener('resize', handleResize);
-  updateTime();
-  timeInterval = setInterval(updateTime, 1000);
-});
-
-onUnmounted(() => {
-  window.removeEventListener('resize', handleResize);
-  if (timeInterval) clearInterval(timeInterval);
-});
 </script>
 
 <style scoped>
