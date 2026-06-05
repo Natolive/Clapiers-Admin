@@ -58,7 +58,6 @@
                 <span class="nav-indicator"></span>
                 <i :class="item.icon" class="nav-icon"></i>
                 <span class="nav-text">{{ item.label }}</span>
-                <span v-if="item.badge" class="nav-badge">{{ item.badge }}</span>
               </a>
             </template>
 
@@ -126,7 +125,6 @@ import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useAuthStore } from '~/stores/auth.store';
 import DialogContainer from '~/components/common/DialogContainer.vue';
 import { AppUserRole } from '~/types/entity/AppUser';
-import { ContactMessageRepository } from '~/repository/contact-message-repository';
 
 type MenuItem = {
   label: string;
@@ -134,8 +132,6 @@ type MenuItem = {
   route?: string;
   command?: () => void;
   items?: MenuItem[];
-  badge?: string;
-  badgeSeverity?: string;
 };
 
 const SIDEBAR_FULL = '15rem';
@@ -150,9 +146,7 @@ const sidebarCollapsed = ref(true);
 const sidebarHovered = ref(false);
 const isDesktop = ref(false);
 const currentTime = ref('');
-const unreadMessagesCount = ref(0);
 let timeInterval: ReturnType<typeof setInterval> | null = null;
-let messagesInterval: ReturnType<typeof setInterval> | null = null;
 
 const isCollapsedOnly = computed(() => sidebarCollapsed.value && isDesktop.value && !sidebarHovered.value);
 
@@ -187,16 +181,12 @@ const navigationItems = computed<MenuItem[]>(() => {
   }
 
   if (hasRole(AppUserRole.VIEW_MESSAGE)) {
-    const msg: MenuItem = {
+    items.push({
       label: 'Messages',
       icon: 'pi pi-envelope',
       route: '/dashboard/messages',
       command: () => { navigateTo('/dashboard/messages'); closeSidebarOnMobile(); }
-    };
-    if (unreadMessagesCount.value > 0) {
-      msg.badge = String(unreadMessagesCount.value);
-    }
-    items.push(msg);
+    });
   }
 
   if (isSuperAdmin.value) {
@@ -248,29 +238,17 @@ const updateTime = () => {
   });
 };
 
-const fetchUnreadMessages = async () => {
-  if (!hasRole(AppUserRole.VIEW_MESSAGE)) return;
-  try {
-    const repo = new ContactMessageRepository();
-    const result = await repo.countUnread();
-    unreadMessagesCount.value = result.count;
-  } catch {}
-};
-
-onMounted(async () => {
+onMounted(() => {
   isDesktop.value = window.innerWidth >= 1024;
   sidebarVisible.value = isDesktop.value;
   window.addEventListener('resize', handleResize);
   updateTime();
   timeInterval = setInterval(updateTime, 1000);
-  await fetchUnreadMessages();
-  messagesInterval = setInterval(fetchUnreadMessages, 30000);
 });
 
 onUnmounted(() => {
   window.removeEventListener('resize', handleResize);
   if (timeInterval) clearInterval(timeInterval);
-  if (messagesInterval) clearInterval(messagesInterval);
 });
 </script>
 
@@ -425,20 +403,6 @@ onUnmounted(() => {
   transition: opacity 0.2s ease;
 }
 
-.nav-badge {
-  margin-left: auto;
-  background: #ef4444;
-  color: white;
-  font-size: 0.6875rem;
-  font-weight: 700;
-  font-family: 'JetBrains Mono', monospace;
-  padding: 0.1rem 0.4rem;
-  border-radius: 999px;
-  min-width: 1.25rem;
-  text-align: center;
-  flex-shrink: 0;
-}
-
 .nav-group-label {
   display: flex;
   align-items: center;
@@ -560,7 +524,6 @@ onUnmounted(() => {
   /* hide text elements */
   .sidebar--collapsed:not(.sidebar--hovered) .brand-text,
   .sidebar--collapsed:not(.sidebar--hovered) .nav-text,
-  .sidebar--collapsed:not(.sidebar--hovered) .nav-badge,
   .sidebar--collapsed:not(.sidebar--hovered) .user-info,
   .sidebar--collapsed:not(.sidebar--hovered) .logout-btn {
     opacity: 0;

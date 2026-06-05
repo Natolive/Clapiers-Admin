@@ -1,5 +1,3 @@
-import type { AppUser } from './AppUser';
-
 export type ContactMessage = {
     id: number;
     firstName: string;
@@ -7,9 +5,6 @@ export type ContactMessage = {
     email: string;
     subject: string;
     message: string;
-    isRead: boolean;
-    readBy: AppUser | null;
-    readAt: string | null;
     createdAt: string;
     updatedAt: string;
 };

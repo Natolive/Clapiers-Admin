@@ -5,7 +5,6 @@ namespace App\Entity;
 use App\Entity\Trait\IdTrait;
 use App\Entity\Trait\TimestampableTrait;
 use App\Repository\ContactMessageRepository;
-use DateTimeImmutable;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 
@@ -30,16 +29,6 @@ class ContactMessage
 
     #[ORM\Column(type: Types::TEXT)]
     private string $message;
-
-    #[ORM\Column]
-    private bool $isRead = false;
-
-    #[ORM\ManyToOne(targetEntity: AppUser::class)]
-    #[ORM\JoinColumn(nullable: true)]
-    private ?AppUser $readBy = null;
-
-    #[ORM\Column(type: Types::DATETIME_IMMUTABLE, nullable: true)]
-    private ?DateTimeImmutable $readAt = null;
 
     public function getFirstName(): string
     {
@@ -101,39 +90,6 @@ class ContactMessage
         return $this;
     }
 
-    public function isRead(): bool
-    {
-        return $this->isRead;
-    }
-
-    public function getReadBy(): ?AppUser
-    {
-        return $this->readBy;
-    }
-
-    public function getReadAt(): ?DateTimeImmutable
-    {
-        return $this->readAt;
-    }
-
-    public function markAsRead(AppUser $user): static
-    {
-        $this->isRead = true;
-        $this->readBy = $user;
-        $this->readAt = new DateTimeImmutable('now');
-
-        return $this;
-    }
-
-    public function markAsUnread(): static
-    {
-        $this->isRead = false;
-        $this->readBy = null;
-        $this->readAt = null;
-
-        return $this;
-    }
-
     public function toArray(): array
     {
         return [
@@ -143,9 +99,6 @@ class ContactMessage
             'email' => $this->getEmail(),
             'subject' => $this->getSubject(),
             'message' => $this->getMessage(),
-            'isRead' => $this->isRead(),
-            'readBy' => $this->getReadBy()?->toArray(),
-            'readAt' => $this->getReadAt()?->format(DATE_ATOM),
             'createdAt' => $this->getCreatedAt()?->format(DATE_ATOM),
             'updatedAt' => $this->getUpdatedAt()?->format(DATE_ATOM),
         ];

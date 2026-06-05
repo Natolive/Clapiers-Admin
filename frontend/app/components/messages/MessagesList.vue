@@ -10,8 +10,6 @@
         v-for="message in messages"
         :key="message.id"
         :message="message"
-        :can-confirm="canConfirm"
-        @mark-as-read="$emit('markAsRead', message)"
       />
     </div>
   </div>
@@ -23,11 +21,6 @@ import type { ContactMessage } from '~/types/entity/ContactMessage';
 
 defineProps<{
   messages: ContactMessage[];
-  canConfirm: boolean;
-}>();
-
-defineEmits<{
-  markAsRead: [message: ContactMessage];
 }>();
 </script>
 

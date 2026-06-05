@@ -2,10 +2,6 @@
   <div class="messages-page">
     <div class="page-header">
       <div class="header-stats" v-if="!loading">
-        <span class="stat unread" v-if="unreadCount > 0">
-          <i class="pi pi-envelope"></i>
-          {{ unreadCount }} non lu{{ unreadCount > 1 ? 's' : '' }}
-        </span>
         <span class="stat total">
           <i class="pi pi-inbox"></i>
           {{ allMessages.length }} message{{ allMessages.length > 1 ? 's' : '' }}
@@ -15,40 +11,7 @@
 
     <SkeletonLoader v-if="loading" type="list" />
 
-    <template v-else>
-      <Tabs v-model:value="activeTab">
-        <TabList>
-          <Tab value="unread">
-            <span class="tab-header">
-              <i class="pi pi-envelope"></i>
-              Non lus
-              <Badge v-if="unreadMessages.length > 0" :value="unreadMessages.length" severity="danger" />
-            </span>
-          </Tab>
-          <Tab value="read">
-            <span class="tab-header">
-              <i class="pi pi-check-circle"></i>
-              Lus
-            </span>
-          </Tab>
-        </TabList>
-        <TabPanels>
-          <TabPanel value="unread">
-            <MessagesList
-              :messages="unreadMessages"
-              :can-confirm="canConfirm"
-              @mark-as-read="handleMarkAsRead"
-            />
-          </TabPanel>
-          <TabPanel value="read">
-            <MessagesList
-              :messages="readMessages"
-              :can-confirm="false"
-            />
-          </TabPanel>
-        </TabPanels>
-      </Tabs>
-    </template>
+    <MessagesList v-else :messages="allMessages" />
   </div>
 </template>
 
@@ -71,23 +34,9 @@ useHead({ title: 'Messages' });
 const { hasRole } = useUserRole();
 const repository = new ContactMessageRepository();
 const loading = ref(true);
-const activeTab = ref('unread');
 const allMessages = ref<ContactMessage[]>([]);
 
 const canViewMessages = computed(() => hasRole(AppUserRole.VIEW_MESSAGE));
-const canConfirm = computed(() => hasRole(AppUserRole.CONFIRM_MESSAGE));
-
-const unreadMessages = computed(() => allMessages.value.filter(m => !m.isRead));
-const readMessages = computed(() => allMessages.value.filter(m => m.isRead));
-const unreadCount = computed(() => unreadMessages.value.length);
-
-const handleMarkAsRead = async (message: ContactMessage) => {
-  const updated = await repository.markAsRead(message.id);
-  const index = allMessages.value.findIndex(m => m.id === message.id);
-  if (index !== -1) {
-    allMessages.value[index] = updated;
-  }
-};
 
 onMounted(async () => {
   if (!canViewMessages.value) {
@@ -137,22 +86,7 @@ onMounted(async () => {
   color: var(--p-text-muted-color);
 }
 
-.stat.unread {
-  background: #fef2f2;
-  color: #dc2626;
-}
-
 .stat i {
   font-size: 1rem;
-}
-
-.tab-header {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.tab-header :deep(.p-badge) {
-  margin-left: 0.25rem;
 }
 </style>

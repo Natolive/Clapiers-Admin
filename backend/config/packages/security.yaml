@@ -9,10 +9,9 @@ security:
                 property: email # or 'username' depending on your field
 
     role_hierarchy:
-        ROLE_SUPER_ADMIN: [ROLE_ADMIN, ROLE_VIEW_MESSAGE, ROLE_CONFIRM_MESSAGE, ROLE_USER]
+        ROLE_SUPER_ADMIN: [ROLE_ADMIN, ROLE_VIEW_MESSAGE, ROLE_USER]
         ROLE_ADMIN: [ROLE_USER]
         ROLE_VIEW_MESSAGE: [ROLE_USER]
-        ROLE_CONFIRM_MESSAGE: [ROLE_VIEW_MESSAGE]
 
     firewalls:
         dev:
