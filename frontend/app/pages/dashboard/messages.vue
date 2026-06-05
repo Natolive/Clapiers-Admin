@@ -56,7 +56,11 @@ useHead({ title: 'Messages' });
 const { messages, total, search, loading, loadingMore, loadFirstPage, loadMore } = useContactMessages();
 
 const sentinel = ref<HTMLElement | null>(null);
-useInfiniteScroll(sentinel, loadMore);
+const { recheck } = useInfiniteScroll(sentinel, loadMore);
+
+// If the appended page doesn't push the sentinel off-screen (short search
+// results, tall viewport), re-trigger loading until the screen is filled
+watch(() => messages.value.length, () => nextTick(recheck), { flush: 'post' });
 
 const emptyLabel = computed(() =>
   search.value ? `Aucun message pour « ${search.value.trim()} »` : 'Aucun message'
