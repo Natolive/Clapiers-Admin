@@ -1,25 +1,47 @@
 <template>
   <div class="messages-page">
+
+    <!-- Header: search + total -->
     <div class="page-header">
-      <div class="header-stats" v-if="!loading">
-        <span class="stat total">
-          <i class="pi pi-inbox"></i>
-          {{ allMessages.length }} message{{ allMessages.length > 1 ? 's' : '' }}
-        </span>
+      <div class="search-box">
+        <i class="pi pi-search search-icon"></i>
+        <input
+          v-model="search"
+          type="text"
+          class="search-input"
+          placeholder="Rechercher par nom ou prénom..."
+          aria-label="Rechercher un message par nom ou prénom"
+        />
+        <button v-if="search" class="search-clear" aria-label="Effacer la recherche" @click="search = ''">
+          <i class="pi pi-times"></i>
+        </button>
       </div>
+
+      <span v-if="!loading" class="stat">
+        <i class="pi pi-inbox"></i>
+        {{ total }} message{{ total > 1 ? 's' : '' }}
+      </span>
     </div>
 
     <SkeletonLoader v-if="loading" type="list" />
 
-    <MessagesList v-else :messages="allMessages" />
+    <template v-else>
+      <MessagesList
+        :messages="messages"
+        :empty-label="emptyLabel"
+      />
+
+      <!-- Infinite scroll sentinel -->
+      <div ref="sentinel" class="scroll-sentinel" aria-hidden="true">
+        <i v-if="loadingMore" class="pi pi-spin pi-spinner"></i>
+      </div>
+    </template>
   </div>
 </template>
 
 <script setup lang="ts">
 import SkeletonLoader from '~/components/common/skeleton/SkeletonLoader.vue';
 import MessagesList from '~/components/messages/MessagesList.vue';
-import { ContactMessageRepository } from '~/repository/contact-message-repository';
-import type { ContactMessage } from '~/types/entity/ContactMessage';
 import { AppUserRole } from '~/types/entity/AppUser';
 
 definePageMeta({
@@ -31,25 +53,16 @@ definePageMeta({
 
 useHead({ title: 'Messages' });
 
-const { hasRole } = useUserRole();
-const repository = new ContactMessageRepository();
-const loading = ref(true);
-const allMessages = ref<ContactMessage[]>([]);
+const { messages, total, search, loading, loadingMore, loadFirstPage, loadMore } = useContactMessages();
 
-const canViewMessages = computed(() => hasRole(AppUserRole.VIEW_MESSAGE));
+const sentinel = ref<HTMLElement | null>(null);
+useInfiniteScroll(sentinel, loadMore);
 
-onMounted(async () => {
-  if (!canViewMessages.value) {
-    await navigateTo('/dashboard');
-    return;
-  }
+const emptyLabel = computed(() =>
+  search.value ? `Aucun message pour « ${search.value.trim()} »` : 'Aucun message'
+);
 
-  try {
-    allMessages.value = await repository.getAll();
-  } finally {
-    loading.value = false;
-  }
-});
+onMounted(loadFirstPage);
 </script>
 
 <style scoped>
@@ -57,24 +70,89 @@ onMounted(async () => {
   padding: 0;
 }
 
+/* ── Header ──────────────────────────────────────── */
 .page-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 1.5rem;
-}
-
-.page-header h1 {
-  margin: 0;
-  font-size: 1.5rem;
-  font-weight: 600;
-}
-
-.header-stats {
-  display: flex;
   gap: 1rem;
+  margin-bottom: 1.5rem;
+  animation: slide-down 0.3s ease;
 }
 
+@keyframes slide-down {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ── Search ──────────────────────────────────────── */
+.search-box {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: 1;
+  max-width: 22rem;
+}
+
+.search-icon {
+  position: absolute;
+  left: 0.875rem;
+  font-size: 0.875rem;
+  color: var(--p-text-muted-color);
+  pointer-events: none;
+}
+
+.search-input {
+  width: 100%;
+  padding: 0.625rem 2.5rem;
+  border: 1px solid var(--p-surface-border);
+  border-radius: 8px;
+  background: var(--p-surface-card);
+  font: inherit;
+  font-size: 0.875rem;
+  color: var(--p-text-color);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.search-input::placeholder {
+  color: var(--p-text-muted-color);
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: var(--p-primary-color);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--p-primary-color) 15%, transparent);
+}
+
+.search-clear {
+  position: absolute;
+  right: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--p-text-muted-color);
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.search-clear:hover {
+  background: var(--p-surface-hover);
+  color: var(--p-text-color);
+}
+
+/* ── Stat ────────────────────────────────────────── */
 .stat {
   display: flex;
   align-items: center;
@@ -84,10 +162,22 @@ onMounted(async () => {
   border-radius: 8px;
   font-size: 0.875rem;
   color: var(--p-text-muted-color);
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .stat i {
   font-size: 1rem;
+}
+
+/* ── Infinite scroll sentinel ────────────────────── */
+.scroll-sentinel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 3rem;
+  color: var(--p-text-muted-color);
+  font-size: 1.125rem;
 }
 
 /* ── Mobile ──────────────────────────────────────── */
@@ -96,8 +186,12 @@ onMounted(async () => {
     margin-bottom: 1rem;
   }
 
+  .search-box {
+    max-width: none;
+  }
+
   .stat {
-    padding: 0.375rem 0.75rem;
+    padding: 0.375rem 0.625rem;
     font-size: 0.8125rem;
   }
 }

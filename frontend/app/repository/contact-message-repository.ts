@@ -1,4 +1,11 @@
 import type { ContactMessage } from "~/types/entity/ContactMessage";
+import type { PaginatedResult } from "~/types/custom/Pagination";
+
+export interface ContactMessagePaginationParams {
+    page: number;
+    limit: number;
+    search?: string;
+}
 
 export class ContactMessageRepository {
     private api = useApi()
@@ -10,9 +17,14 @@ export class ContactMessageRepository {
         });
     }
 
-    async getAll(): Promise<ContactMessage[]> {
-        return await this.api<ContactMessage[]>('/contact-message', {
-            method: 'GET'
+    async getPaginated(params: ContactMessagePaginationParams): Promise<PaginatedResult<ContactMessage>> {
+        return await this.api<PaginatedResult<ContactMessage>>('/contact-message', {
+            method: 'GET',
+            params: {
+                page: params.page,
+                limit: params.limit,
+                ...(params.search ? { search: params.search } : {}),
+            }
         });
     }
 }

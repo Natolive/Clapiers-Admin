@@ -16,13 +16,17 @@
       </span>
     </button>
 
-    <!-- Expanded content -->
-    <div v-if="expanded" class="message-body">
-      <a :href="`mailto:${message.email}`" class="message-email">
-        <i class="pi pi-envelope"></i>
-        {{ message.email }}
-      </a>
-      <div class="message-content" v-html="sanitizedMessage"></div>
+    <!-- Expanded content (animated height) -->
+    <div class="message-body-wrap" :class="{ 'message-body-wrap--open': expanded }">
+      <div class="message-body">
+        <div class="message-body__inner">
+          <a :href="`mailto:${message.email}`" class="message-email">
+            <i class="pi pi-envelope"></i>
+            {{ message.email }}
+          </a>
+          <div class="message-content" v-html="sanitizedMessage"></div>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -71,7 +75,12 @@ const sanitizedMessage = computed(() => {
   border: 1px solid var(--p-surface-border);
   border-radius: 10px;
   overflow: hidden;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.message-item:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 }
 
 .message-item--open {
@@ -161,8 +170,23 @@ const sanitizedMessage = computed(() => {
   transform: rotate(180deg);
 }
 
-/* ── Expanded body ───────────────────────────────── */
+/* ── Expanded body (grid-rows height animation) ──── */
+.message-body-wrap {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.3s ease;
+}
+
+.message-body-wrap--open {
+  grid-template-rows: 1fr;
+}
+
 .message-body {
+  overflow: hidden;
+  min-height: 0;
+}
+
+.message-body__inner {
   padding: 0 1rem 1rem;
   display: flex;
   flex-direction: column;
@@ -239,7 +263,7 @@ const sanitizedMessage = computed(() => {
     content: ' · ' attr(data-date);
   }
 
-  .message-body {
+  .message-body__inner {
     padding: 0 0.75rem 0.75rem;
   }
 
