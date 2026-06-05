@@ -111,6 +111,7 @@ import { GameRepository } from '~/repository/game-repository';
 import type { Game, CreateUpdateGameDto } from '~/types/entity/Game';
 import type { Team } from '~/types/entity/Team';
 import { GameVenue, GameVenueOptions } from '~/types/enum/GameVenue';
+import { MAX_HOME_GAMES_PER_DAY, toDateKey } from '~/utils/calendarRules';
 
 const props = defineProps<{
     visible: boolean;
@@ -137,25 +138,19 @@ const isEdit = computed(() => !!props.game?.id);
 
 const homeCountWarning = computed(() => {
     if (form.value.venue !== GameVenue.HOME || !form.value.date) return null;
-    const y = form.value.date.getFullYear();
-    const m = String(form.value.date.getMonth() + 1).padStart(2, '0');
-    const d = String(form.value.date.getDate()).padStart(2, '0');
-    const dateKey = `${y}-${m}-${d}`;
+    const dateKey = toDateKey(form.value.date);
     const total = props.homeCountByDate?.[dateKey] ?? 0;
     // When editing a home game on the same date, don't count itself
     const isSameDayHomeEdit = isEdit.value && props.game?.venue === GameVenue.HOME && props.game?.date === dateKey;
     const effective = isSameDayHomeEdit ? total - 1 : total;
-    if (effective >= 3) return 'Journée complète — 3 matchs à domicile déjà planifiés.';
-    if (effective === 2) return `Attention — 2/3 matchs à domicile ce jour.`;
+    if (effective >= MAX_HOME_GAMES_PER_DAY) return `Journée complète — ${MAX_HOME_GAMES_PER_DAY} matchs à domicile déjà planifiés.`;
+    if (effective === MAX_HOME_GAMES_PER_DAY - 1) return `Attention — ${effective}/${MAX_HOME_GAMES_PER_DAY} matchs à domicile ce jour.`;
     return null;
 });
 
 const teamLimitWarning = computed(() => {
     if (!form.value.date) return null;
-    const y = form.value.date.getFullYear();
-    const m = String(form.value.date.getMonth() + 1).padStart(2, '0');
-    const d = String(form.value.date.getDate()).padStart(2, '0');
-    const dateKey = `${y}-${m}-${d}`;
+    const dateKey = toDateKey(form.value.date);
     const teamId = isSuperAdmin.value ? form.value.teamId : props.userTeamId;
     if (!teamId) return null;
     const existingGameId = props.teamDateMap?.[`${dateKey}|${teamId}`];

@@ -33,16 +33,19 @@
         </div>
 
         <div class="cal-toolbar__actions">
-            <Select
+            <MultiSelect
                 v-if="!readonly && teams.length > 1"
                 class="cal-team-select"
-                :model-value="selectedTeamId"
-                :options="[{ id: null, name: 'Toutes les équipes' }, ...teams]"
+                :model-value="selectedTeamIds"
+                :options="teams"
                 option-label="name"
                 option-value="id"
                 placeholder="Toutes les équipes"
                 size="small"
-                style="min-width: 12rem"
+                display="chip"
+                :max-selected-labels="2"
+                :selected-items-label="'{0} équipes'"
+                show-clear
                 @update:model-value="onTeamChange"
             />
             <template v-if="!readonly">
@@ -67,14 +70,13 @@ import type { Team } from '~/types/entity/Team';
 
 export type CalendarViewType = 'dayGridMonth' | 'multiMonthYear' | 'listYear';
 
-const { isSuperAdmin } = useUserRole();
-
 const props = defineProps<{
     title: string;
     activeView: CalendarViewType;
     readonly: boolean;
+    isSuperAdmin: boolean;
     teams: Team[];
-    selectedTeamId: number | null;
+    selectedTeamIds: number[];
 }>();
 
 const emit = defineEmits<{
@@ -82,16 +84,16 @@ const emit = defineEmits<{
     next: [];
     today: [];
     switchView: [view: CalendarViewType];
-    'update:selectedTeamId': [id: number | null];
+    'update:selectedTeamIds': [ids: number[]];
     teamChange: [];
     openCreate: [];
     openImport: [];
 }>();
 
-// Met à jour le teamId dans le parent AVANT d'émettre teamChange
+// Met à jour les teamIds dans le parent AVANT d'émettre teamChange
 // pour que refetchEvents lise la nouvelle valeur
-const onTeamChange = (value: number | null) => {
-    emit('update:selectedTeamId', value);
+const onTeamChange = (value: number[] | null) => {
+    emit('update:selectedTeamIds', value ?? []);
     emit('teamChange');
 };
 </script>
@@ -132,14 +134,26 @@ const onTeamChange = (value: number | null) => {
     gap: 0.25rem;
 }
 
+.cal-team-select {
+    min-width: 12rem;
+    max-width: 16rem;
+}
+
 .cal-add-btn--icon { display: none; }
 
 @media (max-width: 768px) {
     .cal-view-switcher { display: none; }
     .cal-toolbar { gap: 0.5rem; }
     .cal-toolbar__title { font-size: 0.95rem; }
-    .cal-team-select { display: none; }
     .cal-add-btn { display: none; }
     .cal-add-btn--icon { display: inline-flex; }
+
+    /* Team filter stays usable on mobile: full-width row below the toolbar */
+    .cal-team-select {
+        order: 10;
+        flex-basis: 100%;
+        min-width: 0;
+        max-width: none;
+    }
 }
 </style>

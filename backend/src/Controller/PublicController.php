@@ -8,6 +8,7 @@ use App\Entity\Enum\MemberNationality;
 use App\Repository\GameRepository;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpKernel\Attribute\MapQueryString;
 use Symfony\Component\HttpKernel\Attribute\MapRequestPayload;
 use Symfony\Component\Routing\Attribute\Route;
 
@@ -38,11 +39,27 @@ class PublicController extends AbstractController
 
     #[Route('/games', name: 'games', methods: ['GET'])]
     public function games(
-        #[MapQueryString] \App\Controller\Input\GetGamesInput $input,
+        #[MapQueryString] Input\GetGamesInput $input,
         GameRepository $gameRepository
     ): Response {
-        $games = $gameRepository->findAllByDateRange($input->start, $input->end);
+        // Public endpoint: never serve an unbounded range (missing or invalid
+        // params fall back to a +/- 1 year window around today)
+        $start = $this->parseDate($input->start) ?? new \DateTimeImmutable('-1 year');
+        $end = $this->parseDate($input->end) ?? new \DateTimeImmutable('+1 year');
+
+        $games = $gameRepository->findAllByDateRange($start->format('Y-m-d'), $end->format('Y-m-d'));
 
         return $this->json(array_map(fn ($g) => $g->toArray(), $games));
+    }
+
+    private function parseDate(?string $value): ?\DateTimeImmutable
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        $date = \DateTimeImmutable::createFromFormat('Y-m-d', substr($value, 0, 10));
+
+        return $date ?: null;
     }
 }
