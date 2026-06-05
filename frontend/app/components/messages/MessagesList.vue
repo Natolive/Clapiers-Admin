@@ -1,17 +1,20 @@
 <template>
   <div class="messages-list">
-    <div v-if="messages.length === 0" class="empty-state">
-      <i class="pi pi-inbox"></i>
-      <p>Aucun message</p>
-    </div>
+    <Transition name="fade" mode="out-in">
+      <div v-if="messages.length === 0" class="empty-state">
+        <i class="pi pi-inbox"></i>
+        <p>{{ emptyLabel }}</p>
+      </div>
 
-    <div v-else class="messages-grid">
-      <MessageCard
-        v-for="message in messages"
-        :key="message.id"
-        :message="message"
-      />
-    </div>
+      <TransitionGroup v-else name="list" tag="div" class="messages-grid" appear>
+        <MessageCard
+          v-for="(message, index) in messages"
+          :key="message.id"
+          :message="message"
+          :style="{ '--stagger': `${staggerDelay(index)}ms` }"
+        />
+      </TransitionGroup>
+    </Transition>
   </div>
 </template>
 
@@ -19,14 +22,27 @@
 import MessageCard from './MessageCard.vue';
 import type { ContactMessage } from '~/types/entity/ContactMessage';
 
-defineProps<{
+interface Props {
   messages: ContactMessage[];
-}>();
+  emptyLabel?: string;
+}
+
+withDefaults(defineProps<Props>(), {
+  emptyLabel: 'Aucun message'
+});
+
+const STAGGER_STEP_MS = 40;
+const STAGGER_MAX_ITEMS = 10;
+const PAGE_SIZE = 20;
+
+/** Staggered entrance: each batch of 20 restarts the cascade, capped at 10 items */
+const staggerDelay = (index: number): number =>
+  Math.min(index % PAGE_SIZE, STAGGER_MAX_ITEMS) * STAGGER_STEP_MS;
 </script>
 
 <style scoped>
 .messages-list {
-  padding: 1rem 0;
+  padding: 0;
 }
 
 .empty-state {
@@ -52,6 +68,27 @@ defineProps<{
 .messages-grid {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 0.5rem;
+}
+
+/* ── Animations ──────────────────────────────────── */
+.list-enter-active {
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  transition-delay: var(--stagger, 0ms);
+}
+
+.list-enter-from {
+  opacity: 0;
+  transform: translateY(10px);
+}
+
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.2s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
 }
 </style>
