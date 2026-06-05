@@ -14,24 +14,31 @@ import { TeamRepository } from '~/repository/team-repository';
 import { useAuthStore } from '~/stores/auth.store';
 import type { Team } from '~/types/entity/Team';
 import CalendarView from '~/components/calendar/CalendarView.vue';
+import type { CalendarFetchFn } from '~/composables/useCalendarEvents';
 
 definePageMeta({ middleware: 'auth-middleware', layout: 'dashboard' });
 useHead({ title: 'Calendrier' });
 
 const { isSuperAdmin } = useUserRole();
 const authStore = useAuthStore();
+const toast = usePVToastService();
 const gameRepository = new GameRepository();
 const teamRepository = new TeamRepository();
 
 const teams = ref<Team[]>([]);
 const userTeamId = computed(() => authStore.user?.member?.team?.id ?? null);
 
-const fetchFn = ({ start, end, teamId }: { start: string; end: string; teamId?: number | null }) =>
-    gameRepository.getAll({ start, end, teamId });
+const fetchFn: CalendarFetchFn = ({ start, end }) =>
+    gameRepository.getAll({ start, end });
 
 onMounted(async () => {
     if (isSuperAdmin.value) {
-        teams.value = await teamRepository.getAll().catch(() => []);
+        try {
+            teams.value = await teamRepository.getAll();
+        } catch {
+            teams.value = [];
+            toast.add({ severity: 'error', summary: 'Erreur', detail: 'Impossible de charger les équipes', life: 4000 });
+        }
     } else {
         const team = authStore.user?.member?.team;
         teams.value = team ? [team] : [];

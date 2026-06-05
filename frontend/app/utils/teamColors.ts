@@ -11,6 +11,7 @@ const PALETTE = [
     '#14b8a6', // teal
 ];
 
+// Note: colors repeat past 10 teams (modulo)
 export const getTeamColor = (teamId: number): string => {
-    return PALETTE[teamId % PALETTE.length];
+    return PALETTE[Math.abs(teamId) % PALETTE.length] ?? PALETTE[0]!;
 };

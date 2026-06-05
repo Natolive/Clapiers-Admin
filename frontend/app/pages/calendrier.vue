@@ -14,6 +14,8 @@
 
 <script setup lang="ts">
 import CalendarView from '~/components/calendar/CalendarView.vue';
+import type { CalendarFetchFn } from '~/composables/useCalendarEvents';
+import type { Game } from '~/types/entity/Game';
 
 definePageMeta({ layout: 'public' });
 useSeoMeta({
@@ -31,8 +33,8 @@ useHead({
 
 const config = useRuntimeConfig();
 
-const fetchFn = ({ start, end }: { start: string; end: string }) =>
-    $fetch<any[]>(`${config.public.apiBase}/public/games`, {
+const fetchFn: CalendarFetchFn = ({ start, end }) =>
+    $fetch<Game[]>(`${config.public.apiBase}/public/games`, {
         params: { start, end },
     });
 </script>

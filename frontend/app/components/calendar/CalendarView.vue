@@ -5,8 +5,9 @@
             :title="currentTitle"
             :active-view="activeView"
             :readonly="readonly"
+            :is-super-admin="isSuperAdmin"
             :teams="teams"
-            v-model:selected-team-id="selectedTeamId"
+            v-model:selected-team-ids="selectedTeamIds"
             @prev="calendarApi?.prev()"
             @next="calendarApi?.next()"
             @today="calendarApi?.today()"
@@ -23,9 +24,9 @@
                         <span
                             v-if="homeCountByDate[cellDateKey(arg.date)]"
                             class="fc-home-badge"
-                            :class="{ 'fc-home-badge--full': homeCountByDate[cellDateKey(arg.date)] >= 3 }"
+                            :class="{ 'fc-home-badge--full': (homeCountByDate[cellDateKey(arg.date)] ?? 0) >= MAX_HOME_GAMES_PER_DAY }"
                         >
-                            🏠 {{ homeCountByDate[cellDateKey(arg.date)] }}/3
+                            🏠 {{ homeCountByDate[cellDateKey(arg.date)] }}/{{ MAX_HOME_GAMES_PER_DAY }}
                         </span>
                         <span class="fc-daygrid-day-number">{{ arg.dayNumberText }}</span>
                     </div>
@@ -54,6 +55,7 @@
         <GameDetailDialog
             v-model:visible="detailDialog.visible"
             :game="detailDialog.game"
+            :readonly="readonly"
             @edit="handleEditGame"
             @deleted="handleGameDeleted"
         />
@@ -72,18 +74,19 @@ import frLocale from '@fullcalendar/core/locales/fr';
 import type { Game } from '~/types/entity/Game';
 import type { Team } from '~/types/entity/Team';
 import { GameVenue } from '~/types/enum/GameVenue';
+import { escapeHtml } from '~/utils/escapeHtml';
+import { MAX_HOME_GAMES_PER_DAY, isHomeDay, toDateKey } from '~/utils/calendarRules';
 import GameFormDialog from '~/components/calendar/GameFormDialog.vue';
 import GameDetailDialog from '~/components/calendar/GameDetailDialog.vue';
 import CalendarToolbar from '~/components/calendar/CalendarToolbar.vue';
 import CsvImportDialog from '~/components/calendar/CsvImportDialog.vue';
 import type { CalendarViewType } from '~/components/calendar/CalendarToolbar.vue';
 import { useCalendarEvents } from '~/composables/useCalendarEvents';
-
-type FetchFn = (params: { start: string; end: string; teamId?: number | null }) => Promise<Game[]>;
+import type { CalendarFetchFn } from '~/composables/useCalendarEvents';
 
 const props = withDefaults(defineProps<{
     readonly?: boolean;
-    fetchFn: FetchFn;
+    fetchFn: CalendarFetchFn;
     teams?: Team[];
     userTeamId?: number | null;
 }>(), {
@@ -101,7 +104,7 @@ const calendarWrapperRef = ref<HTMLElement | null>(null);
 const calendarApi = computed(() => calendarRef.value?.getApi());
 const currentTitle = ref('');
 const activeView = ref<CalendarViewType>('dayGridMonth');
-const selectedTeamId = ref<number | null>(null);
+const selectedTeamIds = ref<number[]>([]);
 
 // ── Events composable ─────────────────────────────────
 
@@ -116,7 +119,7 @@ const {
 } = useCalendarEvents(
     calendarApi,
     props.fetchFn,
-    selectedTeamId,
+    selectedTeamIds,
     computed(() => props.readonly),
     isSuperAdmin,
 );
@@ -147,12 +150,7 @@ const handleEditGame = (game: Game) => {
 
 // ── Helpers ───────────────────────────────────────────
 
-const cellDateKey = (date: Date): string => {
-    const y = date.getFullYear();
-    const m = String(date.getMonth() + 1).padStart(2, '0');
-    const d = String(date.getDate()).padStart(2, '0');
-    return `${y}-${m}-${d}`;
-};
+const cellDateKey = toDateKey;
 
 const isMobile = () => typeof window !== 'undefined' && window.innerWidth < 768;
 
@@ -163,7 +161,8 @@ const switchView = (view: CalendarViewType) => {
 
 // ── Calendar options ──────────────────────────────────
 
-const calendarOptions: CalendarOptions = {
+// Computed so that `readonly` stays reactive if it ever changes at runtime
+const calendarOptions = computed<CalendarOptions>(() => ({
     plugins: [dayGridPlugin, listPlugin, multiMonthPlugin, interactionPlugin],
     initialView: isMobile() ? 'listMonth' : 'dayGridMonth',
     locale: frLocale,
@@ -171,10 +170,8 @@ const calendarOptions: CalendarOptions = {
     editable: !props.readonly,
     selectable: !props.readonly,
     selectMirror: !props.readonly,
-    dayCellClassNames: (arg) => {
-        const day = arg.date.getDay();
-        return (day === 1 || day === 5) ? ['fc-home-day'] : [];
-    },
+    dayCellClassNames: (arg) => isHomeDay(arg.date) ? ['fc-home-day'] : [],
+    dayHeaderClassNames: (arg) => isHomeDay(arg.date) ? ['fc-home-col'] : [],
     dayMaxEvents: true,
     weekends: true,
     height: '100%',
@@ -184,8 +181,10 @@ const calendarOptions: CalendarOptions = {
         const game: Game = arg.event.extendedProps.game;
         const venue: string = game?.venue ?? '';
         const emoji = venue === GameVenue.HOME ? '🏠' : '✈️';
-        const teamName = game?.team?.name ?? '';
-        const opponent = game?.opponent ?? '';
+        // User-provided values MUST be escaped: this html is rendered raw,
+        // including on the public calendar page
+        const teamName = escapeHtml(game?.team?.name ?? '');
+        const opponent = escapeHtml(game?.opponent ?? '');
         return { html: `<div class="fc-event-inner"><div class="fc-event-main"><span class="fc-event-team">${teamName} vs.</span><span class="fc-event-opponent">${opponent}</span></div><span class="fc-event-venue">${emoji}</span></div>` };
     },
     windowResize: () => {
@@ -208,20 +207,28 @@ const calendarOptions: CalendarOptions = {
     datesSet: (info) => {
         currentTitle.value = info.view.title;
     },
-};
+}));
 
 // ── Lifecycle ─────────────────────────────────────────
 
 let resizeObserver: ResizeObserver | null = null;
+let resizeFrame = 0;
 
 onMounted(() => {
     if (calendarWrapperRef.value) {
-        resizeObserver = new ResizeObserver(() => calendarApi.value?.updateSize());
+        // Coalesce resize bursts (e.g. animated sidebar) into one update per frame
+        resizeObserver = new ResizeObserver(() => {
+            cancelAnimationFrame(resizeFrame);
+            resizeFrame = requestAnimationFrame(() => calendarApi.value?.updateSize());
+        });
         resizeObserver.observe(calendarWrapperRef.value);
     }
 });
 
-onUnmounted(() => resizeObserver?.disconnect());
+onUnmounted(() => {
+    resizeObserver?.disconnect();
+    cancelAnimationFrame(resizeFrame);
+});
 </script>
 
 <style scoped>
@@ -324,8 +331,9 @@ onUnmounted(() => resizeObserver?.disconnect());
     background: color-mix(in srgb, #f59e0b 18%, transparent);
 }
 
-:deep(.fc-col-header-cell:nth-child(1) .fc-col-header-cell-cushion),
-:deep(.fc-col-header-cell:nth-child(5) .fc-col-header-cell-cushion) {
+/* Home-day columns: class set by dayHeaderClassNames from HOME_DAYS,
+   single source of truth with the cell highlight above */
+:deep(.fc-col-header-cell.fc-home-col .fc-col-header-cell-cushion) {
     color: #f59e0b;
     font-weight: 700;
 }

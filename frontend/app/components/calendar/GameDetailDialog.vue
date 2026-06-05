@@ -65,7 +65,13 @@ import type { Game } from '~/types/entity/Game';
 import { getTeamColor } from '~/utils/teamColors';
 import { GameVenueLabels, GameVenue } from '~/types/enum/GameVenue';
 
-const props = defineProps<{ visible: boolean; game: Game | null }>();
+const props = withDefaults(defineProps<{
+    visible: boolean;
+    game: Game | null;
+    readonly?: boolean;
+}>(), {
+    readonly: false,
+});
 const emit = defineEmits<{
     'update:visible': [value: boolean];
     edit: [game: Game];
@@ -81,6 +87,9 @@ const deleting = ref(false);
 const teamColor = computed(() => props.game ? getTeamColor(props.game.team.id) : '#3b82f6');
 
 const canEdit = computed(() => {
+    // Never show write actions on a readonly calendar (e.g. public page),
+    // even for a logged-in admin browsing it
+    if (props.readonly) return false;
     if (isSuperAdmin.value) return true;
     return props.game?.team.id === authStore.user?.member?.team?.id;
 });

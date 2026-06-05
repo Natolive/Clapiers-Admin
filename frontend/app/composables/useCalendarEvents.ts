@@ -4,14 +4,15 @@ import type { CalendarApi, EventInput, EventDropArg, EventSourceFuncArg } from '
 import type { Game } from '~/types/entity/Game';
 import { GameVenue } from '~/types/enum/GameVenue';
 import { getTeamColor } from '~/utils/teamColors';
+import { toDateKey } from '~/utils/calendarRules';
 import { GameRepository } from '~/repository/game-repository';
 
-type FetchFn = (params: { start: string; end: string; teamId?: number | null }) => Promise<Game[]>;
+export type CalendarFetchFn = (params: { start: string; end: string }) => Promise<Game[]>;
 
 export function useCalendarEvents(
     calendarApi: ComputedRef<CalendarApi | undefined>,
-    fetchFn: FetchFn,
-    selectedTeamId: Ref<number | null>,
+    fetchFn: CalendarFetchFn,
+    selectedTeamIds: Ref<number[]>,
     isReadonly: Ref<boolean>,
     isSuperAdmin: Ref<boolean>,
 ) {
@@ -35,6 +36,8 @@ export function useCalendarEvents(
 
     const recomputeCounts = (api: CalendarApi | undefined) => {
         const counts: Record<string, number> = {};
+        // One game max per team per day (enforced by the form warning);
+        // maps `date|teamId` to the game id for duplicate detection
         const tdMap: Record<string, number> = {};
         api?.getEvents().forEach(e => {
             const g = e.extendedProps.game as Game | undefined;
@@ -57,9 +60,13 @@ export function useCalendarEvents(
             const games = await fetchFn({
                 start: fetchInfo.startStr,
                 end: fetchInfo.endStr,
-                teamId: selectedTeamId.value,
             });
-            successCallback(games.map(gameToEvent));
+            // Multi-team filter applied client-side: volumes are small and
+            // it keeps the public/private fetch functions identical
+            const filtered = selectedTeamIds.value.length > 0
+                ? games.filter(g => selectedTeamIds.value.includes(g.team.id))
+                : games;
+            successCallback(filtered.map(gameToEvent));
         } catch (err) {
             failureCallback(err as Error);
             if (!isReadonly.value) {
@@ -71,9 +78,7 @@ export function useCalendarEvents(
     // ── Mutations locales ─────────────────────────────
 
     const handleGameSaved = (_game: Game) => {
-        const api = calendarApi.value;
-        if (!api) return;
-        api.refetchEvents();
+        calendarApi.value?.refetchEvents();
     };
 
     const handleGameDeleted = (id: number) => {
@@ -90,7 +95,8 @@ export function useCalendarEvents(
         const start = info.event.start;
         if (!start) { info.revert(); return; }
 
-        const dateStr = `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, '0')}-${String(start.getDate()).padStart(2, '0')}`;
+        const dateStr = toDateKey(start);
+        if (dateStr === game.date) return; // dropped on the same day: nothing to save
 
         try {
             await gameRepository.update(game.id, {
