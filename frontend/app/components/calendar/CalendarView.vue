@@ -74,7 +74,6 @@ import frLocale from '@fullcalendar/core/locales/fr';
 import type { Game } from '~/types/entity/Game';
 import type { Team } from '~/types/entity/Team';
 import { GameVenue } from '~/types/enum/GameVenue';
-import { escapeHtml } from '~/utils/escapeHtml';
 import { MAX_HOME_GAMES_PER_DAY, isHomeDay, toDateKey } from '~/utils/calendarRules';
 import GameFormDialog from '~/components/calendar/GameFormDialog.vue';
 import GameDetailDialog from '~/components/calendar/GameDetailDialog.vue';
@@ -177,15 +176,29 @@ const calendarOptions = computed<CalendarOptions>(() => ({
     height: '100%',
     events: eventSourceFn,
     eventsSet: () => recomputeCounts(calendarApi.value),
+    // Built as DOM nodes with textContent: user-provided values (team name,
+    // opponent) are rendered as plain text natively — no XSS, no manual escaping
     eventContent: (arg) => {
         const game: Game = arg.event.extendedProps.game;
-        const venue: string = game?.venue ?? '';
-        const emoji = venue === GameVenue.HOME ? '🏠' : '✈️';
-        // User-provided values MUST be escaped: this html is rendered raw,
-        // including on the public calendar page
-        const teamName = escapeHtml(game?.team?.name ?? '');
-        const opponent = escapeHtml(game?.opponent ?? '');
-        return { html: `<div class="fc-event-inner"><div class="fc-event-main"><span class="fc-event-team">${teamName} vs.</span><span class="fc-event-opponent">${opponent}</span></div><span class="fc-event-venue">${emoji}</span></div>` };
+        const emoji = game?.venue === GameVenue.HOME ? '🏠' : '✈️';
+
+        const el = (tag: string, className: string, text?: string): HTMLElement => {
+            const node = document.createElement(tag);
+            node.className = className;
+            if (text !== undefined) node.textContent = text;
+            return node;
+        };
+
+        const main = el('div', 'fc-event-main');
+        main.append(
+            el('span', 'fc-event-team', `${game?.team?.name ?? ''} vs.`),
+            el('span', 'fc-event-opponent', game?.opponent ?? ''),
+        );
+
+        const inner = el('div', 'fc-event-inner');
+        inner.append(main, el('span', 'fc-event-venue', emoji));
+
+        return { domNodes: [inner] };
     },
     windowResize: () => {
         if (isMobile()) {
