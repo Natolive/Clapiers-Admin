@@ -1,5 +1,4 @@
 import { AppUserRole } from '~/types/entity/AppUser';
-import { ContactMessageRepository } from '~/repository/contact-message-repository';
 
 export type DashboardMenuItem = {
     label: string;
@@ -7,21 +6,14 @@ export type DashboardMenuItem = {
     route?: string;
     command?: () => void;
     items?: DashboardMenuItem[];
-    badge?: string;
 };
 
-const UNREAD_POLL_INTERVAL = 30000;
-
 /**
- * Role-aware dashboard navigation: menu items, current page title
- * and unread messages badge (polled every 30s).
+ * Role-aware dashboard navigation: menu items and current page title.
  */
 export const useDashboardNav = (onNavigate?: () => void) => {
     const route = useRoute();
     const { isSuperAdmin, isAdmin, hasRole } = useUserRole();
-
-    const unreadMessagesCount = ref(0);
-    let pollInterval: ReturnType<typeof setInterval> | null = null;
 
     const go = (path: string) => () => {
         navigateTo(path);
@@ -46,8 +38,7 @@ export const useDashboardNav = (onNavigate?: () => void) => {
                 label: 'Messages',
                 icon: 'pi pi-envelope',
                 route: '/dashboard/messages',
-                command: go('/dashboard/messages'),
-                badge: unreadMessagesCount.value > 0 ? String(unreadMessagesCount.value) : undefined
+                command: go('/dashboard/messages')
             });
         }
 
@@ -71,22 +62,5 @@ export const useDashboardNav = (onNavigate?: () => void) => {
         return flat.find(item => item.route === route.path)?.label || 'Tableau de bord';
     });
 
-    const fetchUnreadMessages = async () => {
-        if (!hasRole(AppUserRole.VIEW_MESSAGE)) return;
-        try {
-            const result = await new ContactMessageRepository().countUnread();
-            unreadMessagesCount.value = result.count;
-        } catch {}
-    };
-
-    onMounted(() => {
-        fetchUnreadMessages();
-        pollInterval = setInterval(fetchUnreadMessages, UNREAD_POLL_INTERVAL);
-    });
-
-    onUnmounted(() => {
-        if (pollInterval) clearInterval(pollInterval);
-    });
-
-    return { navigationItems, pageTitle, unreadMessagesCount };
+    return { navigationItems, pageTitle };
 };

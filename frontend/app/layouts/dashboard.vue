@@ -58,7 +58,6 @@
                 <span class="nav-indicator"></span>
                 <i :class="item.icon" class="nav-icon"></i>
                 <span class="nav-text">{{ item.label }}</span>
-                <span v-if="item.badge" class="nav-badge">{{ item.badge }}</span>
               </a>
             </template>
 
@@ -307,20 +306,6 @@ const handleLogout = () => authStore.logout();
   transition: opacity 0.2s ease;
 }
 
-.nav-badge {
-  margin-left: auto;
-  background: #ef4444;
-  color: white;
-  font-size: 0.6875rem;
-  font-weight: 700;
-  font-family: 'JetBrains Mono', monospace;
-  padding: 0.1rem 0.4rem;
-  border-radius: 999px;
-  min-width: 1.25rem;
-  text-align: center;
-  flex-shrink: 0;
-}
-
 .nav-group-label {
   display: flex;
   align-items: center;
@@ -442,21 +427,12 @@ const handleLogout = () => authStore.logout();
   /* hide text elements */
   .sidebar--collapsed:not(.sidebar--hovered) .brand-text,
   .sidebar--collapsed:not(.sidebar--hovered) .nav-text,
-  .sidebar--collapsed:not(.sidebar--hovered) .nav-badge,
   .sidebar--collapsed:not(.sidebar--hovered) .user-info,
   .sidebar--collapsed:not(.sidebar--hovered) .logout-btn {
     opacity: 0;
     width: 0;
     overflow: hidden;
     flex-shrink: 1;
-  }
-
-  /* badge: reset min-width/padding/margin so it truly collapses
-     and doesn't push the icon off-center */
-  .sidebar--collapsed:not(.sidebar--hovered) .nav-badge {
-    min-width: 0;
-    padding: 0;
-    margin-left: 0;
   }
 
   /* nav: remove horizontal padding so icons hit true center */
