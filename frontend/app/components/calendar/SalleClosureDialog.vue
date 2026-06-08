@@ -10,33 +10,22 @@
 
             <!-- Add form -->
             <form class="closure-form" @submit.prevent="handleCreate">
-                <div class="flex flex-column gap-2 flex-1">
-                    <label class="font-medium text-sm">Du <span class="text-red-500">*</span></label>
+                <div class="flex flex-column gap-2 closure-form__period">
+                    <label class="font-medium text-sm">Période <span class="text-red-500">*</span></label>
                     <DatePicker
-                        v-model="form.startDate"
+                        v-model="form.range"
+                        selectionMode="range"
+                        :manualInput="false"
+                        :numberOfMonths="2"
                         dateFormat="dd/mm/yy"
+                        placeholder="Sélectionner une période"
                         :disabled-dates="disabledDates"
-                        :invalid="!!error"
-                        :fluid="true"
-                        showIcon
-                        @update:model-value="onStartChange"
-                    />
-                </div>
-                <div class="flex flex-column gap-2 flex-1">
-                    <label class="font-medium text-sm">Au <span class="text-red-500">*</span></label>
-                    <DatePicker
-                        v-model="form.endDate"
-                        dateFormat="dd/mm/yy"
-                        :min-date="form.startDate ?? undefined"
-                        :max-date="endMaxDate"
-                        :disabled-dates="disabledDates"
-                        :disabled="!form.startDate"
                         :invalid="!!error"
                         :fluid="true"
                         showIcon
                     />
                 </div>
-                <div class="flex flex-column gap-2 flex-2">
+                <div class="flex flex-column gap-2 closure-form__reason">
                     <label class="font-medium text-sm">Motif</label>
                     <InputText v-model="form.reason" placeholder="Ex: Vacances de Noël" />
                 </div>
@@ -103,17 +92,17 @@ const creating = ref(false);
 const deletingId = ref<number | null>(null);
 const error = ref('');
 
-const form = ref<{ startDate: Date | null; endDate: Date | null; reason: string }>({
-    startDate: null,
-    endDate: null,
+// PrimeVue range mode: [start, end] (end is null mid-selection)
+const form = ref<{ range: (Date | null)[] | null; reason: string }>({
+    range: null,
     reason: '',
 });
 
 const resetForm = () => {
-    form.value = { startDate: null, endDate: null, reason: '' };
+    form.value = { range: null, reason: '' };
 };
 
-// Every day already covered by an existing closure, disabled in both pickers
+// Every day already covered by an existing closure, disabled in the picker
 const disabledDates = computed<Date[]>(() => {
     const dates: Date[] = [];
     for (const c of props.closures) {
@@ -127,40 +116,17 @@ const disabledDates = computed<Date[]>(() => {
     return dates;
 });
 
-// Once a start is picked, cap the end before the next existing closure so the
-// range can't span over it (the gap between two closures stays selectable)
-const endMaxDate = computed<Date | undefined>(() => {
-    if (!form.value.startDate) return undefined;
-    const startKey = toDateKey(form.value.startDate);
-    const next = props.closures
-        .filter(c => c.startDate > startKey)
-        .sort((a, b) => a.startDate.localeCompare(b.startDate))[0];
-    if (!next) return undefined;
-    const d = new Date(next.startDate + 'T00:00:00');
-    d.setDate(d.getDate() - 1);
-    return d;
-});
-
-// Reset an end that would now precede the new start
-const onStartChange = (value: unknown) => {
-    const start = value instanceof Date ? value : null;
-    if (start && form.value.endDate && form.value.endDate < start) {
-        form.value.endDate = null;
-    }
-};
-
 const handleCreate = async () => {
     error.value = '';
-    if (!form.value.startDate || !form.value.endDate) {
-        error.value = 'Les dates de début et de fin sont requises.';
+    const [start, end] = form.value.range ?? [];
+    if (!start || !end) {
+        error.value = 'Veuillez sélectionner une période (début et fin).';
         return;
     }
-    if (form.value.endDate < form.value.startDate) {
-        error.value = 'La date de fin doit être postérieure ou égale à la date de début.';
-        return;
-    }
-    const startKey = toDateKey(form.value.startDate);
-    const endKey = toDateKey(form.value.endDate);
+
+    const startKey = toDateKey(start);
+    const endKey = toDateKey(end);
+    // PrimeVue lets a range span over disabled dates, so still guard overlaps
     if (props.closures.some(c => c.startDate <= endKey && c.endDate >= startKey)) {
         error.value = 'Une fermeture existe déjà sur cette période.';
         return;
@@ -169,8 +135,8 @@ const handleCreate = async () => {
     creating.value = true;
     try {
         const dto: CreateSalleClosureDto = {
-            startDate: toDateKey(form.value.startDate),
-            endDate: toDateKey(form.value.endDate),
+            startDate: startKey,
+            endDate: endKey,
             reason: form.value.reason.trim() || null,
         };
         await repository.create(dto);
@@ -216,7 +182,8 @@ const formatRange = (closure: SalleClosure): string => {
     gap: 0.75rem;
 }
 
-.flex-2 { flex: 2; min-width: 10rem; }
+.closure-form__period { flex: 1 1 14rem; }
+.closure-form__reason { flex: 1 1 10rem; }
 
 .closure-form__submit {
     flex-shrink: 0;
