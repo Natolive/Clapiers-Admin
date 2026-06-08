@@ -52,6 +52,25 @@
                 <Button
                     v-if="isSuperAdmin"
                     class="cal-add-btn"
+                    label="Fermetures"
+                    icon="pi pi-lock"
+                    severity="secondary"
+                    size="small"
+                    @click="emit('openClosures')"
+                />
+                <Button
+                    v-if="isSuperAdmin"
+                    class="cal-icon-btn"
+                    icon="pi pi-lock"
+                    severity="secondary"
+                    rounded
+                    size="small"
+                    v-tooltip.bottom="'Fermetures de la salle'"
+                    @click="emit('openClosures')"
+                />
+                <Button
+                    v-if="isSuperAdmin"
+                    class="cal-add-btn"
                     label="Importer CSV"
                     icon="pi pi-upload"
                     severity="secondary"
@@ -88,6 +107,7 @@ const emit = defineEmits<{
     teamChange: [];
     openCreate: [];
     openImport: [];
+    openClosures: [];
 }>();
 
 // Met à jour les teamIds dans le parent AVANT d'émettre teamChange
@@ -140,6 +160,7 @@ const onTeamChange = (value: number[] | null) => {
 }
 
 .cal-add-btn--icon { display: none; }
+.cal-icon-btn { display: none; }
 
 @media (max-width: 768px) {
     .cal-view-switcher { display: none; }
@@ -147,6 +168,7 @@ const onTeamChange = (value: number[] | null) => {
     .cal-toolbar__title { font-size: 0.95rem; }
     .cal-add-btn { display: none; }
     .cal-add-btn--icon { display: inline-flex; }
+    .cal-icon-btn { display: inline-flex; }
 
     /* Team filter stays usable on mobile: full-width row below the toolbar */
     .cal-team-select {

@@ -18,3 +18,14 @@ export const toDateKey = (date: Date): string => {
     const d = String(date.getDate()).padStart(2, '0');
     return `${y}-${m}-${d}`;
 };
+
+/**
+ * Returns the first closure covering the given YYYY-MM-DD key, or null.
+ * ISO date strings compare lexicographically, so plain string comparison
+ * is correct here (range inclusive on both ends).
+ */
+export const findClosureForDateKey = <T extends { startDate: string; endDate: string }>(
+    closures: readonly T[],
+    dateKey: string,
+): T | null =>
+    closures.find(c => dateKey >= c.startDate && dateKey <= c.endDate) ?? null;

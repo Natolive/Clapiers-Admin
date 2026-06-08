@@ -15,6 +15,7 @@
             @team-change="calendarApi?.refetchEvents()"
             @open-create="openCreateDialog(null)"
             @open-import="csvImportVisible = true"
+            @open-closures="closureDialogVisible = true"
         />
 
         <div class="cal-wrapper" ref="calendarWrapperRef">
@@ -22,7 +23,14 @@
                 <template #dayCellContent="arg">
                     <div class="fc-cell-top">
                         <span
-                            v-if="homeCountByDate[cellDateKey(arg.date)]"
+                            v-if="closureForDateKey(cellDateKey(arg.date))"
+                            class="fc-closure-badge"
+                            v-tooltip.top="closureForDateKey(cellDateKey(arg.date))?.reason || 'Salle fermée'"
+                        >
+                            <i class="pi pi-lock"></i>
+                        </span>
+                        <span
+                            v-else-if="homeCountByDate[cellDateKey(arg.date)]"
                             class="fc-home-badge"
                             :class="{ 'fc-home-badge--full': (homeCountByDate[cellDateKey(arg.date)] ?? 0) >= MAX_HOME_GAMES_PER_DAY }"
                         >
@@ -43,12 +51,19 @@
                 :user-team-id="userTeamId"
                 :home-count-by-date="homeCountByDate"
                 :team-date-map="teamDateMap"
+                :closures="closures"
                 @saved="handleGameSaved"
             />
             <CsvImportDialog
                 v-if="isSuperAdmin"
                 v-model:visible="csvImportVisible"
                 @imported="calendarApi?.refetchEvents()"
+            />
+            <SalleClosureDialog
+                v-if="isSuperAdmin"
+                v-model:visible="closureDialogVisible"
+                :closures="closures"
+                @changed="handleClosuresChanged"
             />
         </template>
 
@@ -79,13 +94,17 @@ import GameFormDialog from '~/components/calendar/GameFormDialog.vue';
 import GameDetailDialog from '~/components/calendar/GameDetailDialog.vue';
 import CalendarToolbar from '~/components/calendar/CalendarToolbar.vue';
 import CsvImportDialog from '~/components/calendar/CsvImportDialog.vue';
+import SalleClosureDialog from '~/components/calendar/SalleClosureDialog.vue';
 import type { CalendarViewType } from '~/components/calendar/CalendarToolbar.vue';
 import { useCalendarEvents } from '~/composables/useCalendarEvents';
 import type { CalendarFetchFn } from '~/composables/useCalendarEvents';
+import { useSalleClosures } from '~/composables/useSalleClosures';
+import type { SalleClosureFetchFn } from '~/composables/useSalleClosures';
 
 const props = withDefaults(defineProps<{
     readonly?: boolean;
     fetchFn: CalendarFetchFn;
+    closureFetchFn: SalleClosureFetchFn;
     teams?: Team[];
     userTeamId?: number | null;
 }>(), {
@@ -123,9 +142,36 @@ const {
     isSuperAdmin,
 );
 
+// ── Closures ──────────────────────────────────────────
+
+const { closures, reload: reloadClosures, closureForDateKey } = useSalleClosures(props.closureFetchFn);
+
+// FullCalendar allDay end is exclusive, so closed range end needs +1 day
+const nextDayKey = (dateKey: string): string => {
+    const d = new Date(dateKey + 'T00:00:00');
+    d.setDate(d.getDate() + 1);
+    return toDateKey(d);
+};
+
+const closureBackgroundEvents = computed(() =>
+    closures.value.map(c => ({
+        start: c.startDate,
+        end: nextDayKey(c.endDate),
+        display: 'background' as const,
+        classNames: ['fc-closure-bg'],
+        extendedProps: { closure: c },
+    })),
+);
+
+const handleClosuresChanged = async () => {
+    await reloadClosures();
+    calendarApi.value?.refetchEvents();
+};
+
 // ── Dialogs ───────────────────────────────────────────
 
 const csvImportVisible = ref(false);
+const closureDialogVisible = ref(false);
 
 const formDialog = reactive<{ visible: boolean; game: Game | null; initialDate: Date | null }>({
     visible: false, game: null, initialDate: null,
@@ -174,7 +220,10 @@ const calendarOptions = computed<CalendarOptions>(() => ({
     dayMaxEvents: true,
     weekends: true,
     height: '100%',
-    events: eventSourceFn,
+    eventSources: [
+        { events: eventSourceFn },
+        { events: closureBackgroundEvents.value },
+    ],
     eventsSet: () => recomputeCounts(calendarApi.value),
     // Built as DOM nodes with textContent: user-provided values (team name,
     // opponent) are rendered as plain text natively — no XSS, no manual escaping
@@ -374,6 +423,29 @@ onUnmounted(() => {
 :deep(.fc-home-badge--full) {
     background: color-mix(in srgb, var(--p-red-500, #ef4444) 15%, transparent);
     color: var(--p-red-500, #ef4444);
+}
+
+/* Closed-day (salle fermée) background + lock badge */
+:deep(.fc-closure-bg) {
+    background: repeating-linear-gradient(
+        45deg,
+        color-mix(in srgb, var(--p-text-muted-color) 14%, transparent),
+        color-mix(in srgb, var(--p-text-muted-color) 14%, transparent) 6px,
+        transparent 6px,
+        transparent 12px
+    );
+}
+
+:deep(.fc-closure-badge) {
+    display: inline-flex;
+    align-items: center;
+    font-size: 0.55rem;
+    font-weight: 600;
+    background: color-mix(in srgb, var(--p-text-muted-color) 20%, transparent);
+    color: var(--p-text-color);
+    border-radius: 3px;
+    padding: 0 3px;
+    line-height: 1.3;
 }
 
 @media (max-width: 768px) {

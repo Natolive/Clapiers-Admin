@@ -2,6 +2,7 @@
     <div class="cal-page-wrapper">
         <CalendarView
             :fetch-fn="fetchFn"
+            :closure-fetch-fn="closureFetchFn"
             :teams="teams"
             :user-team-id="userTeamId"
         />
@@ -11,10 +12,12 @@
 <script setup lang="ts">
 import { GameRepository } from '~/repository/game-repository';
 import { TeamRepository } from '~/repository/team-repository';
+import { SalleClosureRepository } from '~/repository/salle-closure-repository';
 import { useAuthStore } from '~/stores/auth.store';
 import type { Team } from '~/types/entity/Team';
 import CalendarView from '~/components/calendar/CalendarView.vue';
 import type { CalendarFetchFn } from '~/composables/useCalendarEvents';
+import type { SalleClosureFetchFn } from '~/composables/useSalleClosures';
 
 definePageMeta({ middleware: 'auth-middleware', layout: 'dashboard' });
 useHead({ title: 'Calendrier' });
@@ -24,12 +27,15 @@ const authStore = useAuthStore();
 const toast = usePVToastService();
 const gameRepository = new GameRepository();
 const teamRepository = new TeamRepository();
+const salleClosureRepository = new SalleClosureRepository();
 
 const teams = ref<Team[]>([]);
 const userTeamId = computed(() => authStore.user?.member?.team?.id ?? null);
 
 const fetchFn: CalendarFetchFn = ({ start, end }) =>
     gameRepository.getAll({ start, end });
+
+const closureFetchFn: SalleClosureFetchFn = () => salleClosureRepository.getAll();
 
 onMounted(async () => {
     if (isSuperAdmin.value) {

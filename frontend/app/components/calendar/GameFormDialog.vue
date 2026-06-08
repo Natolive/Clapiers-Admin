@@ -77,6 +77,16 @@
                 {{ homeCountWarning }}
             </Message>
 
+            <Message
+                v-if="closureWarning"
+                severity="warn"
+                :closable="false"
+                size="small"
+                icon="pi pi-lock"
+            >
+                {{ closureWarning }}
+            </Message>
+
             <!-- Meeting time (informative) -->
             <div class="flex flex-column gap-2">
                 <label class="font-medium text-sm">
@@ -111,7 +121,8 @@ import { GameRepository } from '~/repository/game-repository';
 import type { Game, CreateUpdateGameDto } from '~/types/entity/Game';
 import type { Team } from '~/types/entity/Team';
 import { GameVenue, GameVenueOptions } from '~/types/enum/GameVenue';
-import { MAX_HOME_GAMES_PER_DAY, toDateKey } from '~/utils/calendarRules';
+import { MAX_HOME_GAMES_PER_DAY, toDateKey, findClosureForDateKey } from '~/utils/calendarRules';
+import type { SalleClosure } from '~/types/entity/SalleClosure';
 
 const props = defineProps<{
     visible: boolean;
@@ -121,6 +132,7 @@ const props = defineProps<{
     userTeamId?: number | null;
     homeCountByDate?: Record<string, number>;
     teamDateMap?: Record<string, number>;
+    closures?: SalleClosure[];
 }>();
 
 const emit = defineEmits<{
@@ -157,6 +169,16 @@ const teamLimitWarning = computed(() => {
     if (existingGameId === undefined) return null;
     if (isEdit.value && existingGameId === props.game?.id) return null;
     return 'Cette équipe a déjà un match planifié ce jour.';
+});
+
+// Non-blocking: warn if the chosen date falls within a gym closure
+const closureWarning = computed(() => {
+    if (!form.value.date) return null;
+    const closure = findClosureForDateKey(props.closures ?? [], toDateKey(form.value.date));
+    if (!closure) return null;
+    return closure.reason
+        ? `Salle fermée ce jour (${closure.reason}).`
+        : 'Salle fermée ce jour.';
 });
 
 type FormState = {
