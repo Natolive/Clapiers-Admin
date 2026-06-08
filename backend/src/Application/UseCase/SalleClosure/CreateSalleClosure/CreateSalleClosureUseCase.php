@@ -7,7 +7,6 @@ use App\Common\Exception\UseCaseException;
 use App\Common\UseCase\AbstractUseCase;
 use App\Entity\SalleClosure;
 use App\Repository\SalleClosureRepository;
-use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -28,17 +27,14 @@ class CreateSalleClosureUseCase extends AbstractUseCase
             throw new UseCaseException('Invalid command');
         }
 
-        $start = new DateTimeImmutable($command->startDate);
-        $end   = new DateTimeImmutable($command->endDate);
-
-        if ($end < $start) {
+        if ($command->endDate < $command->startDate) {
             throw new UseCaseException(
                 'La date de fin doit être postérieure ou égale à la date de début.',
                 Response::HTTP_UNPROCESSABLE_ENTITY
             );
         }
 
-        if ($this->salleClosureRepository->hasOverlap($start, $end)) {
+        if ($this->salleClosureRepository->hasOverlap($command->startDate, $command->endDate)) {
             throw new UseCaseException(
                 'Une fermeture existe déjà sur cette période.',
                 Response::HTTP_UNPROCESSABLE_ENTITY
@@ -46,8 +42,8 @@ class CreateSalleClosureUseCase extends AbstractUseCase
         }
 
         $closure = new SalleClosure();
-        $closure->setStartDate($start);
-        $closure->setEndDate($end);
+        $closure->setStartDate($command->startDate);
+        $closure->setEndDate($command->endDate);
         $closure->setReason($command->reason);
 
         $this->entityManager->persist($closure);
