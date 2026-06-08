@@ -6,6 +6,9 @@ use App\Common\Command\CommandInterface;
 use App\Common\UseCase\AbstractUseCase;
 use App\Repository\SalleClosureRepository;
 
+/**
+ * @extends AbstractUseCase<null>
+ */
 class GetSalleClosuresUseCase extends AbstractUseCase
 {
     public function __construct(

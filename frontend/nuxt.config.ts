@@ -127,6 +127,8 @@ export default defineNuxtConfig({
                     cssLayer: false
                 }
             },
+            // Partial locale: PrimeVue merges it with the default (English) one
+            // at runtime, but the option type requires the full set, hence the cast.
             locale: {
                 firstDayOfWeek: 1,
                 dayNames: ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'],
@@ -138,7 +140,7 @@ export default defineNuxtConfig({
                 clear: 'Effacer',
                 weekHeader: 'Sem',
                 dateFormat: 'dd/mm/yy'
-            }
+            } as any
         }
     },
     css: [

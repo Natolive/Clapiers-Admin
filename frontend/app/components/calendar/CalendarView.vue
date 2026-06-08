@@ -22,19 +22,21 @@
             <FullCalendar ref="calendarRef" :options="calendarOptions">
                 <template #dayCellContent="arg">
                     <div class="fc-cell-top">
-                        <span
-                            v-if="closureForDateKey(cellDateKey(arg.date))"
-                            class="fc-closure-badge"
-                            v-tooltip.top="closureForDateKey(cellDateKey(arg.date))?.reason || 'Salle fermée'"
-                        >
-                            <i class="pi pi-lock"></i>
-                        </span>
-                        <span
-                            v-else-if="homeCountByDate[cellDateKey(arg.date)]"
-                            class="fc-home-badge"
-                            :class="{ 'fc-home-badge--full': (homeCountByDate[cellDateKey(arg.date)] ?? 0) >= MAX_HOME_GAMES_PER_DAY }"
-                        >
-                            🏠 {{ homeCountByDate[cellDateKey(arg.date)] }}/{{ MAX_HOME_GAMES_PER_DAY }}
+                        <span class="fc-cell-badges">
+                            <span
+                                v-if="closureForDateKey(cellDateKey(arg.date))"
+                                class="fc-closure-badge"
+                                v-tooltip.top="closureForDateKey(cellDateKey(arg.date))?.reason || 'Salle fermée'"
+                            >
+                                <i class="pi pi-lock"></i>
+                            </span>
+                            <span
+                                v-if="homeCountByDate[cellDateKey(arg.date)]"
+                                class="fc-home-badge"
+                                :class="{ 'fc-home-badge--full': (homeCountByDate[cellDateKey(arg.date)] ?? 0) >= MAX_HOME_GAMES_PER_DAY }"
+                            >
+                                🏠 {{ homeCountByDate[cellDateKey(arg.date)] }}/{{ MAX_HOME_GAMES_PER_DAY }}
+                            </span>
                         </span>
                         <span class="fc-daygrid-day-number">{{ arg.dayNumberText }}</span>
                     </div>
@@ -174,6 +176,10 @@ const closureEvents = computed(() =>
 );
 
 const handleClosuresChanged = async () => {
+    // reloadClosures() mutates `closures`, which flows through the
+    // closureEvents computed into calendarOptions; the FullCalendar wrapper
+    // deep-watches options and re-applies the closure source. refetchEvents()
+    // additionally refreshes the games (function) source.
     await reloadClosures();
     calendarApi.value?.refetchEvents();
 };
@@ -429,6 +435,15 @@ onUnmounted(() => {
     width: 100%;
     gap: 0.25rem;
     padding: 2px 2px 0;
+}
+
+/* Badges group (lock + home count can both show on a closed day) */
+:deep(.fc-cell-badges) {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    min-width: 0;
+    overflow: hidden;
 }
 
 :deep(.fc-home-badge) {
