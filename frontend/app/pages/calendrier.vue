@@ -6,7 +6,12 @@
         </div>
         <div class="public-calendar-wrapper">
             <ClientOnly>
-                <CalendarView :readonly="true" :fetch-fn="fetchFn" />
+                <CalendarView
+                    :readonly="true"
+                    :fetch-fn="fetchFn"
+                    :closure-fetch-fn="closureFetchFn"
+                    :teams="teams"
+                />
             </ClientOnly>
         </div>
     </div>
@@ -15,7 +20,10 @@
 <script setup lang="ts">
 import CalendarView from '~/components/calendar/CalendarView.vue';
 import type { CalendarFetchFn } from '~/composables/useCalendarEvents';
+import type { SalleClosureFetchFn } from '~/composables/useSalleClosures';
 import type { Game } from '~/types/entity/Game';
+import type { SalleClosure } from '~/types/entity/SalleClosure';
+import type { Team } from '~/types/entity/Team';
 
 definePageMeta({ layout: 'public' });
 useSeoMeta({
@@ -37,6 +45,15 @@ const fetchFn: CalendarFetchFn = ({ start, end }) =>
     $fetch<Game[]>(`${config.public.apiBase}/public/games`, {
         params: { start, end },
     });
+
+const closureFetchFn: SalleClosureFetchFn = () =>
+    $fetch<SalleClosure[]>(`${config.public.apiBase}/public/closures`);
+
+const teams = ref<Team[]>([]);
+
+onMounted(async () => {
+    teams.value = await $fetch<Team[]>(`${config.public.apiBase}/public/teams`).catch(() => []);
+});
 </script>
 
 <style scoped>

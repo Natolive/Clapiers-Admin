@@ -6,6 +6,8 @@ use App\Application\UseCase\ContactMessage\CreateContactMessage\CreateContactMes
 use App\Application\UseCase\ContactMessage\CreateContactMessage\CreateContactMessageUseCase;
 use App\Entity\Enum\MemberNationality;
 use App\Repository\GameRepository;
+use App\Repository\SalleClosureRepository;
+use App\Repository\TeamRepository;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Attribute\MapQueryString;
@@ -35,6 +37,22 @@ class PublicController extends AbstractController
     public function nationalities(): Response
     {
         return $this->json(MemberNationality::values());
+    }
+
+    #[Route('/closures', name: 'closures', methods: ['GET'])]
+    public function closures(SalleClosureRepository $salleClosureRepository): Response
+    {
+        $closures = $salleClosureRepository->findAllOrderedByDate();
+
+        return $this->json(array_map(fn ($c) => $c->toArray(), $closures));
+    }
+
+    #[Route('/teams', name: 'teams', methods: ['GET'])]
+    public function teams(TeamRepository $teamRepository): Response
+    {
+        $teams = $teamRepository->findBy([], ['name' => 'ASC']);
+
+        return $this->json(array_map(fn ($t) => $t->toArray(), $teams));
     }
 
     #[Route('/games', name: 'games', methods: ['GET'])]
