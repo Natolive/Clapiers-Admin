@@ -34,7 +34,7 @@
 
         <div class="cal-toolbar__actions">
             <MultiSelect
-                v-if="!readonly && teams.length > 1"
+                v-if="teams.length > 1"
                 class="cal-team-select"
                 :model-value="selectedTeamIds"
                 :options="teams"
