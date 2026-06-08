@@ -122,6 +122,8 @@ const calendarWrapperRef = ref<HTMLElement | null>(null);
 const calendarApi = computed(() => calendarRef.value?.getApi());
 const currentTitle = ref('');
 const activeView = ref<CalendarViewType>('dayGridMonth');
+// Actual rendered view (mobile forces listMonth without touching activeView)
+const currentViewType = ref<string>('dayGridMonth');
 const selectedTeamIds = ref<number[]>([]);
 
 // ── Events composable ─────────────────────────────────
@@ -153,11 +155,19 @@ const nextDayKey = (dateKey: string): string => {
     return toDateKey(d);
 };
 
-const closureBackgroundEvents = computed(() =>
+// List view (mobile) ignores background events, so closures are rendered as
+// real list entries there; month/year views keep the greyed background.
+const isListView = computed(() => activeView.value.startsWith('list') || currentViewType.value.startsWith('list'));
+
+const closureEvents = computed(() =>
     closures.value.map(c => ({
         start: c.startDate,
         end: nextDayKey(c.endDate),
-        display: 'background' as const,
+        allDay: true,
+        editable: false,
+        display: (isListView.value ? 'list-item' : 'background') as 'list-item' | 'background',
+        title: c.reason ? `Salle fermée — ${c.reason}` : 'Salle fermée',
+        color: '#94a3b8',
         classNames: ['fc-closure-bg'],
         extendedProps: { closure: c },
     })),
@@ -222,21 +232,30 @@ const calendarOptions = computed<CalendarOptions>(() => ({
     height: '100%',
     eventSources: [
         { events: eventSourceFn },
-        { events: closureBackgroundEvents.value },
+        { events: closureEvents.value },
     ],
     eventsSet: () => recomputeCounts(calendarApi.value),
     // Built as DOM nodes with textContent: user-provided values (team name,
     // opponent) are rendered as plain text natively — no XSS, no manual escaping
     eventContent: (arg) => {
-        const game: Game = arg.event.extendedProps.game;
-        const emoji = game?.venue === GameVenue.HOME ? '🏠' : '✈️';
-
         const el = (tag: string, className: string, text?: string): HTMLElement => {
             const node = document.createElement(tag);
             node.className = className;
             if (text !== undefined) node.textContent = text;
             return node;
         };
+
+        // Closure events (list view): lock icon + reason, no game data
+        const closure = arg.event.extendedProps.closure;
+        if (closure) {
+            const wrap = el('div', 'fc-closure-event');
+            const icon = el('i', 'pi pi-lock');
+            wrap.append(icon, el('span', 'fc-closure-event__label', arg.event.title));
+            return { domNodes: [wrap] };
+        }
+
+        const game: Game = arg.event.extendedProps.game;
+        const emoji = game?.venue === GameVenue.HOME ? '🏠' : '✈️';
 
         const main = el('div', 'fc-event-main');
         main.append(
@@ -258,7 +277,9 @@ const calendarOptions = computed<CalendarOptions>(() => ({
     },
     noEventsContent: 'Aucun match',
     eventClick: (info: EventClickArg) => {
-        detailDialog.game = info.event.extendedProps.game as Game;
+        const game = info.event.extendedProps.game as Game | undefined;
+        if (!game) return; // closure event: not clickable
+        detailDialog.game = game;
         detailDialog.visible = true;
     },
     select: props.readonly ? undefined : (info: DateSelectArg) => {
@@ -268,6 +289,7 @@ const calendarOptions = computed<CalendarOptions>(() => ({
     eventDrop: props.readonly ? undefined : handleEventDrop,
     datesSet: (info) => {
         currentTitle.value = info.view.title;
+        currentViewType.value = info.view.type;
     },
 }));
 
@@ -446,6 +468,19 @@ onUnmounted(() => {
     border-radius: 3px;
     padding: 0 3px;
     line-height: 1.3;
+}
+
+/* Closure entry shown in list view (mobile) */
+:deep(.fc-closure-event) {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    color: var(--p-text-muted-color);
+    font-weight: 500;
+}
+
+:deep(.fc-closure-event .pi-lock) {
+    font-size: 0.8rem;
 }
 
 @media (max-width: 768px) {
