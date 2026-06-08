@@ -15,9 +15,11 @@
                     <DatePicker
                         v-model="form.startDate"
                         dateFormat="dd/mm/yy"
+                        :disabled-dates="disabledDates"
                         :invalid="!!error"
                         :fluid="true"
                         showIcon
+                        @update:model-value="onStartChange"
                     />
                 </div>
                 <div class="flex flex-column gap-2 flex-1">
@@ -26,6 +28,9 @@
                         v-model="form.endDate"
                         dateFormat="dd/mm/yy"
                         :min-date="form.startDate ?? undefined"
+                        :max-date="endMaxDate"
+                        :disabled-dates="disabledDates"
+                        :disabled="!form.startDate"
                         :invalid="!!error"
                         :fluid="true"
                         showIcon
@@ -75,12 +80,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import { SalleClosureRepository } from '~/repository/salle-closure-repository';
 import type { SalleClosure, CreateSalleClosureDto } from '~/types/entity/SalleClosure';
 import { toDateKey } from '~/utils/calendarRules';
 
-defineProps<{
+const props = defineProps<{
     visible: boolean;
     closures: SalleClosure[];
 }>();
@@ -108,6 +113,42 @@ const resetForm = () => {
     form.value = { startDate: null, endDate: null, reason: '' };
 };
 
+// Every day already covered by an existing closure, disabled in both pickers
+const disabledDates = computed<Date[]>(() => {
+    const dates: Date[] = [];
+    for (const c of props.closures) {
+        const cursor = new Date(c.startDate + 'T00:00:00');
+        const end = new Date(c.endDate + 'T00:00:00');
+        while (cursor <= end) {
+            dates.push(new Date(cursor));
+            cursor.setDate(cursor.getDate() + 1);
+        }
+    }
+    return dates;
+});
+
+// Once a start is picked, cap the end before the next existing closure so the
+// range can't span over it (the gap between two closures stays selectable)
+const endMaxDate = computed<Date | undefined>(() => {
+    if (!form.value.startDate) return undefined;
+    const startKey = toDateKey(form.value.startDate);
+    const next = props.closures
+        .filter(c => c.startDate > startKey)
+        .sort((a, b) => a.startDate.localeCompare(b.startDate))[0];
+    if (!next) return undefined;
+    const d = new Date(next.startDate + 'T00:00:00');
+    d.setDate(d.getDate() - 1);
+    return d;
+});
+
+// Reset an end that would now precede the new start
+const onStartChange = (value: unknown) => {
+    const start = value instanceof Date ? value : null;
+    if (start && form.value.endDate && form.value.endDate < start) {
+        form.value.endDate = null;
+    }
+};
+
 const handleCreate = async () => {
     error.value = '';
     if (!form.value.startDate || !form.value.endDate) {
@@ -116,6 +157,12 @@ const handleCreate = async () => {
     }
     if (form.value.endDate < form.value.startDate) {
         error.value = 'La date de fin doit être postérieure ou égale à la date de début.';
+        return;
+    }
+    const startKey = toDateKey(form.value.startDate);
+    const endKey = toDateKey(form.value.endDate);
+    if (props.closures.some(c => c.startDate <= endKey && c.endDate >= startKey)) {
+        error.value = 'Une fermeture existe déjà sur cette période.';
         return;
     }
 

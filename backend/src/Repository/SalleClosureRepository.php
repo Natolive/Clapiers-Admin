@@ -26,4 +26,21 @@ class SalleClosureRepository extends ServiceEntityRepository
             ->getQuery()
             ->getResult();
     }
+
+    /**
+     * Two inclusive ranges overlap when start1 <= end2 AND start2 <= end1.
+     */
+    public function hasOverlap(\DateTimeImmutable $start, \DateTimeImmutable $end): bool
+    {
+        $count = (int) $this->createQueryBuilder('c')
+            ->select('COUNT(c.id)')
+            ->where('c.startDate <= :end')
+            ->andWhere('c.endDate >= :start')
+            ->setParameter('start', $start)
+            ->setParameter('end', $end)
+            ->getQuery()
+            ->getSingleScalarResult();
+
+        return $count > 0;
+    }
 }
