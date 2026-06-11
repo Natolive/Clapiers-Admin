@@ -8,7 +8,7 @@
 
     <SkeletonLoader v-if="loading" type="table" />
 
-    <Card v-else>
+    <Card v-else class="members-card">
       <template #content>
         <MembersDatatable
           ref="datatableRef"
@@ -67,3 +67,11 @@ onMounted(async () => {
   }
 });
 </script>
+
+<style scoped>
+@media (max-width: 767px) {
+  .members-card :deep(.p-card-body) {
+    padding: 0.75rem;
+  }
+}
+</style>
