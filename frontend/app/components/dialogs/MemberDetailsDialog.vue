@@ -44,7 +44,7 @@
           <MemberForm
             v-if="isAdmin"
             :member="currentMember"
-            :teams="teams"
+            :teams="teamOptions"
             :loading="saving"
             @formSubmit="onSave"
           />
@@ -154,6 +154,7 @@ import { MemberGenderLabels } from '~/types/enum/MemberGender';
 import MemberAvatar from '~/components/common/MemberAvatar.vue';
 import MemberForm from '~/components/forms/member-form.vue';
 import { MemberRepository } from '~/repository/member-repository';
+import { TeamRepository } from '~/repository/team-repository';
 
 const props = defineProps<{
   visible?: boolean;
@@ -173,6 +174,18 @@ const toast = usePVToastService();
 
 const currentMember = ref<Member>({ ...props.member });
 watch(() => props.member, m => { currentMember.value = { ...m }; }, { deep: true });
+
+// Certains appelants (ex: UserMemberCard) n'ont pas les équipes sous la main :
+// on les charge nous-mêmes pour que le select Équipe du formulaire soit utilisable
+const teamOptions = ref<Team[]>(props.teams ?? []);
+onMounted(async () => {
+  if (!isAdmin.value || teamOptions.value.length > 0) return;
+  try {
+    teamOptions.value = await new TeamRepository().getAll();
+  } catch (error) {
+    console.error('Error loading teams:', error);
+  }
+});
 
 const saving = ref(false);
 const uploading = ref(false);
