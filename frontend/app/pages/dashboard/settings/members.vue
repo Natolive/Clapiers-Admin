@@ -2,7 +2,7 @@
   <div>
     <Toolbar class="mb-4">
       <template #start>
-        <Button label="Nouveau membre" icon="pi pi-plus" @click="openCreateDialog()" />
+        <Button label="Nouveau licencié" icon="pi pi-plus" @click="openCreateDialog()" />
       </template>
     </Toolbar>
 
@@ -34,7 +34,7 @@ definePageMeta({
   redirectTo: '/dashboard/calendar'
 });
 
-useHead({ title: 'Membres' });
+useHead({ title: 'Licenciés' });
 
 const { isSuperAdmin } = useUserRole();
 const { show } = useDialogManager();

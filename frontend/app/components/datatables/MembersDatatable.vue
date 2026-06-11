@@ -39,14 +39,14 @@
     :totalRecords="totalRecords"
     :rowsPerPageOptions="[10, 25, 50]"
     paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink RowsPerPageDropdown CurrentPageReport"
-    currentPageReportTemplate="{first} à {last} sur {totalRecords} membres"
+    currentPageReportTemplate="{first} à {last} sur {totalRecords} licenciés"
     :first="lazyParams.first"
     :sortField="lazyParams.sortField"
     :sortOrder="lazyParams.sortOrder"
     @page="onPage"
     @sort="onSort"
   >
-    <Column header="Membre" sortable field="firstName" style="width: 20%">
+    <Column header="Licencié" sortable field="firstName" style="width: 20%">
       <template #body="slotProps">
         <div class="flex align-items-center gap-3">
           <MemberAvatar

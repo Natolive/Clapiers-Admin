@@ -1,97 +1,104 @@
 <template>
   <Form :resolver="resolver" :initialValues="initialValues" @submit="onFormSubmit" v-slot="$form" class="flex flex-column gap-4">
 
-    <!-- Prénom / Nom -->
-    <div class="form-row-2">
-      <div class="flex flex-column gap-2">
-        <label class="font-semibold">Prénom</label>
-        <InputText name="firstName" :disabled="loading" fluid placeholder="Prénom" />
-        <small v-if="$form.firstName?.invalid" class="p-error">{{ $form.firstName?.error?.message }}</small>
+    <div class="form-section">
+      <h4 class="form-section__title">Identité</h4>
+
+      <div class="form-row-2">
+        <div class="flex flex-column gap-2">
+          <label for="firstName" class="font-semibold">Prénom <span class="text-red-500">*</span></label>
+          <InputText id="firstName" name="firstName" :disabled="loading" fluid placeholder="Prénom" />
+          <small v-if="$form.firstName?.invalid" class="p-error text-red-500 text-sm">{{ $form.firstName?.error?.message }}</small>
+        </div>
+        <div class="flex flex-column gap-2">
+          <label for="lastName" class="font-semibold">Nom <span class="text-red-500">*</span></label>
+          <InputText id="lastName" name="lastName" :disabled="loading" fluid placeholder="Nom" />
+          <small v-if="$form.lastName?.invalid" class="p-error text-red-500 text-sm">{{ $form.lastName?.error?.message }}</small>
+        </div>
       </div>
-      <div class="flex flex-column gap-2">
-        <label class="font-semibold">Nom</label>
-        <InputText name="lastName" :disabled="loading" fluid placeholder="Nom" />
-        <small v-if="$form.lastName?.invalid" class="p-error">{{ $form.lastName?.error?.message }}</small>
+
+      <div class="form-row-2">
+        <div class="flex flex-column gap-2">
+          <label for="gender" class="font-semibold">Sexe <span class="text-red-500">*</span></label>
+          <SelectInput name="gender" inputId="gender" :options="genderOptions" optionLabel="label" optionValue="value" :disabled="loading" placeholder="Sélectionnez" />
+          <small v-if="$form.gender?.invalid" class="p-error text-red-500 text-sm">{{ $form.gender?.error?.message }}</small>
+        </div>
+        <div class="flex flex-column gap-2">
+          <label for="birthDate" class="font-semibold">Date de naissance <span class="text-red-500">*</span></label>
+          <DatePickerInput name="birthDate" inputId="birthDate" :disabled="loading" :maxDate="today" showIcon placeholder="JJ/MM/AAAA" />
+          <small v-if="$form.birthDate?.invalid" class="p-error text-red-500 text-sm">{{ $form.birthDate?.error?.message }}</small>
+        </div>
+      </div>
+
+      <div class="form-row-2">
+        <div class="flex flex-column gap-2">
+          <label for="nationality" class="font-semibold">Nationalité <span class="text-red-500">*</span></label>
+          <SelectInput name="nationality" inputId="nationality" :options="nationalities" :disabled="loading" filter placeholder="Sélectionnez" />
+          <small v-if="$form.nationality?.invalid" class="p-error text-red-500 text-sm">{{ $form.nationality?.error?.message }}</small>
+        </div>
       </div>
     </div>
 
-    <!-- Email / Téléphone -->
-    <div class="form-row-2">
-      <div class="flex flex-column gap-2">
-        <label class="font-semibold">Email</label>
-        <InputText name="email" :disabled="loading" type="email" fluid placeholder="email@exemple.fr" />
-        <small v-if="$form.email?.invalid" class="p-error">{{ $form.email?.error?.message }}</small>
-      </div>
-      <div class="flex flex-column gap-2">
-        <label class="font-semibold">Téléphone</label>
-        <PhoneInput name="phoneNumber" :disabled="loading" placeholder="Numéro de téléphone" />
-        <small v-if="$form.phoneNumber?.invalid" class="p-error">{{ $form.phoneNumber?.error?.message }}</small>
+    <div class="form-section">
+      <h4 class="form-section__title">Contact</h4>
+
+      <div class="form-row-2">
+        <div class="flex flex-column gap-2">
+          <label for="email" class="font-semibold">Email <span class="text-red-500">*</span></label>
+          <InputText id="email" name="email" :disabled="loading" type="email" fluid placeholder="email@exemple.fr" />
+          <small v-if="$form.email?.invalid" class="p-error text-red-500 text-sm">{{ $form.email?.error?.message }}</small>
+        </div>
+        <div class="flex flex-column gap-2">
+          <label for="phoneNumber" class="font-semibold">Téléphone <span class="text-red-500">*</span></label>
+          <PhoneInput name="phoneNumber" inputId="phoneNumber" :disabled="loading" placeholder="Numéro de téléphone" />
+          <small v-if="$form.phoneNumber?.invalid" class="p-error text-red-500 text-sm">{{ $form.phoneNumber?.error?.message }}</small>
+        </div>
       </div>
     </div>
 
-    <!-- Équipe / N° licence -->
-    <div class="form-row-2">
+    <div class="form-section">
+      <h4 class="form-section__title">Adresse</h4>
+
       <div class="flex flex-column gap-2">
-        <label class="font-semibold">Équipe</label>
-        <SelectInput name="teamId" :options="teams" optionLabel="name" optionValue="id" :disabled="loading" placeholder="Sélectionnez une équipe" />
-        <small v-if="$form.teamId?.invalid" class="p-error">{{ $form.teamId?.error?.message }}</small>
+        <label for="addressStreet" class="font-semibold">Rue <span class="text-red-500">*</span></label>
+        <InputText id="addressStreet" name="addressStreet" :disabled="loading" fluid placeholder="Ex : 12 rue des Lilas" />
+        <small v-if="$form.addressStreet?.invalid" class="p-error text-red-500 text-sm">{{ $form.addressStreet?.error?.message }}</small>
       </div>
-      <div class="flex flex-column gap-2">
-        <label class="font-semibold">N° de licence <span class="text-color-secondary font-normal">(optionnel)</span></label>
-        <InputText name="licenseNumber" :disabled="loading" fluid placeholder="Ex : 123456789" />
+
+      <div class="form-row-2">
+        <div class="flex flex-column gap-2">
+          <label for="addressZip" class="font-semibold">Code postal <span class="text-red-500">*</span></label>
+          <InputText id="addressZip" name="addressZip" :disabled="loading" fluid placeholder="Ex : 34830" />
+          <small v-if="$form.addressZip?.invalid" class="p-error text-red-500 text-sm">{{ $form.addressZip?.error?.message }}</small>
+        </div>
+        <div class="flex flex-column gap-2">
+          <label for="addressCity" class="font-semibold">Ville <span class="text-red-500">*</span></label>
+          <InputText id="addressCity" name="addressCity" :disabled="loading" fluid placeholder="Ex : Clapiers" />
+          <small v-if="$form.addressCity?.invalid" class="p-error text-red-500 text-sm">{{ $form.addressCity?.error?.message }}</small>
+        </div>
       </div>
     </div>
 
-    <!-- Sexe / Date de naissance -->
-    <div class="form-row-2">
-      <div class="flex flex-column gap-2">
-        <label class="font-semibold">Sexe</label>
-        <SelectInput name="gender" :options="genderOptions" optionLabel="label" optionValue="value" :disabled="loading" placeholder="Sélectionnez" />
-        <small v-if="$form.gender?.invalid" class="p-error">{{ $form.gender?.error?.message }}</small>
-      </div>
-      <div class="flex flex-column gap-2">
-        <label class="font-semibold">Date de naissance</label>
-        <DatePicker
-          v-model="localBirthDate"
-          :disabled="loading"
-          fluid
-          dateFormat="dd/mm/yy"
-          placeholder="JJ/MM/AAAA"
-          :invalid="!!birthDateError"
-        />
-        <small v-if="birthDateError" class="p-error">{{ birthDateError }}</small>
+    <div class="form-section">
+      <h4 class="form-section__title">Club</h4>
+
+      <div class="form-row-2">
+        <div class="flex flex-column gap-2">
+          <label for="teamId" class="font-semibold">Équipe <span class="text-red-500">*</span></label>
+          <SelectInput name="teamId" inputId="teamId" :options="teams" optionLabel="name" optionValue="id" :disabled="loading" placeholder="Sélectionnez une équipe" />
+          <small v-if="$form.teamId?.invalid" class="p-error text-red-500 text-sm">{{ $form.teamId?.error?.message }}</small>
+        </div>
+        <div class="flex flex-column gap-2">
+          <label for="licenseNumber" class="font-semibold">N° de licence <span class="text-color-secondary font-normal">(optionnel)</span></label>
+          <InputText id="licenseNumber" name="licenseNumber" :disabled="loading" fluid placeholder="Ex : 123456789" />
+        </div>
       </div>
     </div>
 
-    <!-- Nationalité / Rue -->
-    <div class="form-row-2">
-      <div class="flex flex-column gap-2">
-        <label class="font-semibold">Nationalité</label>
-        <SelectInput name="nationality" :options="nationalities" :disabled="loading" filter placeholder="Sélectionnez" />
-        <small v-if="$form.nationality?.invalid" class="p-error">{{ $form.nationality?.error?.message }}</small>
-      </div>
-      <div class="flex flex-column gap-2">
-        <label class="font-semibold">Rue</label>
-        <InputText name="addressStreet" :disabled="loading" fluid placeholder="Ex : 12 rue des Lilas" />
-        <small v-if="$form.addressStreet?.invalid" class="p-error">{{ $form.addressStreet?.error?.message }}</small>
-      </div>
+    <div class="form-actions">
+      <Button v-if="showCancel" type="button" label="Annuler" severity="secondary" outlined :disabled="loading" @click="emit('cancel')" />
+      <Button type="submit" label="Enregistrer" :loading="loading" />
     </div>
-
-    <!-- Code postal / Ville -->
-    <div class="form-row-2">
-      <div class="flex flex-column gap-2">
-        <label class="font-semibold">Code postal</label>
-        <InputText name="addressZip" :disabled="loading" fluid placeholder="Ex : 34830" />
-        <small v-if="$form.addressZip?.invalid" class="p-error">{{ $form.addressZip?.error?.message }}</small>
-      </div>
-      <div class="flex flex-column gap-2">
-        <label class="font-semibold">Ville</label>
-        <InputText name="addressCity" :disabled="loading" fluid placeholder="Ex : Clapiers" />
-        <small v-if="$form.addressCity?.invalid" class="p-error">{{ $form.addressCity?.error?.message }}</small>
-      </div>
-    </div>
-
-    <Button type="submit" label="Enregistrer" class="w-full mt-2" :loading="loading" />
   </Form>
 </template>
 
@@ -105,9 +112,11 @@ import type { Team } from '~/types/entity/Team';
 import { MemberGender, MemberGenderOptions } from '~/types/enum/MemberGender';
 import PhoneInput from '~/components/form/input/PhoneInput.vue';
 import SelectInput from '~/components/form/input/SelectInput.vue';
+import DatePickerInput from '~/components/form/input/DatePickerInput.vue';
 
 const props = defineProps({
   loading: Boolean,
+  showCancel: Boolean,
   member: { type: Object as () => Member | null, default: null },
   teams:  { type: Array as () => Team[], default: () => [] },
 });
@@ -119,18 +128,12 @@ const emit = defineEmits<{
     addressStreet: string; addressZip: string; addressCity: string;
     gender: MemberGender; birthDate: string; nationality: string;
   }): void;
+  (e: 'cancel'): void;
 }>();
 
 const genderOptions = MemberGenderOptions;
 const { nationalities } = useNationalities();
-
-const localBirthDate = ref<Date | null>(null);
-const birthDateError = ref('');
-const birthDateSchema = z.date({ required_error: 'La date de naissance est requise', invalid_type_error: 'Date invalide' });
-
-watch(() => props.member, (m) => {
-  localBirthDate.value = m?.birthDate ? new Date(m.birthDate + 'T12:00:00') : null;
-}, { immediate: true });
+const today = new Date();
 
 const formatLocalDate = (d: Date): string =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -146,6 +149,7 @@ const schema = z.object({
   addressZip:    z.string().min(1, { message: 'Le code postal est requis' }).max(10),
   addressCity:   z.string().min(1, { message: 'La ville est requise' }).max(100),
   gender:        z.nativeEnum(MemberGender, { message: 'Le sexe est requis' }),
+  birthDate:     z.date({ message: 'La date de naissance est requise' }),
   nationality:   z.string().min(1, { message: 'La nationalité est requise' }).max(100),
 });
 
@@ -164,15 +168,12 @@ const initialValues = computed(() => ({
   addressCity:   props.member?.address?.city    ?? '',
   gender:        props.member?.gender           ?? null,
   // undefined = pas d'erreur au chargement, null = DatePicker afficherait une date par défaut
+  birthDate:     props.member?.birthDate ? new Date(props.member.birthDate + 'T12:00:00') : undefined,
   nationality:   props.member?.nationality      ?? '',
 }));
 
 const onFormSubmit = (event: FormSubmitEvent<Record<string, any>>) => {
   if (!event.valid) return;
-
-  const dateResult = birthDateSchema.safeParse(localBirthDate.value);
-  birthDateError.value = dateResult.success ? '' : (dateResult.error.issues[0]?.message ?? 'Date invalide');
-  if (!dateResult.success) return;
 
   const v = event.values as MemberFormValues;
   emit('formSubmit', {
@@ -186,20 +187,52 @@ const onFormSubmit = (event: FormSubmitEvent<Record<string, any>>) => {
     addressZip:    v.addressZip,
     addressCity:   v.addressCity,
     gender:        v.gender,
-    birthDate:     formatLocalDate(localBirthDate.value!),
+    birthDate:     formatLocalDate(v.birthDate),
     nationality:   v.nationality,
   });
 };
 </script>
 
 <style scoped>
+.form-section {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.form-section__title {
+  margin: 0;
+  padding-bottom: 0.375rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--p-text-muted-color);
+  border-bottom: 1px solid var(--p-surface-border);
+}
+
 .form-row-2 {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 1rem;
 }
 
-@media (max-width: 480px) {
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+}
+
+@media (max-width: 640px) {
   .form-row-2 { grid-template-columns: 1fr; }
+
+  .form-actions {
+    flex-direction: column-reverse;
+  }
+
+  .form-actions :deep(.p-button) {
+    width: 100%;
+  }
 }
 </style>

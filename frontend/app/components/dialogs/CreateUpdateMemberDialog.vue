@@ -10,7 +10,9 @@
       :member="member"
       :teams="teams"
       :loading="loading"
+      show-cancel
       @formSubmit="handleSubmit"
+      @cancel="handleVisibilityChange(false)"
     />
   </Dialog>
 </template>
@@ -55,7 +57,7 @@ const toast = usePVToastService();
 const loading = ref(false);
 
 const header = computed(() =>
-  props.member ? 'Modifier le membre' : 'Nouveau membre'
+  props.member ? 'Modifier le licencié' : 'Nouveau licencié'
 );
 
 const handleVisibilityChange = (value: boolean) => {
@@ -69,9 +71,9 @@ const handleSubmit = async (values: MemberPayload) => {
     const saved = await memberRepository.createUpdate(payload);
     emit('saved', saved);
     emit('update:visible', false);
-    toast.add({ severity: 'success', summary: 'Membre enregistré', life: 2500 });
+    toast.add({ severity: 'success', summary: 'Licencié enregistré', life: 2500 });
   } catch {
-    toast.add({ severity: 'error', summary: 'Erreur', detail: 'Impossible d\'enregistrer le membre', life: 4000 });
+    toast.add({ severity: 'error', summary: 'Erreur', detail: 'Impossible d\'enregistrer le licencié', life: 4000 });
   } finally {
     loading.value = false;
   }

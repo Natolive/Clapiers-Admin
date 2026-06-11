@@ -5,6 +5,7 @@
       :disabled="disabled"
       :placeholder="placeholder"
       :defaultCountry="defaultCountry"
+      :inputId="inputId"
     />
   </FormField>
 </template>
@@ -23,16 +24,18 @@ interface Props {
   disabled?: boolean;
   placeholder?: string;
   defaultCountry?: string;
+  inputId?: string;
 }
 
 const props = withDefaults(defineProps<Props>(), {
   disabled: false,
   placeholder: 'Entrez le numéro de téléphone',
-  defaultCountry: 'fr'
+  defaultCountry: 'fr',
+  inputId: undefined
 });
 
 const PhoneInputInner = defineComponent({
-  props: ['field', 'disabled', 'placeholder', 'defaultCountry'],
+  props: ['field', 'disabled', 'placeholder', 'defaultCountry', 'inputId'],
   setup(props: any) {
     const internalValue = ref(props.field?.value || '');
 
@@ -54,7 +57,8 @@ const PhoneInputInner = defineComponent({
     const inputOptions = computed(() => ({
       placeholder: props.placeholder || 'Entrez le numéro de téléphone',
       maxlength: 25,
-      autocomplete: 'tel'
+      autocomplete: 'tel',
+      id: props.inputId
     }));
 
     const dropdownOptions = {
@@ -110,7 +114,7 @@ const PhoneInputInner = defineComponent({
 :deep(.vti__input) {
   border: none !important;
   background: transparent !important;
-  padding: 0.75rem 0.75rem;
+  padding: var(--p-inputtext-padding-y) var(--p-inputtext-padding-x);
   font-family: var(--p-inputtext-font-family);
   font-size: var(--p-inputtext-font-size);
   color: var(--p-inputtext-color);

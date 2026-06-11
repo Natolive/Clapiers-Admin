@@ -6,6 +6,9 @@
       :placeholder="placeholder"
       :disabled="disabled"
       :dateFormat="dateFormat"
+      :showIcon="showIcon"
+      :inputId="inputId"
+      :maxDate="maxDate"
       :invalid="$field.invalid"
       fluid
     />
@@ -21,13 +24,19 @@ withDefaults(defineProps<{
   placeholder?: string;
   disabled?: boolean;
   dateFormat?: string;
+  showIcon?: boolean;
+  inputId?: string;
+  maxDate?: Date;
 }>(), {
   placeholder: 'JJ/MM/AAAA',
   disabled: false,
   dateFormat: 'dd/mm/yy',
+  showIcon: false,
+  inputId: undefined,
+  maxDate: undefined,
 });
 
-const handleChange = (field: any, val: Date | null | undefined) => {
+const handleChange = (field: any, val: Date | Date[] | (Date | null)[] | null | undefined) => {
   // PrimeVue Forms attend un objet { value } — jamais une valeur brute ou undefined
   if (val instanceof Date && !isNaN(val.getTime())) {
     field.onChange({ value: val });

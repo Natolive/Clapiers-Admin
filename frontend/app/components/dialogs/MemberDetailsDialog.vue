@@ -38,7 +38,7 @@
         <div class="member-panel member-panel--form">
           <div class="panel-title">
             <i class="pi pi-pencil" />
-            <span>{{ isAdmin ? 'Modifier le membre' : 'Informations' }}</span>
+            <span>{{ isAdmin ? 'Modifier le licencié' : 'Informations' }}</span>
           </div>
 
           <MemberForm
@@ -205,9 +205,9 @@ const onSave = async (values: Record<string, any>) => {
     currentMember.value = updated;
     emit('update:member', updated);
     emit('saved', updated);
-    toast.add({ severity: 'success', summary: 'Membre mis à jour', life: 2500 });
+    toast.add({ severity: 'success', summary: 'Licencié mis à jour', life: 2500 });
   } catch {
-    toast.add({ severity: 'error', summary: 'Erreur', detail: 'Impossible de mettre à jour le membre', life: 4000 });
+    toast.add({ severity: 'error', summary: 'Erreur', detail: 'Impossible de mettre à jour le licencié', life: 4000 });
   } finally {
     saving.value = false;
   }
@@ -291,6 +291,8 @@ export { InfoRow };
 .member-modal {
   display: flex;
   flex-direction: column;
+  flex: 1;
+  min-height: 0;
   border-radius: inherit;
   overflow: hidden;
 }
@@ -344,8 +346,8 @@ export { InfoRow };
 .member-body {
   display: grid;
   grid-template-columns: 1fr 320px;
+  flex: 1;
   min-height: 0;
-  max-height: 75vh;
   overflow: hidden;
 }
 
@@ -403,22 +405,17 @@ export { InfoRow };
   }
 }
 
-/* Mobile */
+/* Mobile : le header reste visible, le corps défile d'un seul bloc */
 @media (max-width: 640px) {
-  .member-modal {
-    overflow-y: auto;
-    max-height: 95dvh;
-  }
-
   .member-body {
     display: flex;
     flex-direction: column;
-    max-height: none;
-    overflow: visible;
+    overflow-y: auto;
   }
 
   .member-panel {
     overflow-y: visible;
+    flex-shrink: 0;
   }
 
   .member-panel--form {
