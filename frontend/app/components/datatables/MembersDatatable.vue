@@ -261,7 +261,7 @@ const teamOptions = computed(() =>
 );
 
 const memberTeamsLabel = (member: Member) =>
-  member.teams.map(t => t.name).join(' · ') || '—';
+  (member.teams ?? []).map(t => t.name).join(' · ') || '—';
 
 const lazyParams = ref({
   first: 0,
