@@ -12,6 +12,7 @@
       :emptyFilterMessage="emptyFilterMessage"
       :emptyMessage="emptyMessage"
       :showClear="showClear"
+      :inputId="inputId"
       :invalid="$field.invalid"
       fluid
       @change="$field.onChange"
@@ -35,6 +36,7 @@ withDefaults(defineProps<{
   emptyFilterMessage?: string;
   emptyMessage?: string;
   showClear?: boolean;
+  inputId?: string;
 }>(), {
   optionLabel: undefined,
   optionValue: undefined,
@@ -45,5 +47,6 @@ withDefaults(defineProps<{
   emptyFilterMessage: 'Aucun résultat',
   emptyMessage: 'Aucune option',
   showClear: false,
+  inputId: undefined,
 });
 </script>

@@ -1,6 +1,6 @@
 <template>
-  <div class="flex gap-3 mb-3">
-    <IconField class="flex-1">
+  <div class="members-filters mb-3">
+    <IconField class="members-filters__search">
       <InputIcon class="pi pi-search" />
       <InputText
         v-model="searchValue"
@@ -15,38 +15,47 @@
       optionValue="value"
       placeholder="Toutes les équipes"
       showClear
-      class="w-15rem"
+      class="members-filters__team"
     />
-    <div class="flex align-items-center gap-2">
-      <ToggleSwitch v-model="licensePaidFilter" />
-      <span class="white-space-nowrap">Licence payée</span>
-    </div>
-    <div class="flex align-items-center gap-2">
-      <ToggleSwitch v-model="hasLicenseFilter" />
-      <span class="white-space-nowrap">Fichier licence</span>
+    <div class="members-filters__toggles">
+      <div class="flex align-items-center gap-2">
+        <ToggleSwitch v-model="licensePaidFilter" />
+        <span class="white-space-nowrap">Licence payée</span>
+      </div>
+      <div class="flex align-items-center gap-2">
+        <ToggleSwitch v-model="hasLicenseFilter" />
+        <span class="white-space-nowrap">Fichier licence</span>
+      </div>
     </div>
   </div>
 
   <DataTable
+    v-if="!isMobile"
     :value="members"
     :loading="loading"
     lazy
     stripedRows
-    responsiveLayout="scroll"
+    tableStyle="min-width: 64rem"
     class="p-datatable-sm"
     paginator
     :rows="lazyParams.rows"
     :totalRecords="totalRecords"
     :rowsPerPageOptions="[10, 25, 50]"
     paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink RowsPerPageDropdown CurrentPageReport"
-    currentPageReportTemplate="{first} à {last} sur {totalRecords} membres"
+    currentPageReportTemplate="{first} à {last} sur {totalRecords} licenciés"
     :first="lazyParams.first"
     :sortField="lazyParams.sortField"
     :sortOrder="lazyParams.sortOrder"
     @page="onPage"
     @sort="onSort"
   >
-    <Column header="Membre" sortable field="firstName" style="width: 20%">
+    <template #empty>
+      <div class="datatable-empty">
+        <i class="pi pi-users" />
+        <span>Aucun licencié trouvé</span>
+      </div>
+    </template>
+    <Column header="Licencié" sortable field="firstName" style="width: 20%">
       <template #body="slotProps">
         <div class="flex align-items-center gap-3">
           <MemberAvatar
@@ -141,6 +150,59 @@
     </Column>
   </DataTable>
 
+  <!-- Mobile : liste de cartes, le détail/édition passe par le dialog -->
+  <div v-else class="member-cards">
+    <template v-if="loading">
+      <div v-for="i in 5" :key="i" class="member-card">
+        <Skeleton shape="circle" size="3rem" />
+        <div class="member-card__main">
+          <Skeleton width="60%" height="1rem" class="mb-2" />
+          <Skeleton width="40%" height="0.75rem" />
+        </div>
+      </div>
+    </template>
+
+    <template v-else-if="members.length">
+      <button
+        v-for="member in members"
+        :key="member.id"
+        type="button"
+        class="member-card member-card--clickable"
+        @click="openDialog(member)"
+      >
+        <MemberAvatar :member="member" size="large" />
+        <div class="member-card__main">
+          <span class="member-card__name">{{ member.firstName }} {{ member.lastName }}</span>
+          <span class="member-card__meta">{{ member.team.name }} · {{ member.phoneNumber }}</span>
+          <div class="member-card__tags">
+            <Tag
+              :value="member.licensePaid ? 'Licence payée' : 'Non payée'"
+              :severity="member.licensePaid ? 'success' : 'danger'"
+              class="text-xs"
+            />
+            <Tag v-if="member.licenseFileName" value="Fichier" severity="secondary" class="text-xs" />
+          </div>
+        </div>
+        <i class="pi pi-chevron-right member-card__chevron" />
+      </button>
+    </template>
+
+    <div v-else class="member-cards__empty">
+      <i class="pi pi-users" />
+      <span>Aucun licencié trouvé</span>
+    </div>
+
+    <Paginator
+      v-if="totalRecords > lazyParams.rows"
+      :rows="lazyParams.rows"
+      :totalRecords="totalRecords"
+      :first="lazyParams.first"
+      template="PrevPageLink CurrentPageReport NextPageLink"
+      currentPageReportTemplate="{currentPage} / {totalPages}"
+      @page="onPage"
+    />
+  </div>
+
   <input
     ref="fileInput"
     type="file"
@@ -151,7 +213,7 @@
 </template>
 
 <script setup lang="ts">
-import type { DataTablePageEvent, DataTableSortEvent } from 'primevue/datatable';
+import type { DataTableSortEvent } from 'primevue/datatable';
 import CreateUpdateMemberDialog from '~/components/dialogs/CreateUpdateMemberDialog.vue';
 import MemberDetailsDialog from '~/components/dialogs/MemberDetailsDialog.vue';
 import ConfirmDeleteDialog from '~/components/dialogs/ConfirmDeleteDialog.vue';
@@ -180,6 +242,8 @@ const licensePaidFilter = ref(false);
 const hasLicenseFilter = ref(false);
 let searchTimeout: ReturnType<typeof setTimeout> | null = null;
 
+const isMobile = useIsMobile();
+
 const teamOptions = computed(() =>
   props.teams.map(t => ({ label: t.name, value: t.id }))
 );
@@ -199,17 +263,7 @@ watch(searchValue, () => {
   }, 300);
 });
 
-watch(selectedTeamId, () => {
-  lazyParams.value.first = 0;
-  fetchData();
-});
-
-watch(licensePaidFilter, () => {
-  lazyParams.value.first = 0;
-  fetchData();
-});
-
-watch(hasLicenseFilter, () => {
+watch([selectedTeamId, licensePaidFilter, hasLicenseFilter], () => {
   lazyParams.value.first = 0;
   fetchData();
 });
@@ -234,7 +288,8 @@ const fetchData = async () => {
   }
 };
 
-const onPage = (event: DataTablePageEvent) => {
+// Partagé entre le DataTable (desktop) et le Paginator (mobile)
+const onPage = (event: { first: number; rows: number }) => {
   lazyParams.value.first = event.first;
   lazyParams.value.rows = event.rows;
   fetchData();
@@ -367,3 +422,126 @@ onMounted(() => {
   fetchData();
 });
 </script>
+
+<style scoped>
+/* Filtres */
+.members-filters {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.members-filters__search {
+  flex: 1 1 16rem;
+}
+
+.members-filters__team {
+  width: 15rem;
+}
+
+.members-filters__toggles {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+@media (max-width: 767px) {
+  .members-filters__search {
+    flex: 1 1 100%;
+  }
+
+  .members-filters__team {
+    flex: 1 1 100%;
+    width: auto;
+  }
+
+  .members-filters__toggles {
+    flex-wrap: wrap;
+    row-gap: 0.5rem;
+  }
+}
+
+/* Cartes mobile */
+.member-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.member-card {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  border: 1px solid var(--p-surface-border);
+  border-radius: 10px;
+  background: var(--p-surface-card);
+  text-align: left;
+  width: 100%;
+}
+
+.member-card--clickable {
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+  transition: background-color 0.15s, border-color 0.15s;
+}
+
+.member-card--clickable:active {
+  background: var(--p-surface-hover);
+}
+
+.member-card__main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.member-card__name {
+  font-weight: 600;
+  color: var(--p-text-color);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.member-card__meta {
+  font-size: 0.8rem;
+  color: var(--p-text-muted-color);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.member-card__tags {
+  display: flex;
+  gap: 0.375rem;
+  flex-wrap: wrap;
+  margin-top: 0.15rem;
+}
+
+.member-card__chevron {
+  color: var(--p-text-muted-color);
+  font-size: 0.8rem;
+  flex-shrink: 0;
+}
+
+.member-cards__empty,
+.datatable-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 2.5rem 1rem;
+  color: var(--p-text-muted-color);
+}
+
+.member-cards__empty i,
+.datatable-empty i {
+  font-size: 2rem;
+  opacity: 0.5;
+}
+</style>

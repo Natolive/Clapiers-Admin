@@ -56,7 +56,7 @@ interface Props {
 const props = withDefaults(defineProps<Props>(), {
   visible: true,
   modal: true,
-  style: () => ({ width: '30rem' })
+  style: () => ({ width: 'min(95vw, 30rem)' })
 });
 
 const emit = defineEmits<{

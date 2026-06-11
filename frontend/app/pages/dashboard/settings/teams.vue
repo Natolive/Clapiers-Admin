@@ -8,7 +8,7 @@
 
     <SkeletonLoader v-if="loading" type="table" />
 
-    <Card v-else>
+    <Card v-else class="settings-card">
       <template #content>
         <TeamsDatatable
           :teams="teams"
@@ -79,3 +79,11 @@ onMounted(async () => {
   }
 });
 </script>
+
+<style scoped>
+@media (max-width: 767px) {
+  .settings-card :deep(.p-card-body) {
+    padding: 0.75rem;
+  }
+}
+</style>

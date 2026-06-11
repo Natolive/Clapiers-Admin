@@ -2,13 +2,13 @@
   <div>
     <Toolbar class="mb-4">
       <template #start>
-        <Button label="Nouveau membre" icon="pi pi-plus" @click="openCreateDialog()" />
+        <Button label="Nouveau licencié" icon="pi pi-plus" @click="openCreateDialog()" />
       </template>
     </Toolbar>
 
     <SkeletonLoader v-if="loading" type="table" />
 
-    <Card v-else>
+    <Card v-else class="members-card">
       <template #content>
         <MembersDatatable
           ref="datatableRef"
@@ -34,7 +34,7 @@ definePageMeta({
   redirectTo: '/dashboard/calendar'
 });
 
-useHead({ title: 'Membres' });
+useHead({ title: 'Licenciés' });
 
 const { isSuperAdmin } = useUserRole();
 const { show } = useDialogManager();
@@ -67,3 +67,11 @@ onMounted(async () => {
   }
 });
 </script>
+
+<style scoped>
+@media (max-width: 767px) {
+  .members-card :deep(.p-card-body) {
+    padding: 0.75rem;
+  }
+}
+</style>

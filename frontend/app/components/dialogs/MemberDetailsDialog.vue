@@ -38,13 +38,13 @@
         <div class="member-panel member-panel--form">
           <div class="panel-title">
             <i class="pi pi-pencil" />
-            <span>{{ isAdmin ? 'Modifier le membre' : 'Informations' }}</span>
+            <span>{{ isAdmin ? 'Modifier le licencié' : 'Informations' }}</span>
           </div>
 
           <MemberForm
             v-if="isAdmin"
             :member="currentMember"
-            :teams="teams"
+            :teams="teamOptions"
             :loading="saving"
             @formSubmit="onSave"
           />
@@ -154,6 +154,7 @@ import { MemberGenderLabels } from '~/types/enum/MemberGender';
 import MemberAvatar from '~/components/common/MemberAvatar.vue';
 import MemberForm from '~/components/forms/member-form.vue';
 import { MemberRepository } from '~/repository/member-repository';
+import { TeamRepository } from '~/repository/team-repository';
 
 const props = defineProps<{
   visible?: boolean;
@@ -173,6 +174,18 @@ const toast = usePVToastService();
 
 const currentMember = ref<Member>({ ...props.member });
 watch(() => props.member, m => { currentMember.value = { ...m }; }, { deep: true });
+
+// Certains appelants (ex: UserMemberCard) n'ont pas les équipes sous la main :
+// on les charge nous-mêmes pour que le select Équipe du formulaire soit utilisable
+const teamOptions = ref<Team[]>(props.teams ?? []);
+onMounted(async () => {
+  if (!isAdmin.value || teamOptions.value.length > 0) return;
+  try {
+    teamOptions.value = await new TeamRepository().getAll();
+  } catch (error) {
+    console.error('Error loading teams:', error);
+  }
+});
 
 const saving = ref(false);
 const uploading = ref(false);
@@ -205,9 +218,9 @@ const onSave = async (values: Record<string, any>) => {
     currentMember.value = updated;
     emit('update:member', updated);
     emit('saved', updated);
-    toast.add({ severity: 'success', summary: 'Membre mis à jour', life: 2500 });
+    toast.add({ severity: 'success', summary: 'Licencié mis à jour', life: 2500 });
   } catch {
-    toast.add({ severity: 'error', summary: 'Erreur', detail: 'Impossible de mettre à jour le membre', life: 4000 });
+    toast.add({ severity: 'error', summary: 'Erreur', detail: 'Impossible de mettre à jour le licencié', life: 4000 });
   } finally {
     saving.value = false;
   }
@@ -291,6 +304,8 @@ export { InfoRow };
 .member-modal {
   display: flex;
   flex-direction: column;
+  flex: 1;
+  min-height: 0;
   border-radius: inherit;
   overflow: hidden;
 }
@@ -344,8 +359,8 @@ export { InfoRow };
 .member-body {
   display: grid;
   grid-template-columns: 1fr 320px;
+  flex: 1;
   min-height: 0;
-  max-height: 75vh;
   overflow: hidden;
 }
 
@@ -403,22 +418,17 @@ export { InfoRow };
   }
 }
 
-/* Mobile */
+/* Mobile : le header reste visible, le corps défile d'un seul bloc */
 @media (max-width: 640px) {
-  .member-modal {
-    overflow-y: auto;
-    max-height: 95dvh;
-  }
-
   .member-body {
     display: flex;
     flex-direction: column;
-    max-height: none;
-    overflow: visible;
+    overflow-y: auto;
   }
 
   .member-panel {
     overflow-y: visible;
+    flex-shrink: 0;
   }
 
   .member-panel--form {

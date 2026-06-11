@@ -15,7 +15,7 @@
   </div>
   <div v-else class="member-card empty" @click="openLinkDialog">
     <i class="pi pi-plus" />
-    <span>Associer un membre</span>
+    <span>Associer un licencié</span>
   </div>
 </template>
 

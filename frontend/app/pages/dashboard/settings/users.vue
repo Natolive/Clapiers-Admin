@@ -6,7 +6,7 @@
       </template>
     </Toolbar>
 
-    <Card>
+    <Card class="settings-card">
       <template #content>
         <UsersDatatable ref="datatableRef" />
       </template>
@@ -58,3 +58,11 @@ onMounted(async () => {
   }
 });
 </script>
+
+<style scoped>
+@media (max-width: 767px) {
+  .settings-card :deep(.p-card-body) {
+    padding: 0.75rem;
+  }
+}
+</style>
