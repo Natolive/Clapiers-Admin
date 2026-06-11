@@ -22,7 +22,7 @@
         {{ new Date(slotProps.data.createdAt).toLocaleDateString('fr-FR') }}
       </template>
     </Column>
-    <Column v-if="isSuperAdmin" header="Actions" style="width: 10%">
+    <Column header="Actions" style="width: 10%">
       <template #body="slotProps">
         <Button
           icon="pi pi-pencil"
@@ -42,8 +42,7 @@
         <div v-else-if="teamMembers[slotProps.data.id]?.length">
           <DataTable
             :value="teamMembers[slotProps.data.id]"
-            class="p-datatable-sm"
-            :class="{ 'team-members-table--clickable': isSuperAdmin }"
+            class="p-datatable-sm team-members-table"
             stripedRows
             @row-click="openMemberDialog($event.data, slotProps.data.id)"
           >
@@ -91,7 +90,6 @@
             <span class="team-card__meta">Créée le {{ new Date(team.createdAt).toLocaleDateString('fr-FR') }}</span>
           </div>
           <Button
-            v-if="isSuperAdmin"
             icon="pi pi-pencil"
             severity="secondary"
             text
@@ -109,12 +107,11 @@
               v-for="member in teamMembers[team.id]"
               :key="member.id"
               class="team-member-row"
-              :class="{ 'team-member-row--clickable': isSuperAdmin }"
               @click="openMemberDialog(member, team.id)"
             >
               <MemberAvatar :member="member" size="normal" />
               <span class="team-member-row__name">{{ member.firstName }} {{ member.lastName }}</span>
-              <i v-if="isSuperAdmin" class="pi pi-chevron-right team-member-row__chevron" />
+              <i class="pi pi-chevron-right team-member-row__chevron" />
             </div>
           </template>
           <span v-else class="team-card__members-empty">Aucun licencié dans cette équipe</span>
@@ -147,7 +144,6 @@ const emit = defineEmits<{
 }>();
 
 const { show } = useDialogManager();
-const { isSuperAdmin } = useUserRole();
 const memberRepository = new MemberRepository();
 const isMobile = useIsMobile();
 const expandedRows = ref<Team[]>([]);
@@ -208,9 +204,8 @@ const toggleExpand = (team: Team) => {
   expandedTeamIds.value = next;
 };
 
-// Fiche/édition d'un licencié depuis une équipe dépliée — réservé au super admin
+// Fiche/édition d'un licencié depuis une équipe dépliée
 const openMemberDialog = (member: Member, teamId: number) => {
-  if (!isSuperAdmin.value) return;
   show({
     component: MemberDetailsDialog,
     props: {
@@ -225,9 +220,8 @@ const openMemberDialog = (member: Member, teamId: number) => {
   });
 };
 
-// Open dialog for create or edit — réservé au super admin
+// Open dialog for create or edit
 const openDialog = (team?: Team) => {
-  if (!isSuperAdmin.value) return;
   show({
     component: CreateUpdateTeamDialog,
     props: {
@@ -346,6 +340,14 @@ const openDialog = (team?: Team) => {
   align-items: center;
   gap: 0.75rem;
   font-size: 0.875rem;
+  cursor: pointer;
+  border-radius: 8px;
+  padding: 0.25rem;
+  margin: -0.25rem;
+}
+
+.team-member-row:active {
+  background: var(--p-surface-hover);
 }
 
 .team-member-row__name {
@@ -356,17 +358,6 @@ const openDialog = (team?: Team) => {
   white-space: nowrap;
 }
 
-.team-member-row--clickable {
-  cursor: pointer;
-  border-radius: 8px;
-  padding: 0.25rem;
-  margin: -0.25rem;
-}
-
-.team-member-row--clickable:active {
-  background: var(--p-surface-hover);
-}
-
 .team-member-row__chevron {
   color: var(--p-text-muted-color);
   font-size: 0.7rem;
@@ -374,7 +365,7 @@ const openDialog = (team?: Team) => {
 }
 
 /* Lignes cliquables du tableau de licenciés (expansion desktop) */
-.team-members-table--clickable :deep(.p-datatable-tbody > tr) {
+.team-members-table :deep(.p-datatable-tbody > tr) {
   cursor: pointer;
 }
 </style>
