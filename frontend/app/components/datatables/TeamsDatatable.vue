@@ -43,18 +43,22 @@
           <DataTable
             :value="teamMembers[slotProps.data.id]"
             class="p-datatable-sm"
+            :class="{ 'team-members-table--clickable': isSuperAdmin }"
             stripedRows
+            @row-click="openMemberDialog($event.data, slotProps.data.id)"
           >
             <Column header="Licencié" sortable field="firstName">
               <template #body="memberProps">
                 <div class="flex align-items-center gap-3">
-                  <MemberAvatar
-                    :member="memberProps.data"
-                    size="normal"
-                    editable
-                    @upload="(file: File) => onUploadProfilePicture(memberProps.data, file)"
-                    @delete="onDeleteProfilePicture(memberProps.data)"
-                  />
+                  <div @click.stop>
+                    <MemberAvatar
+                      :member="memberProps.data"
+                      size="normal"
+                      editable
+                      @upload="(file: File) => onUploadProfilePicture(memberProps.data, file)"
+                      @delete="onDeleteProfilePicture(memberProps.data)"
+                    />
+                  </div>
                   <span>{{ memberProps.data.firstName }} {{ memberProps.data.lastName }}</span>
                 </div>
               </template>
@@ -77,27 +81,23 @@
   <div v-else class="team-cards">
     <template v-if="teams.length">
       <div v-for="team in teams" :key="team.id" class="team-card">
-        <div
-          class="team-card__head"
-          :class="{ 'team-card__head--editable': isSuperAdmin }"
-          @click="openDialog(team)"
-        >
-          <button
-            type="button"
-            class="team-card__expand"
-            :aria-label="isExpanded(team.id) ? 'Masquer les licenciés' : 'Voir les licenciés'"
-            @click.stop="toggleExpand(team)"
-          >
-            <i
-              class="pi"
-              :class="isExpanded(team.id) ? 'pi-chevron-down' : 'pi-chevron-right'"
-            />
-          </button>
+        <div class="team-card__head" @click="toggleExpand(team)">
+          <i
+            class="pi team-card__chevron"
+            :class="isExpanded(team.id) ? 'pi-chevron-down' : 'pi-chevron-right'"
+          />
           <div class="team-card__main">
             <span class="team-card__name">{{ team.name }}</span>
             <span class="team-card__meta">Créée le {{ new Date(team.createdAt).toLocaleDateString('fr-FR') }}</span>
           </div>
-          <i v-if="isSuperAdmin" class="pi pi-pencil team-card__edit-hint" />
+          <Button
+            v-if="isSuperAdmin"
+            icon="pi pi-pencil"
+            severity="secondary"
+            text
+            rounded
+            @click.stop="openDialog(team)"
+          />
         </div>
 
         <div v-if="isExpanded(team.id)" class="team-card__members">
@@ -105,9 +105,16 @@
             <i class="pi pi-spinner pi-spin" />
           </div>
           <template v-else-if="teamMembers[team.id]?.length">
-            <div v-for="member in teamMembers[team.id]" :key="member.id" class="team-member-row">
+            <div
+              v-for="member in teamMembers[team.id]"
+              :key="member.id"
+              class="team-member-row"
+              :class="{ 'team-member-row--clickable': isSuperAdmin }"
+              @click="openMemberDialog(member, team.id)"
+            >
               <MemberAvatar :member="member" size="normal" />
-              <span>{{ member.firstName }} {{ member.lastName }}</span>
+              <span class="team-member-row__name">{{ member.firstName }} {{ member.lastName }}</span>
+              <i v-if="isSuperAdmin" class="pi pi-chevron-right team-member-row__chevron" />
             </div>
           </template>
           <span v-else class="team-card__members-empty">Aucun licencié dans cette équipe</span>
@@ -124,6 +131,7 @@
 
 <script setup lang="ts">
 import CreateUpdateTeamDialog from '~/components/dialogs/CreateUpdateTeamDialog.vue';
+import MemberDetailsDialog from '~/components/dialogs/MemberDetailsDialog.vue';
 import MemberAvatar from '~/components/common/MemberAvatar.vue';
 import { MemberRepository } from '~/repository/member-repository';
 import type { Team } from '~/types/entity/Team';
@@ -200,6 +208,23 @@ const toggleExpand = (team: Team) => {
   expandedTeamIds.value = next;
 };
 
+// Fiche/édition d'un licencié depuis une équipe dépliée — réservé au super admin
+const openMemberDialog = (member: Member, teamId: number) => {
+  if (!isSuperAdmin.value) return;
+  show({
+    component: MemberDetailsDialog,
+    props: {
+      member,
+      teams: props.teams,
+      onSaved: () => {
+        // Le licencié a pu changer d'équipe : on recharge la liste
+        delete teamMembers.value[teamId];
+        loadTeamMembers(teamId);
+      },
+    }
+  });
+};
+
 // Open dialog for create or edit — réservé au super admin
 const openDialog = (team?: Team) => {
   if (!isSuperAdmin.value) return;
@@ -262,41 +287,18 @@ const openDialog = (team?: Team) => {
   align-items: center;
   gap: 0.75rem;
   padding: 0.5rem 0.75rem;
+  cursor: pointer;
   user-select: none;
 }
 
-.team-card__head--editable {
-  cursor: pointer;
-}
-
-.team-card__head--editable:active {
+.team-card__head:active {
   background: var(--p-surface-hover);
 }
 
-.team-card__expand {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 2rem;
-  height: 2rem;
-  flex-shrink: 0;
-  border: none;
-  border-radius: 8px;
-  background: transparent;
-  color: var(--p-text-muted-color);
-  font-size: 0.8rem;
-  cursor: pointer;
-}
-
-.team-card__expand:active {
-  background: var(--p-surface-hover);
-}
-
-.team-card__edit-hint {
+.team-card__chevron {
   color: var(--p-text-muted-color);
   font-size: 0.8rem;
   flex-shrink: 0;
-  padding: 0 0.5rem;
 }
 
 .team-card__main {
@@ -344,5 +346,35 @@ const openDialog = (team?: Team) => {
   align-items: center;
   gap: 0.75rem;
   font-size: 0.875rem;
+}
+
+.team-member-row__name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.team-member-row--clickable {
+  cursor: pointer;
+  border-radius: 8px;
+  padding: 0.25rem;
+  margin: -0.25rem;
+}
+
+.team-member-row--clickable:active {
+  background: var(--p-surface-hover);
+}
+
+.team-member-row__chevron {
+  color: var(--p-text-muted-color);
+  font-size: 0.7rem;
+  flex-shrink: 0;
+}
+
+/* Lignes cliquables du tableau de licenciés (expansion desktop) */
+.team-members-table--clickable :deep(.p-datatable-tbody > tr) {
+  cursor: pointer;
 }
 </style>
