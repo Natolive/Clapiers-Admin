@@ -11,11 +11,12 @@
   </div>
 
   <DataTable
+    v-if="!isMobile"
     :value="users"
     :loading="loading"
     lazy
     stripedRows
-    responsiveLayout="scroll"
+    tableStyle="min-width: 48rem"
     class="p-datatable-sm"
     paginator
     :rows="lazyParams.rows"
@@ -29,7 +30,13 @@
     @page="onPage"
     @sort="onSort"
   >
-    <Column field="member.name" header="Membre" sortable style="width: 25%">
+    <template #empty>
+      <div class="datatable-empty">
+        <i class="pi pi-users" />
+        <span>Aucun utilisateur trouvé</span>
+      </div>
+    </template>
+    <Column field="member.name" header="Licencié" sortable style="width: 25%">
       <template #body="slotProps">
         <UserMemberCard
           :user="slotProps.data"
@@ -59,10 +66,58 @@
       </template>
     </Column>
   </DataTable>
+
+  <!-- Mobile : liste de cartes -->
+  <div v-else class="user-cards">
+    <template v-if="loading">
+      <div v-for="i in 5" :key="i" class="user-card">
+        <Skeleton width="50%" height="1rem" class="mb-2" />
+        <Skeleton width="70%" height="0.8rem" />
+      </div>
+    </template>
+
+    <template v-else-if="users.length">
+      <div v-for="user in users" :key="user.id" class="user-card">
+        <div class="user-card__row">
+          <UserMemberCard
+            :user="user"
+            :on-link="(memberId: number) => handleLinkMember(user.id, memberId)"
+            :on-unlink="() => handleUnlinkMember(user.id)"
+          />
+          <Button
+            icon="pi pi-pencil"
+            severity="secondary"
+            text
+            rounded
+            @click="openDialog(user)"
+          />
+        </div>
+        <div class="user-card__row user-card__row--meta">
+          <span class="user-card__email">{{ user.email }}</span>
+          <RoleBadge :role="user.roles[0] ?? ''" size="xs" />
+        </div>
+      </div>
+    </template>
+
+    <div v-else class="user-cards__empty">
+      <i class="pi pi-users" />
+      <span>Aucun utilisateur trouvé</span>
+    </div>
+
+    <Paginator
+      v-if="totalRecords > lazyParams.rows"
+      :rows="lazyParams.rows"
+      :totalRecords="totalRecords"
+      :first="lazyParams.first"
+      template="PrevPageLink CurrentPageReport NextPageLink"
+      currentPageReportTemplate="{currentPage} / {totalPages}"
+      @page="onPage"
+    />
+  </div>
 </template>
 
 <script setup lang="ts">
-import type { DataTablePageEvent, DataTableSortEvent } from 'primevue/datatable';
+import type { DataTableSortEvent } from 'primevue/datatable';
 import CreateUpdateUserDialog from '~/components/dialogs/CreateUpdateUserDialog.vue';
 import UserMemberCard from '~/components/users/UserMemberCard.vue';
 import type { AppUser, AppUserRole } from '~/types/entity/AppUser';
@@ -77,6 +132,8 @@ const loading = ref(false);
 
 const searchValue = ref('');
 let searchTimeout: ReturnType<typeof setTimeout> | null = null;
+
+const isMobile = useIsMobile();
 
 const lazyParams = ref({
   first: 0,
@@ -110,7 +167,8 @@ const fetchData = async () => {
   }
 };
 
-const onPage = (event: DataTablePageEvent) => {
+// Partagé entre le DataTable (desktop) et le Paginator (mobile)
+const onPage = (event: { first: number; rows: number }) => {
   lazyParams.value.first = event.first;
   lazyParams.value.rows = event.rows;
   fetchData();
@@ -161,3 +219,59 @@ onMounted(() => {
   fetchData();
 });
 </script>
+
+<style scoped>
+.datatable-empty,
+.user-cards__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 2.5rem 1rem;
+  color: var(--p-text-muted-color);
+}
+
+.datatable-empty i,
+.user-cards__empty i {
+  font-size: 2rem;
+  opacity: 0.5;
+}
+
+/* Cartes mobile */
+.user-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.user-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  padding: 0.75rem;
+  border: 1px solid var(--p-surface-border);
+  border-radius: 10px;
+  background: var(--p-surface-card);
+}
+
+.user-card__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.user-card__row--meta {
+  padding-left: 0.25rem;
+}
+
+.user-card__email {
+  font-size: 0.8rem;
+  color: var(--p-text-muted-color);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+</style>

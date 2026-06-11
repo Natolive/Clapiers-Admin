@@ -32,7 +32,7 @@ const props = withDefaults(defineProps<Props>(), {
   user: null,
   loading: false,
   modal: true,
-  style: () => ({ width: '30rem' })
+  style: () => ({ width: 'min(95vw, 30rem)' })
 });
 
 const emit = defineEmits<{
