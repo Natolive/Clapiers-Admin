@@ -35,7 +35,7 @@
     :loading="loading"
     lazy
     stripedRows
-    responsiveLayout="scroll"
+    tableStyle="min-width: 64rem"
     class="p-datatable-sm"
     paginator
     :rows="lazyParams.rows"
@@ -49,6 +49,12 @@
     @page="onPage"
     @sort="onSort"
   >
+    <template #empty>
+      <div class="datatable-empty">
+        <i class="pi pi-users" />
+        <span>Aucun licencié trouvé</span>
+      </div>
+    </template>
     <Column header="Licencié" sortable field="firstName" style="width: 20%">
       <template #body="slotProps">
         <div class="flex align-items-center gap-3">
@@ -523,7 +529,8 @@ onMounted(() => {
   flex-shrink: 0;
 }
 
-.member-cards__empty {
+.member-cards__empty,
+.datatable-empty {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -532,7 +539,8 @@ onMounted(() => {
   color: var(--p-text-muted-color);
 }
 
-.member-cards__empty i {
+.member-cards__empty i,
+.datatable-empty i {
   font-size: 2rem;
   opacity: 0.5;
 }
