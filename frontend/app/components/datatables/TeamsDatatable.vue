@@ -22,7 +22,7 @@
         {{ new Date(slotProps.data.createdAt).toLocaleDateString('fr-FR') }}
       </template>
     </Column>
-    <Column header="Actions" style="width: 10%">
+    <Column v-if="isSuperAdmin" header="Actions" style="width: 10%">
       <template #body="slotProps">
         <Button
           icon="pi pi-pencil"
@@ -77,22 +77,27 @@
   <div v-else class="team-cards">
     <template v-if="teams.length">
       <div v-for="team in teams" :key="team.id" class="team-card">
-        <div class="team-card__head" @click="toggleExpand(team)">
-          <i
-            class="pi team-card__chevron"
-            :class="isExpanded(team.id) ? 'pi-chevron-down' : 'pi-chevron-right'"
-          />
+        <div
+          class="team-card__head"
+          :class="{ 'team-card__head--editable': isSuperAdmin }"
+          @click="openDialog(team)"
+        >
+          <button
+            type="button"
+            class="team-card__expand"
+            :aria-label="isExpanded(team.id) ? 'Masquer les licenciés' : 'Voir les licenciés'"
+            @click.stop="toggleExpand(team)"
+          >
+            <i
+              class="pi"
+              :class="isExpanded(team.id) ? 'pi-chevron-down' : 'pi-chevron-right'"
+            />
+          </button>
           <div class="team-card__main">
             <span class="team-card__name">{{ team.name }}</span>
             <span class="team-card__meta">Créée le {{ new Date(team.createdAt).toLocaleDateString('fr-FR') }}</span>
           </div>
-          <Button
-            icon="pi pi-pencil"
-            severity="secondary"
-            text
-            rounded
-            @click.stop="openDialog(team)"
-          />
+          <i v-if="isSuperAdmin" class="pi pi-pencil team-card__edit-hint" />
         </div>
 
         <div v-if="isExpanded(team.id)" class="team-card__members">
@@ -134,6 +139,7 @@ const emit = defineEmits<{
 }>();
 
 const { show } = useDialogManager();
+const { isSuperAdmin } = useUserRole();
 const memberRepository = new MemberRepository();
 const isMobile = useIsMobile();
 const expandedRows = ref<Team[]>([]);
@@ -194,8 +200,9 @@ const toggleExpand = (team: Team) => {
   expandedTeamIds.value = next;
 };
 
-// Open dialog for create or edit
+// Open dialog for create or edit — réservé au super admin
 const openDialog = (team?: Team) => {
+  if (!isSuperAdmin.value) return;
   show({
     component: CreateUpdateTeamDialog,
     props: {
@@ -255,18 +262,41 @@ const openDialog = (team?: Team) => {
   align-items: center;
   gap: 0.75rem;
   padding: 0.5rem 0.75rem;
-  cursor: pointer;
   user-select: none;
 }
 
-.team-card__head:active {
+.team-card__head--editable {
+  cursor: pointer;
+}
+
+.team-card__head--editable:active {
   background: var(--p-surface-hover);
 }
 
-.team-card__chevron {
+.team-card__expand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  flex-shrink: 0;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--p-text-muted-color);
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.team-card__expand:active {
+  background: var(--p-surface-hover);
+}
+
+.team-card__edit-hint {
   color: var(--p-text-muted-color);
   font-size: 0.8rem;
   flex-shrink: 0;
+  padding: 0 0.5rem;
 }
 
 .team-card__main {
