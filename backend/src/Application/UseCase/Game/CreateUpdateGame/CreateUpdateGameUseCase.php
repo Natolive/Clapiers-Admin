@@ -77,24 +77,26 @@ class CreateUpdateGameUseCase extends AbstractUseCase
     {
         $isSuperAdmin = in_array(AppUserRole::ROLE_SUPER_ADMIN, $command->user->getRoles(), true);
 
-        if ($isSuperAdmin) {
-            if ($command->teamId === null) {
-                throw new UseCaseException('Team is required');
+        if ($command->teamId === null) {
+            // Rétro-compat admin mono-équipe : si l'équipe n'est pas fournie et que
+            // l'utilisateur n'en gère qu'une, on la déduit
+            if (!$isSuperAdmin && $command->user->getTeams()->count() === 1) {
+                return $command->user->getTeams()->first();
             }
-            $team = $this->teamRepository->find($command->teamId);
-            if (!$team) {
-                throw new UseCaseException('Team not found', Response::HTTP_NOT_FOUND);
-            }
-            return $team;
+            throw new UseCaseException('Team is required');
         }
 
-        // Admin: must use their own team
-        $member = $command->user->getMember();
-        if (!$member || !$member->getTeam()) {
-            throw new UseCaseException('You are not linked to a team', Response::HTTP_FORBIDDEN);
+        $team = $this->teamRepository->find($command->teamId);
+        if (!$team) {
+            throw new UseCaseException('Team not found', Response::HTTP_NOT_FOUND);
         }
 
-        return $member->getTeam();
+        // Admin : limité à ses propres équipes
+        if (!$isSuperAdmin && !$command->user->hasTeam($team)) {
+            throw new UseCaseException('You are not allowed to manage this team', Response::HTTP_FORBIDDEN);
+        }
+
+        return $team;
     }
 
     private function assertOwnership(Game $game, CreateUpdateGameCommand $command): void
@@ -104,8 +106,7 @@ class CreateUpdateGameUseCase extends AbstractUseCase
             return;
         }
 
-        $member = $command->user->getMember();
-        if (!$member || !$member->getTeam() || $member->getTeam()->getId() !== $game->getTeam()->getId()) {
+        if (!$command->user->hasTeam($game->getTeam())) {
             throw new UseCaseException('You are not allowed to modify this game', Response::HTTP_FORBIDDEN);
         }
     }

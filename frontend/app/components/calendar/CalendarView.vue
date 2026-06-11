@@ -50,7 +50,6 @@
                 :game="formDialog.game"
                 :initial-date="formDialog.initialDate"
                 :teams="teams"
-                :user-team-id="userTeamId"
                 :home-count-by-date="homeCountByDate"
                 :team-date-map="teamDateMap"
                 :closures="closures"
@@ -107,12 +106,11 @@ const props = withDefaults(defineProps<{
     readonly?: boolean;
     fetchFn: CalendarFetchFn;
     closureFetchFn: SalleClosureFetchFn;
+    /** Équipes proposées dans le formulaire de match (toutes pour un super admin, celles du user sinon) */
     teams?: Team[];
-    userTeamId?: number | null;
 }>(), {
     readonly: false,
     teams: () => [],
-    userTeamId: null,
 });
 
 const { isSuperAdmin } = useUserRole();
@@ -143,7 +141,6 @@ const {
     props.fetchFn,
     selectedTeamIds,
     computed(() => props.readonly),
-    isSuperAdmin,
 );
 
 // ── Closures ──────────────────────────────────────────

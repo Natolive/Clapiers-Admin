@@ -37,14 +37,12 @@ class MemberRepository extends ServiceEntityRepository
             'phoneNumber' => 'm.phoneNumber',
             'createdAt' => 'm.createdAt',
             'licensePaid' => 'm.licensePaid',
-            'team.name' => 't.name',
         ];
 
         $orderColumn = $allowedFields[$sortField] ?? 'm.firstName';
         $orderDir = strtolower($sortOrder) === 'desc' ? 'DESC' : 'ASC';
 
-        $qb = $this->createQueryBuilder('m')
-            ->leftJoin('m.team', 't');
+        $qb = $this->createQueryBuilder('m');
 
         if ($search) {
             $searchTerm = '%' . $search . '%';
@@ -53,7 +51,9 @@ class MemberRepository extends ServiceEntityRepository
         }
 
         if ($teamId) {
-            $qb->andWhere('t.id = :teamId')
+            // ManyToMany : un membre matche au plus une fois pour un teamId donné, pas de doublon
+            $qb->innerJoin('m.teams', 't')
+                ->andWhere('t.id = :teamId')
                 ->setParameter('teamId', $teamId);
         }
 
@@ -187,7 +187,7 @@ class MemberRepository extends ServiceEntityRepository
     public function findByTeam(Team $team): array
     {
         return $this->createQueryBuilder('m')
-            ->andWhere('m.team = :team')
+            ->andWhere(':team MEMBER OF m.teams')
             ->setParameter('team', $team)
             ->orderBy('m.lastName', 'ASC')
             ->addOrderBy('m.firstName', 'ASC')

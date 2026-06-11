@@ -39,12 +39,13 @@ const openCreateDialog = () => {
     component: CreateUpdateUserDialog,
     props: {
       user: null,
-      onSubmit: async (values: { email: string; role: AppUserRole; password: string | null }) => {
+      onSubmit: async (values: { email: string; role: AppUserRole; password: string | null; teamIds: number[] }) => {
         await userRepository.createUpdate(
           values.email,
           values.role,
           values.password,
-          null
+          null,
+          values.teamIds
         );
         datatableRef.value?.refresh();
       }

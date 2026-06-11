@@ -8,8 +8,8 @@
     >
         <form @submit.prevent="handleSubmit" class="flex flex-column gap-4 pt-2">
 
-            <!-- Team selector (super admin only) -->
-            <div v-if="isSuperAdmin" class="flex flex-column gap-2">
+            <!-- Team selector (super admin: toutes ; admin multi-équipes: les siennes) -->
+            <div v-if="showTeamSelect" class="flex flex-column gap-2">
                 <label class="font-medium text-sm">Équipe <span class="text-red-500">*</span></label>
                 <Select
                     v-model="form.teamId"
@@ -128,8 +128,8 @@ const props = defineProps<{
     visible: boolean;
     game?: Game | null;
     initialDate?: Date | null;
+    /** Équipes sélectionnables : toutes pour un super admin, les siennes pour un admin */
     teams?: Team[];
-    userTeamId?: number | null;
     homeCountByDate?: Record<string, number>;
     teamDateMap?: Record<string, number>;
     closures?: SalleClosure[];
@@ -148,6 +148,14 @@ const errors = ref<Record<string, string>>({});
 
 const isEdit = computed(() => !!props.game?.id);
 
+// Le sélecteur n'est masqué que si l'utilisateur n'a qu'une seule équipe possible
+const showTeamSelect = computed(() => isSuperAdmin.value || (props.teams?.length ?? 0) > 1);
+
+// Équipe implicite quand le sélecteur est masqué
+const implicitTeamId = computed(() =>
+    !showTeamSelect.value && props.teams?.length === 1 ? props.teams[0]!.id : null
+);
+
 const homeCountWarning = computed(() => {
     if (form.value.venue !== GameVenue.HOME || !form.value.date) return null;
     const dateKey = toDateKey(form.value.date);
@@ -163,7 +171,7 @@ const homeCountWarning = computed(() => {
 const teamLimitWarning = computed(() => {
     if (!form.value.date) return null;
     const dateKey = toDateKey(form.value.date);
-    const teamId = isSuperAdmin.value ? form.value.teamId : props.userTeamId;
+    const teamId = form.value.teamId;
     if (!teamId) return null;
     const existingGameId = props.teamDateMap?.[`${dateKey}|${teamId}`];
     if (existingGameId === undefined) return null;
@@ -196,7 +204,7 @@ const defaultForm = (): FormState => ({
     meetingTime: '',
     venue: GameVenue.HOME,
     location: '',
-    teamId: props.userTeamId ?? null,
+    teamId: implicitTeamId.value,
 });
 
 const form = ref<FormState>(defaultForm());
@@ -222,7 +230,7 @@ const validate = (): boolean => {
     errors.value = {};
     if (!form.value.opponent.trim()) errors.value.opponent = "L'équipe adverse est requise";
     if (!form.value.date) errors.value.date = 'La date est requise';
-    if (isSuperAdmin.value && !form.value.teamId) errors.value.teamId = "L'équipe est requise";
+    if (!form.value.teamId) errors.value.teamId = "L'équipe est requise";
     return Object.keys(errors.value).length === 0;
 };
 
@@ -245,7 +253,7 @@ const handleSubmit = async () => {
             meetingTime: form.value.meetingTime.trim() || null,
             venue:       form.value.venue,
             location:    form.value.location.trim() || null,
-            teamId:      isSuperAdmin.value ? form.value.teamId : undefined,
+            teamId:      form.value.teamId,
         };
 
         const saved = props.game

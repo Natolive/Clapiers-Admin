@@ -14,7 +14,6 @@ export function useCalendarEvents(
     fetchFn: CalendarFetchFn,
     selectedTeamIds: Ref<number[]>,
     isReadonly: Ref<boolean>,
-    isSuperAdmin: Ref<boolean>,
 ) {
     const toast = usePVToastService();
     const gameRepository = new GameRepository();
@@ -105,7 +104,7 @@ export function useCalendarEvents(
                 meetingTime: game.meetingTime,
                 venue:       game.venue,
                 location:    game.location,
-                teamId:      isSuperAdmin.value ? game.team.id : undefined,
+                teamId:      game.team.id,
             });
             calendarApi.value?.refetchEvents();
             toast.add({ severity: 'success', summary: 'Match déplacé', life: 2000 });

@@ -6,12 +6,15 @@ export enum AppUserRole {
 }
 
 import type { Member } from './Member';
+import type { Team } from './Team';
 
 export type AppUser = {
     id: number;
     email: string;
     roles: AppUserRole[];
     member: Member | null;
+    /** Équipes gérées par l'utilisateur (coachs) */
+    teams: Team[];
     createdAt: string;
     updatedAt: string;
 };

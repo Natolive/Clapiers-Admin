@@ -45,8 +45,22 @@
         />
       </template>
     </Column>
-    <Column field="email" header="Email" sortable style="width: 40%"></Column>
-    <Column field="roles" header="Rôle" style="width: 20%">
+    <Column field="email" header="Email" sortable style="width: 30%"></Column>
+    <Column header="Équipes" style="width: 15%">
+      <template #body="slotProps">
+        <div v-if="slotProps.data.teams?.length" class="flex gap-1 flex-wrap">
+          <Tag
+            v-for="team in slotProps.data.teams"
+            :key="team.id"
+            :value="team.name"
+            severity="secondary"
+            class="text-xs"
+          />
+        </div>
+        <span v-else class="text-color-secondary text-sm">-</span>
+      </template>
+    </Column>
+    <Column field="roles" header="Rôle" style="width: 15%">
       <template #body="slotProps">
         <RoleBadge
           :role="slotProps.data.roles[0]"
@@ -95,6 +109,15 @@
         <div class="user-card__row user-card__row--meta">
           <span class="user-card__email">{{ user.email }}</span>
           <RoleBadge :role="user.roles[0] ?? ''" size="xs" />
+        </div>
+        <div v-if="user.teams?.length" class="user-card__row user-card__row--meta flex-wrap justify-content-start gap-1">
+          <Tag
+            v-for="team in user.teams"
+            :key="team.id"
+            :value="team.name"
+            severity="secondary"
+            class="text-xs"
+          />
         </div>
       </div>
     </template>
@@ -202,12 +225,13 @@ const openDialog = (user?: AppUser) => {
     component: CreateUpdateUserDialog,
     props: {
       user: user || null,
-      onSubmit: async (values: { email: string; role: AppUserRole; password: string | null }) => {
+      onSubmit: async (values: { email: string; role: AppUserRole; password: string | null; teamIds: number[] }) => {
         await userRepository.createUpdate(
           values.email,
           values.role,
           values.password,
           user?.id || null,
+          values.teamIds,
         );
         await fetchData();
       }

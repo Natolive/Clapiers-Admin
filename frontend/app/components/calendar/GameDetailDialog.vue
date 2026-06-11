@@ -91,7 +91,7 @@ const canEdit = computed(() => {
     // even for a logged-in admin browsing it
     if (props.readonly) return false;
     if (isSuperAdmin.value) return true;
-    return props.game?.team.id === authStore.user?.member?.team?.id;
+    return authStore.user?.teams?.some(t => t.id === props.game?.team.id) ?? false;
 });
 
 const formatDate = (dateStr: string) =>

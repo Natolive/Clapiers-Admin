@@ -7,6 +7,8 @@ use App\Entity\Trait\IdTrait;
 use App\Entity\Trait\TimestampableTrait;
 use App\Entity\ValueObject\Address;
 use App\Repository\MemberRepository;
+use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: MemberRepository::class)]
@@ -22,9 +24,12 @@ class Member
     #[ORM\Column(length: 255)]
     private string $lastName;
 
-    #[ORM\ManyToOne(targetEntity: Team::class)]
-    #[ORM\JoinColumn(nullable: false)]
-    private Team $team;
+    /**
+     * @var Collection<int, Team>
+     */
+    #[ORM\ManyToMany(targetEntity: Team::class)]
+    #[ORM\JoinTable(name: 'member_team')]
+    private Collection $teams;
 
     #[ORM\Column(length: 7)]
     private string $color;
@@ -63,6 +68,7 @@ class Member
     {
         $this->color   = $this->generateRandomHexColor();
         $this->address = new Address();
+        $this->teams   = new ArrayCollection();
     }
 
     private function generateRandomHexColor(): string
@@ -94,14 +100,37 @@ class Member
         return $this;
     }
 
-    public function getTeam(): Team
+    /**
+     * @return Collection<int, Team>
+     */
+    public function getTeams(): Collection
     {
-        return $this->team;
+        return $this->teams;
     }
 
-    public function setTeam(Team $team): static
+    public function hasTeam(Team $team): bool
     {
-        $this->team = $team;
+        return $this->teams->exists(fn (int $key, Team $t) => $t->getId() === $team->getId());
+    }
+
+    public function addTeam(Team $team): static
+    {
+        if (!$this->hasTeam($team)) {
+            $this->teams->add($team);
+        }
+
+        return $this;
+    }
+
+    /**
+     * @param iterable<Team> $teams
+     */
+    public function setTeams(iterable $teams): static
+    {
+        $this->teams->clear();
+        foreach ($teams as $team) {
+            $this->addTeam($team);
+        }
 
         return $this;
     }
@@ -237,7 +266,7 @@ class Member
             'gender' => $this->getGender()->value,
             'birthDate' => $this->getBirthDate()->format('Y-m-d'),
             'nationality' => $this->getNationality(),
-            'team' => $this->getTeam()->toArray(),
+            'teams' => array_map(fn (Team $t) => $t->toArray(), $this->getTeams()->toArray()),
             'createdAt' => $this->getCreatedAt()?->format(DATE_ATOM),
             'updatedAt' => $this->getUpdatedAt()?->format(DATE_ATOM),
         ];

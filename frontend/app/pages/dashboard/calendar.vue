@@ -4,7 +4,6 @@
             :fetch-fn="fetchFn"
             :closure-fetch-fn="closureFetchFn"
             :teams="teams"
-            :user-team-id="userTeamId"
         />
     </div>
 </template>
@@ -30,7 +29,6 @@ const teamRepository = new TeamRepository();
 const salleClosureRepository = new SalleClosureRepository();
 
 const teams = ref<Team[]>([]);
-const userTeamId = computed(() => authStore.user?.member?.team?.id ?? null);
 
 const fetchFn: CalendarFetchFn = ({ start, end }) =>
     gameRepository.getAll({ start, end });
@@ -46,8 +44,7 @@ onMounted(async () => {
             toast.add({ severity: 'error', summary: 'Erreur', detail: 'Impossible de charger les équipes', life: 4000 });
         }
     } else {
-        const team = authStore.user?.member?.team;
-        teams.value = team ? [team] : [];
+        teams.value = authStore.user?.teams ?? [];
     }
 });
 </script>

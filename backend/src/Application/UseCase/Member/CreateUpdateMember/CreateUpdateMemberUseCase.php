@@ -40,18 +40,13 @@ class CreateUpdateMemberUseCase extends AbstractUseCase
 
     private function createMember(CreateUpdateMemberCommand $command): Member
     {
-        // Get team
-        $team = $this->teamRepository->find($command->teamId);
-
-        if (!$team) {
-            throw new UseCaseException('Team not found');
-        }
+        $teams = $this->resolveTeams($command);
 
         // Create member
         $member = new Member();
         $member->setFirstName($command->firstName);
         $member->setLastName($command->lastName);
-        $member->setTeam($team);
+        $member->setTeams($teams);
         $member->setPhoneNumber($command->phoneNumber);
         $member->setEmail($command->email);
         $member->setLicenseNumber($command->licenseNumber);
@@ -74,16 +69,11 @@ class CreateUpdateMemberUseCase extends AbstractUseCase
             throw new UseCaseException('Member not found');
         }
 
-        // Get team
-        $team = $this->teamRepository->find($command->teamId);
-
-        if (!$team) {
-            throw new UseCaseException('Team not found');
-        }
+        $teams = $this->resolveTeams($command);
 
         $member->setFirstName($command->firstName);
         $member->setLastName($command->lastName);
-        $member->setTeam($team);
+        $member->setTeams($teams);
         $member->setPhoneNumber($command->phoneNumber);
         $member->setEmail($command->email);
         $member->setLicenseNumber($command->licenseNumber);
@@ -95,5 +85,22 @@ class CreateUpdateMemberUseCase extends AbstractUseCase
         $this->entityManager->flush();
 
         return $member;
+    }
+
+    /**
+     * @return list<\App\Entity\Team>
+     */
+    private function resolveTeams(CreateUpdateMemberCommand $command): array
+    {
+        $teams = [];
+        foreach (array_unique($command->teamIds) as $teamId) {
+            $team = $this->teamRepository->find($teamId);
+            if (!$team) {
+                throw new UseCaseException('Team not found');
+            }
+            $teams[] = $team;
+        }
+
+        return $teams;
     }
 }

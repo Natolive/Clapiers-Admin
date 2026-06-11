@@ -23,6 +23,29 @@
     </div>
 
     <div class="flex flex-column gap-2">
+      <label for="teamIds" class="font-semibold">
+        Équipes gérées <span class="text-color-secondary font-normal">(coachs)</span>
+      </label>
+      <FormField v-slot="$field" name="teamIds">
+        <MultiSelect
+          :modelValue="$field.value ?? []"
+          :options="teams"
+          optionLabel="name"
+          optionValue="id"
+          :maxSelectedLabels="2"
+          selectedItemsLabel="{0} équipes sélectionnées"
+          filter
+          filterPlaceholder="Rechercher une équipe"
+          inputId="teamIds"
+          placeholder="Aucune équipe"
+          :disabled="loading"
+          fluid
+          @update:modelValue="onTeamsChange($field, $event)"
+        />
+      </FormField>
+    </div>
+
+    <div class="flex flex-column gap-2">
       <label for="password" class="font-semibold">
         {{ user ? 'Nouveau mot de passe (optionnel)' : 'Mot de passe' }}
       </label>
@@ -46,9 +69,11 @@
 
 <script setup lang="ts">
 import { zodResolver } from '@primevue/forms/resolvers/zod';
+import { FormField } from '@primevue/forms';
 import type { FormSubmitEvent } from '@primevue/forms';
 import { z } from 'zod';
 import type { AppUser, AppUserRole } from '~/types/entity/AppUser';
+import type { Team } from '~/types/entity/Team';
 import RoleSelect from '~/components/form/select/RoleSelect.vue';
 
 const props = defineProps({
@@ -56,17 +81,25 @@ const props = defineProps({
   user: {
     type: Object as () => AppUser | null,
     default: null
+  },
+  teams: {
+    type: Array as () => Team[],
+    default: () => []
   }
 });
 
 const emit = defineEmits<{
-  (e: 'submit', payload: { email: string; role: AppUserRole; password: string | null }): void;
+  (e: 'submit', payload: { email: string; role: AppUserRole; password: string | null; teamIds: number[] }): void;
 }>();
+
+// Le type du slot FormField n'expose pas onChange (présent au runtime)
+const onTeamsChange = (field: any, value: number[]) => field.onChange({ value });
 
 const schema = computed(() => {
   const baseSchema = {
     email: z.string().email({ message: 'Email invalide' }),
-    role: z.string().min(1, { message: 'Le rôle est requis' })
+    role: z.string().min(1, { message: 'Le rôle est requis' }),
+    teamIds: z.array(z.number()).optional()
   };
 
   if (props.user) {
@@ -90,7 +123,8 @@ const resolver = computed(() => zodResolver(schema.value));
 const initialValues = computed(() => ({
   email: props.user?.email || '',
   role: props.user?.roles?.[0] || '',
-  password: ''
+  password: '',
+  teamIds: props.user?.teams?.map(t => t.id) ?? []
 }));
 
 const onFormSubmit = (event: FormSubmitEvent<Record<string, any>>) => {
@@ -100,6 +134,7 @@ const onFormSubmit = (event: FormSubmitEvent<Record<string, any>>) => {
       email: values.email,
       role: values.role as AppUserRole,
       password: values.password || null,
+      teamIds: values.teamIds ?? [],
     });
   }
 };

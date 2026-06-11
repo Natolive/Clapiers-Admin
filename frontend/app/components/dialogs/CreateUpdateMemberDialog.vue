@@ -25,7 +25,7 @@ import type { Team } from '~/types/entity/Team';
 import type { MemberGender } from '~/types/enum/MemberGender';
 
 type MemberPayload = {
-  firstName: string; lastName: string; phoneNumber: string; email: string; teamId: number;
+  firstName: string; lastName: string; phoneNumber: string; email: string; teamIds: number[];
   licenseNumber: string | null;
   addressStreet: string; addressZip: string; addressCity: string;
   gender: MemberGender; birthDate: string; nationality: string;

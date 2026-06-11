@@ -84,9 +84,26 @@
 
       <div class="form-row-2">
         <div class="flex flex-column gap-2">
-          <label for="teamId" class="font-semibold">Équipe <span class="text-red-500">*</span></label>
-          <SelectInput name="teamId" inputId="teamId" :options="teams" optionLabel="name" optionValue="id" :disabled="loading" placeholder="Sélectionnez une équipe" />
-          <small v-if="$form.teamId?.invalid" class="p-error text-red-500 text-sm">{{ $form.teamId?.error?.message }}</small>
+          <label for="teamIds" class="font-semibold">Équipes <span class="text-red-500">*</span></label>
+          <FormField v-slot="$field" name="teamIds">
+            <MultiSelect
+              :modelValue="$field.value ?? []"
+              :options="teams"
+              optionLabel="name"
+              optionValue="id"
+              :maxSelectedLabels="2"
+              selectedItemsLabel="{0} équipes sélectionnées"
+              filter
+              filterPlaceholder="Rechercher une équipe"
+              inputId="teamIds"
+              placeholder="Sélectionnez les équipes"
+              :disabled="loading"
+              :invalid="$field.invalid"
+              fluid
+              @update:modelValue="onTeamsChange($field, $event)"
+            />
+          </FormField>
+          <small v-if="$form.teamIds?.invalid" class="p-error text-red-500 text-sm">{{ $form.teamIds?.error?.message }}</small>
         </div>
         <div class="flex flex-column gap-2">
           <label for="licenseNumber" class="font-semibold">N° de licence <span class="text-color-secondary font-normal">(optionnel)</span></label>
@@ -104,6 +121,7 @@
 
 <script setup lang="ts">
 import { zodResolver } from '@primevue/forms/resolvers/zod';
+import { FormField } from '@primevue/forms';
 import type { FormSubmitEvent } from '@primevue/forms';
 import { z } from 'zod';
 import { isValidPhoneNumber } from 'libphonenumber-js';
@@ -123,13 +141,16 @@ const props = defineProps({
 
 const emit = defineEmits<{
   (e: 'formSubmit', payload: {
-    firstName: string; lastName: string; phoneNumber: string; email: string; teamId: number;
+    firstName: string; lastName: string; phoneNumber: string; email: string; teamIds: number[];
     licenseNumber: string | null;
     addressStreet: string; addressZip: string; addressCity: string;
     gender: MemberGender; birthDate: string; nationality: string;
   }): void;
   (e: 'cancel'): void;
 }>();
+
+// Le type du slot FormField n'expose pas onChange (présent au runtime)
+const onTeamsChange = (field: any, value: number[]) => field.onChange({ value });
 
 const genderOptions = MemberGenderOptions;
 const { nationalities } = useNationalities();
@@ -143,7 +164,7 @@ const schema = z.object({
   lastName:      z.string().min(1, { message: 'Le nom est requis' }),
   phoneNumber:   z.string().min(1, { message: 'Le numéro est requis' }).refine(v => isValidPhoneNumber(v, 'FR'), { message: 'Numéro invalide' }),
   email:         z.string().min(1, { message: "L'email est requis" }).email({ message: 'Email invalide' }),
-  teamId:        z.number({ message: "L'équipe est requise" }),
+  teamIds:       z.array(z.number()).min(1, { message: 'Au moins une équipe est requise' }),
   licenseNumber: z.string().max(50).nullable().optional(),
   addressStreet: z.string().min(1, { message: 'La rue est requise' }).max(255),
   addressZip:    z.string().min(1, { message: 'Le code postal est requis' }).max(10),
@@ -161,7 +182,7 @@ const initialValues = computed(() => ({
   lastName:      props.member?.lastName         ?? '',
   phoneNumber:   props.member?.phoneNumber      ?? '',
   email:         props.member?.email            ?? '',
-  teamId:        props.member?.team?.id         ?? null,
+  teamIds:       props.member?.teams?.map(t => t.id) ?? [],
   licenseNumber: props.member?.licenseNumber    ?? '',
   addressStreet: props.member?.address?.street  ?? '',
   addressZip:    props.member?.address?.zip     ?? '',
@@ -181,7 +202,7 @@ const onFormSubmit = (event: FormSubmitEvent<Record<string, any>>) => {
     lastName:      v.lastName,
     phoneNumber:   v.phoneNumber,
     email:         v.email,
-    teamId:        v.teamId,
+    teamIds:       v.teamIds,
     licenseNumber: v.licenseNumber || null,
     addressStreet: v.addressStreet,
     addressZip:    v.addressZip,
