@@ -1,6 +1,11 @@
 import type {Team} from "~/types/entity/Team";
 import type {Member} from "~/types/entity/Member";
 
+export type MyTeamGroup = {
+    team: Team;
+    members: Member[];
+};
+
 export class TeamRepository {
     private api = useApi()
 
@@ -17,8 +22,9 @@ export class TeamRepository {
         });
     }
 
-    async getMyTeam(): Promise<Member[]> {
-        return await this.api<Member[]>('/team/my-team', {
+    /** Licenciés des équipes gérées par l'utilisateur, groupés par équipe */
+    async getMyTeams(): Promise<MyTeamGroup[]> {
+        return await this.api<MyTeamGroup[]>('/team/my-team', {
             method: 'GET'
         });
     }

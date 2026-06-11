@@ -33,11 +33,8 @@ class DeleteGameUseCase extends AbstractUseCase
         }
 
         $isSuperAdmin = in_array(AppUserRole::ROLE_SUPER_ADMIN, $command->user->getRoles(), true);
-        if (!$isSuperAdmin) {
-            $member = $command->user->getMember();
-            if (!$member || !$member->getTeam() || $member->getTeam()->getId() !== $game->getTeam()->getId()) {
-                throw new UseCaseException('You are not allowed to delete this game', Response::HTTP_FORBIDDEN);
-            }
+        if (!$isSuperAdmin && !$command->user->hasTeam($game->getTeam())) {
+            throw new UseCaseException('You are not allowed to delete this game', Response::HTTP_FORBIDDEN);
         }
 
         $this->entityManager->remove($game);

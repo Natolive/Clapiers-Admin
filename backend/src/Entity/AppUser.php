@@ -6,6 +6,8 @@ use App\Entity\Enum\AppUserRole;
 use App\Entity\Trait\IdTrait;
 use App\Entity\Trait\TimestampableTrait;
 use App\Repository\UserRepository;
+use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
 use Symfony\Component\Security\Core\User\UserInterface;
@@ -36,6 +38,20 @@ class AppUser implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\OneToOne(targetEntity: Member::class)]
     #[ORM\JoinColumn(nullable: true, unique: true)]
     private ?Member $member = null;
+
+    /**
+     * Équipes gérées par l'utilisateur (coachs) — indépendant du licencié lié.
+     *
+     * @var Collection<int, Team>
+     */
+    #[ORM\ManyToMany(targetEntity: Team::class)]
+    #[ORM\JoinTable(name: 'app_user_team')]
+    private Collection $teams;
+
+    public function __construct()
+    {
+        $this->teams = new ArrayCollection();
+    }
 
     public function getEmail(): ?string
     {
@@ -125,6 +141,41 @@ class AppUser implements UserInterface, PasswordAuthenticatedUserInterface
         return $this;
     }
 
+    /**
+     * @return Collection<int, Team>
+     */
+    public function getTeams(): Collection
+    {
+        return $this->teams;
+    }
+
+    public function hasTeam(Team $team): bool
+    {
+        return $this->teams->exists(fn (int $key, Team $t) => $t->getId() === $team->getId());
+    }
+
+    public function addTeam(Team $team): static
+    {
+        if (!$this->hasTeam($team)) {
+            $this->teams->add($team);
+        }
+
+        return $this;
+    }
+
+    /**
+     * @param iterable<Team> $teams
+     */
+    public function setTeams(iterable $teams): static
+    {
+        $this->teams->clear();
+        foreach ($teams as $team) {
+            $this->addTeam($team);
+        }
+
+        return $this;
+    }
+
     public function toArray(): array
     {
         return [
@@ -132,6 +183,7 @@ class AppUser implements UserInterface, PasswordAuthenticatedUserInterface
             'email' => $this->getEmail(),
             'roles' => $this->getRoles(),
             'member' => $this->getMember()?->toArray(),
+            'teams' => array_map(fn (Team $t) => $t->toArray(), $this->getTeams()->toArray()),
             'createdAt' => $this->getCreatedAt()?->format(DATE_ATOM),
             'updatedAt' => $this->getUpdatedAt()?->format(DATE_ATOM),
         ];
