@@ -151,24 +151,20 @@ const expandedTeamIds = ref(new Set<number>());
 const teamMembers = ref<Record<number, Member[]>>({});
 const loadingMembers = ref<Record<number, boolean>>({});
 
-const onUploadProfilePicture = async (member: Member, file: File) => {
-  const updated = await memberRepository.uploadProfilePicture(member.id, file);
-  const teamId = member.team.id;
-  const members = teamMembers.value[teamId];
-  if (members) {
-    const idx = members.findIndex(m => m.id === member.id);
+// Un licencié peut être dans plusieurs équipes dépliées : on met à jour tous les caches
+const replaceMemberInCaches = (updated: Member) => {
+  for (const members of Object.values(teamMembers.value)) {
+    const idx = members.findIndex(m => m.id === updated.id);
     if (idx !== -1) members[idx] = updated;
   }
 };
 
+const onUploadProfilePicture = async (member: Member, file: File) => {
+  replaceMemberInCaches(await memberRepository.uploadProfilePicture(member.id, file));
+};
+
 const onDeleteProfilePicture = async (member: Member) => {
-  const updated = await memberRepository.deleteProfilePicture(member.id);
-  const teamId = member.team.id;
-  const members = teamMembers.value[teamId];
-  if (members) {
-    const idx = members.findIndex(m => m.id === member.id);
-    if (idx !== -1) members[idx] = updated;
-  }
+  replaceMemberInCaches(await memberRepository.deleteProfilePicture(member.id));
 };
 
 // Chargement partagé entre l'expansion du DataTable (desktop) et les cartes (mobile)

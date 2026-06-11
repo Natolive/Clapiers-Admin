@@ -37,7 +37,15 @@ class DownloadMyTeamMemberLicenseUseCase extends AbstractUseCase
             throw new UseCaseException('Member not found', 404);
         }
 
-        if (!$command->user->hasTeam($member->getTeam())) {
+        $sharesTeam = false;
+        foreach ($member->getTeams() as $memberTeam) {
+            if ($command->user->hasTeam($memberTeam)) {
+                $sharesTeam = true;
+                break;
+            }
+        }
+
+        if (!$sharesTeam) {
             throw new UseCaseException('This member is not in your team', 403);
         }
 

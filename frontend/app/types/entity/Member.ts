@@ -20,7 +20,7 @@ export type Member = {
     gender: MemberGender;
     birthDate: string;
     nationality: string;
-    team: Team;
+    teams: Team[];
     createdAt: string;
     updatedAt: string;
 };

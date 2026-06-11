@@ -19,9 +19,10 @@ class CreateUpdateMemberCommand implements CommandInterface
 
         #[Assert\Email]
         public readonly string $email,
-        public readonly int $teamId,
-        #[Assert\Length(max: 50)]
-        public readonly ?string $licenseNumber = null,
+        /** @var list<int> Équipes du licencié (au moins une) */
+        #[Assert\Count(min: 1, minMessage: 'Au moins une équipe est requise')]
+        #[Assert\All([new Assert\Type('integer')])]
+        public readonly array $teamIds,
         #[Assert\NotBlank] #[Assert\Length(max: 255)]
         public readonly string $addressStreet,
         #[Assert\NotBlank] #[Assert\Length(max: 10)]
@@ -34,6 +35,8 @@ class CreateUpdateMemberCommand implements CommandInterface
         #[Assert\NotBlank]
         #[Assert\Choice(callback: [MemberNationality::class, 'values'])]
         public readonly string $nationality,
+        #[Assert\Length(max: 50)]
+        public readonly ?string $licenseNumber = null,
         public readonly ?int $id = null,
     ) {
     }

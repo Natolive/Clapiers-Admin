@@ -79,7 +79,19 @@
         <span>{{ slotProps.data.email }}</span>
       </template>
     </Column>
-    <Column field="team.name" header="Équipe" sortable style="width: 10%"></Column>
+    <Column header="Équipes" style="width: 10%">
+      <template #body="slotProps">
+        <div class="flex gap-1 flex-wrap">
+          <Tag
+            v-for="team in slotProps.data.teams"
+            :key="team.id"
+            :value="team.name"
+            severity="secondary"
+            class="text-xs"
+          />
+        </div>
+      </template>
+    </Column>
     <Column field="licensePaid" header="Payée" sortable style="width: 8%">
       <template #body="slotProps">
         <ToggleSwitch
@@ -173,7 +185,7 @@
         <MemberAvatar :member="member" size="large" />
         <div class="member-card__main">
           <span class="member-card__name">{{ member.firstName }} {{ member.lastName }}</span>
-          <span class="member-card__meta">{{ member.team.name }} · {{ member.phoneNumber }}</span>
+          <span class="member-card__meta">{{ memberTeamsLabel(member) }} · {{ member.phoneNumber }}</span>
           <div class="member-card__tags">
             <Tag
               :value="member.licensePaid ? 'Licence payée' : 'Non payée'"
@@ -247,6 +259,9 @@ const isMobile = useIsMobile();
 const teamOptions = computed(() =>
   props.teams.map(t => ({ label: t.name, value: t.id }))
 );
+
+const memberTeamsLabel = (member: Member) =>
+  member.teams.map(t => t.name).join(' · ') || '—';
 
 const lazyParams = ref({
   first: 0,
