@@ -32,7 +32,10 @@
           :options="teams"
           optionLabel="name"
           optionValue="id"
-          display="chip"
+          :maxSelectedLabels="2"
+          selectedItemsLabel="{0} équipes sélectionnées"
+          filter
+          filterPlaceholder="Rechercher une équipe"
           inputId="teamIds"
           placeholder="Aucune équipe"
           :disabled="loading"
