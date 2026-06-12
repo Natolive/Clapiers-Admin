@@ -48,6 +48,36 @@ class UserApiTest extends ApiTestCase
         $this->assertJsonResponse(403);
     }
 
+    public function testPaginatedUsersRequireAuthentication(): void
+    {
+        $this->getJson('/api/user/paginated');
+
+        $this->assertJsonResponse(401);
+    }
+
+    public function testAdminCannotListPaginatedUsers(): void
+    {
+        $this->actingAsAdmin();
+        $this->getJson('/api/user/paginated');
+
+        $this->assertJsonResponse(403);
+    }
+
+    public function testAdminCannotLinkOrUnlinkMembers(): void
+    {
+        $team = $this->aTeam()->persist();
+        $member = $this->aMember()->inTeams($team)->persist();
+        $user = $this->aUser()->persist();
+
+        $this->actingAsAdmin();
+
+        $this->patchJson('/api/user/'.$user->getId().'/link-member', ['memberId' => $member->getId()]);
+        $this->assertJsonResponse(403);
+
+        $this->patchJson('/api/user/'.$user->getId().'/unlink-member');
+        $this->assertJsonResponse(403);
+    }
+
     public function testPaginatedUsersWithSearch(): void
     {
         $this->aUser()->withEmail('findme@test.fr')->persist();
@@ -132,7 +162,7 @@ class UserApiTest extends ApiTestCase
         $this->assertSame('Email already exists', $body['message']);
     }
 
-    public function testCreateUserWithUnknownTeamIsRejected(): void
+    public function testCreateUserWithUnknownTeamReturns404(): void
     {
         $this->actingAsSuperAdmin();
         $this->postJson('/api/user', [
@@ -142,7 +172,8 @@ class UserApiTest extends ApiTestCase
             'teamIds' => [999999],
         ]);
 
-        $this->assertJsonResponse(400);
+        $body = $this->assertJsonResponse(404);
+        $this->assertSame('Team 999999 not found', $body['message']);
     }
 
     public function testUpdateUserReplacesTeams(): void

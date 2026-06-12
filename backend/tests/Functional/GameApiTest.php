@@ -55,6 +55,31 @@ class GameApiTest extends ApiTestCase
         $this->assertJsonResponse(403);
     }
 
+    public function testListingGamesRequiresAuthentication(): void
+    {
+        $this->getJson('/api/game');
+
+        $this->assertJsonResponse(401);
+    }
+
+    public function testPlainUserCannotWriteGames(): void
+    {
+        $team = $this->aTeam()->persist();
+        $game = $this->aGame()->forTeam($team)->persist();
+        $gameId = $game->getId();
+
+        $this->actingAsUser();
+
+        $this->postJson('/api/game', ['teamId' => $team->getId()]);
+        $this->assertJsonResponse(403);
+
+        $this->putJson('/api/game/'.$gameId, ['teamId' => $team->getId()]);
+        $this->assertJsonResponse(403);
+
+        $this->deleteJson('/api/game/'.$gameId);
+        $this->assertJsonResponse(403);
+    }
+
     // ── POST /api/game ──────────────────────────────────────────────────────
 
     public function testSuperAdminCreatesGameForAnyTeam(): void

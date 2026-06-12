@@ -11,13 +11,21 @@ on:
       - 'backend/**'
       - '.github/workflows/backend-tests.yml'
 
+# Read-only by default: composer install runs third-party code, which must
+# never see a write-scoped token. The badges job re-scopes its own permission.
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   tests:
     name: API integration & unit tests
     runs-on: ubuntu-latest
+
+    outputs:
+      coverage: ${{ steps.metrics.outputs.coverage }}
+      color: ${{ steps.metrics.outputs.color }}
+      tests: ${{ steps.metrics.outputs.tests }}
+      assertions: ${{ steps.metrics.outputs.assertions }}
 
     services:
       postgres:
@@ -45,6 +53,10 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
+        with:
+          # composer install executes dependency code: never leave the token
+          # in .git/config within this job
+          persist-credentials: false
 
       - name: Create .env stub
         # backend/.env is gitignored (docker-compose injects the real values)
@@ -152,21 +164,34 @@ jobs:
             backend/var/coverage/html
           retention-days: 30
 
-      - name: Publish badges to the "badges" branch (main only)
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+  badges:
+    name: Publish badges (main only)
+    needs: tests
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    # The only job that may write to the repo; it checks out nothing and runs
+    # no third-party code. A shields.io outage must not fail a green build.
+    permissions:
+      contents: write
+    continue-on-error: true
+
+    steps:
+      - name: Build and push badge files
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           mkdir -p /tmp/badges
-          curl -sf "https://img.shields.io/badge/coverage-${{ steps.metrics.outputs.coverage }}%25-${{ steps.metrics.outputs.color }}" \
+          curl -sf --retry 3 --retry-delay 2 \
+            "https://img.shields.io/badge/coverage-${{ needs.tests.outputs.coverage }}%25-${{ needs.tests.outputs.color }}" \
             -o /tmp/badges/coverage.svg
-          curl -sf "https://img.shields.io/badge/tests-${{ steps.metrics.outputs.tests }}%20passed-blue" \
+          curl -sf --retry 3 --retry-delay 2 \
+            "https://img.shields.io/badge/tests-${{ needs.tests.outputs.tests }}%20passed-blue" \
             -o /tmp/badges/tests.svg
           cat > /tmp/badges/metrics.json <<EOF
           {
-            "coverage": ${{ steps.metrics.outputs.coverage }},
-            "tests": ${{ steps.metrics.outputs.tests }},
-            "assertions": ${{ steps.metrics.outputs.assertions }},
+            "coverage": ${{ needs.tests.outputs.coverage }},
+            "tests": ${{ needs.tests.outputs.tests }},
+            "assertions": ${{ needs.tests.outputs.assertions }},
             "commit": "${GITHUB_SHA}",
             "date": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
           }

@@ -99,12 +99,12 @@ class MemberApiTest extends ApiTestCase
         $this->assertJsonResponse(422);
     }
 
-    public function testCreateMemberWithUnknownTeamFails(): void
+    public function testCreateMemberWithUnknownTeamReturns404(): void
     {
         $this->actingAsSuperAdmin();
         $this->postJson('/api/member', $this->memberPayload(['teamIds' => [999999]]));
 
-        $body = $this->assertJsonResponse(400);
+        $body = $this->assertJsonResponse(404);
         $this->assertSame('Team not found', $body['message']);
     }
 

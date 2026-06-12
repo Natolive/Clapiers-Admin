@@ -17,7 +17,9 @@ docker compose exec php composer test:coverage               # + clover/HTML rep
 
 Use `composer test` (not bare phpunit) after changing anything in
 `backend/config/` or `.env.test`: the test kernel runs with debug=0 and does
-NOT detect config changes by itself.
+NOT detect config changes by itself. Same trap for **validator constraints**
+(`#[Assert\...]` attributes): their metadata is cached too — a new constraint
+silently does nothing under bare phpunit until the cache is cleared.
 
 Hooks in `.claude/settings.json` enforce this guide automatically:
 - **Suite runner** (PostToolUse): re-runs the whole suite after every edit
@@ -82,13 +84,14 @@ Never write a unit test that duplicates an existing functional test.
 
 ## Coverage
 
-Target: **≥95% lines** (currently 99.8%). Check with `composer test:coverage`.
-The two known uncovered lines are deliberate: `GameController` line ~135
-(unreadable-tmp-file guard, unreachable) and an Xdebug attribution artifact on
-the multiline ternary in `AbstractUseCase` (both branches ARE asserted). If
-new code drops coverage, add tests before committing — including a
-`FixturesSmokeTest`-style check when touching fixtures. CI publishes the
-coverage badge from main.
+Target: **≥95% lines** (currently 100%). Check with `composer test:coverage`
+(text + HTML in `backend/var/coverage`; note it does NOT regenerate
+`clover.xml` — pass `--coverage-clover` explicitly if you need it). If new
+code drops coverage, add tests before committing — including a
+`FixturesSmokeTest`-style check when touching fixtures. Keep multiline
+ternaries out of `src/` (Xdebug attributes the closing line to neither
+branch — extract a method instead, see `AbstractUseCase::errorDetails()`).
+CI publishes the coverage badge from main.
 
 ## Known traps
 

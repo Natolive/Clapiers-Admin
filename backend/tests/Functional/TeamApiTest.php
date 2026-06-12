@@ -22,12 +22,45 @@ class TeamApiTest extends ApiTestCase
         $this->assertCount(2, $body);
     }
 
+    public function testListingTeamsRequiresAuthentication(): void
+    {
+        $this->getJson('/api/team');
+
+        $this->assertJsonResponse(401);
+    }
+
     public function testAdminCannotListTeams(): void
     {
         $this->actingAsAdmin();
         $this->getJson('/api/team');
 
         $this->assertJsonResponse(403);
+    }
+
+    public function testAdminCannotCreateTeam(): void
+    {
+        $this->actingAsAdmin();
+        $this->postJson('/api/team', ['name' => 'Interdit']);
+
+        $this->assertJsonResponse(403);
+    }
+
+    public function testAdminCannotUpdateTeam(): void
+    {
+        $team = $this->aTeam()->persist();
+
+        $this->actingAsAdmin();
+        $this->putJson('/api/team', ['id' => $team->getId(), 'name' => 'Interdit']);
+
+        $this->assertJsonResponse(403);
+    }
+
+    public function testCreatingTeamWithBlankNameIsRejected(): void
+    {
+        $this->actingAsSuperAdmin();
+        $this->postJson('/api/team', ['name' => '']);
+
+        $this->assertJsonResponse(422);
     }
 
     public function testSuperAdminCreatesTeam(): void
@@ -157,12 +190,12 @@ class TeamApiTest extends ApiTestCase
         $this->assertJsonResponse(404);
     }
 
-    public function testSuperAdminCannotUpdateUnknownTeam(): void
+    public function testUpdatingUnknownTeamReturns404(): void
     {
         $this->actingAsSuperAdmin();
         $this->putJson('/api/team', ['id' => 999999, 'name' => 'Fantôme']);
 
-        $body = $this->assertJsonResponse(400);
+        $body = $this->assertJsonResponse(404);
         $this->assertSame('Team not found', $body['message']);
     }
 

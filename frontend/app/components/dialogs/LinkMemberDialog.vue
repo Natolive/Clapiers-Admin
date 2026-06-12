@@ -32,7 +32,7 @@
         <MemberAvatar :member="member" size="normal" />
         <div class="member-info">
           <span class="member-name">{{ member.firstName }} {{ member.lastName }}</span>
-          <span class="member-team">{{ (member.teams ?? []).map(t => t.name).join(' · ') }}</span>
+          <span class="member-team">{{ (member.teams ?? []).map(t => t.name).join(' · ') || '—' }}</span>
         </div>
         <Tag v-if="member._linked" value="Déjà associé" severity="warn" class="ml-auto" />
       </div>

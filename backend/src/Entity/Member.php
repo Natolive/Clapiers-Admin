@@ -110,7 +110,11 @@ class Member
 
     public function hasTeam(Team $team): bool
     {
-        return $this->teams->exists(fn (int $key, Team $t) => $t->getId() === $team->getId());
+        // Comparaison d'identité d'abord : deux équipes non persistées ont
+        // toutes deux un id null et seraient sinon considérées égales
+        return $this->teams->exists(
+            fn (int $key, Team $t) => $t === $team || ($t->getId() !== null && $t->getId() === $team->getId())
+        );
     }
 
     public function addTeam(Team $team): static

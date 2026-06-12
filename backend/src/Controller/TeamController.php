@@ -64,6 +64,10 @@ class TeamController extends AbstractController
             return $useCase->run($command);
         } catch (UseCaseException $e) {
             return $this->json(['message' => $e->getMessage()], $e->getCode());
+        } catch (\Throwable) {
+            // e.g. file removed between the use case's file_exists check and
+            // BinaryFileResponse construction: keep the JSON error shape
+            return $this->json(['message' => 'Unknown Error'], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }
 }

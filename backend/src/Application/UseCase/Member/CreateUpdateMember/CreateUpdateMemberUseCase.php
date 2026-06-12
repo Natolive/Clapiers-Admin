@@ -10,6 +10,7 @@ use App\Entity\ValueObject\Address;
 use App\Repository\MemberRepository;
 use App\Repository\TeamRepository;
 use Doctrine\ORM\EntityManagerInterface;
+use Symfony\Component\HttpFoundation\Response;
 
 /**
  * @extends AbstractUseCase<CreateUpdateMemberCommand>
@@ -96,7 +97,7 @@ class CreateUpdateMemberUseCase extends AbstractUseCase
         foreach (array_unique($command->teamIds) as $teamId) {
             $team = $this->teamRepository->find($teamId);
             if (!$team) {
-                throw new UseCaseException('Team not found');
+                throw new UseCaseException('Team not found', Response::HTTP_NOT_FOUND);
             }
             $teams[] = $team;
         }

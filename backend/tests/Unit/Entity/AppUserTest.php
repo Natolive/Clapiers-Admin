@@ -3,10 +3,27 @@
 namespace App\Tests\Unit\Entity;
 
 use App\Entity\AppUser;
+use App\Entity\Team;
 use PHPUnit\Framework\TestCase;
 
 class AppUserTest extends TestCase
 {
+    public function testTwoUnpersistedTeamsAreNotConsideredEqual(): void
+    {
+        $teamA = (new Team())->setName('A');
+        $teamB = (new Team())->setName('B');
+
+        $user = new AppUser();
+        $user->addTeam($teamA);
+        $user->addTeam($teamB);
+
+        // Les deux ids sont null : sans comparaison d'identité, addTeam
+        // écarterait silencieusement la seconde équipe
+        $this->assertCount(2, $user->getTeams());
+        $this->assertTrue($user->hasTeam($teamA));
+        $this->assertFalse($user->hasTeam((new Team())->setName('C')));
+    }
+
     public function testSerializationMasksThePasswordHash(): void
     {
         $user = new AppUser();
