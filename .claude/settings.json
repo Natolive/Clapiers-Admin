@@ -6,9 +6,27 @@
         "hooks": [
           {
             "type": "command",
-            "command": "f=$(jq -r '.tool_input.file_path // empty'); case \"$f\" in */backend/src/*|*/backend/tests/*) if ! out=$(docker compose exec -T php php bin/phpunit 2>&1); then { echo \"PHPUnit FAILED after editing $f:\"; echo \"$out\" | tail -30; } >&2; exit 2; fi ;; esac",
-            "timeout": 180,
+            "command": "f=$(jq -r '.tool_input.file_path // empty'); case \"$f\" in */backend/config/*|*/backend/.env.test|*/backend/phpunit.dist.xml) cmd='composer test' ;; */backend/src/*|*/backend/tests/*) cmd='php bin/phpunit' ;; *) exit 0 ;; esac; if ! out=$(docker compose exec -T php $cmd 2>&1); then { echo \"Tests FAILED after editing $f (ran: $cmd):\"; echo \"$out\" | tail -30; } >&2; exit 2; fi",
+            "timeout": 300,
             "statusMessage": "Running backend test suite…"
+          },
+          {
+            "type": "command",
+            "command": "f=$(jq -r '.tool_input.file_path // empty'); case \"$f\" in */backend/src/*) if [ -z \"$(git status --porcelain -- backend/tests)\" ]; then printf '{\"hookSpecificOutput\":{\"hookEventName\":\"PostToolUse\",\"additionalContext\":\"You edited %s but nothing under backend/tests was added or updated yet. Per CLAUDE.md every behavior change needs a functional test (or a unit test only if the branch is unreachable over HTTP). Update the matching test before finishing.\"}}' \"$f\"; fi ;; esac",
+            "timeout": 15,
+            "statusMessage": "Checking for matching test changes…"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "j=$(cat); [ \"$(printf %s \"$j\" | jq -r '.stop_hook_active // false')\" = \"true\" ] && exit 0; src=$(git status --porcelain -- backend/src); tst=$(git status --porcelain -- backend/tests); if [ -n \"$src\" ] && [ -z \"$tst\" ]; then { echo 'BLOCKED: backend/src changed but no test under backend/tests was added or updated:'; echo \"$src\"; echo 'Per CLAUDE.md every code change needs a functional test (default) or a unit test. Add or update the relevant tests now. If a change genuinely needs no test (comment-only, pure rename), say so explicitly to the user instead of skipping silently.'; } >&2; exit 2; fi",
+            "timeout": 15,
+            "statusMessage": "Checking src changes have matching tests…"
           }
         ]
       }

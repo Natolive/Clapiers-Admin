@@ -1,7 +1,7 @@
 # Testing guide (backend)
 
 This file covers ONE topic: how to keep the backend test suite green, fast, and
-at ≥90% line coverage when fixing bugs or building features. Read
+at ≥95% line coverage when fixing bugs or building features. Read
 `backend/README.md` for the human-facing summary.
 
 ## Running tests
@@ -19,9 +19,19 @@ Use `composer test` (not bare phpunit) after changing anything in
 `backend/config/` or `.env.test`: the test kernel runs with debug=0 and does
 NOT detect config changes by itself.
 
-A PostToolUse hook in `.claude/settings.json` re-runs the whole suite after
-every edit under `backend/src` or `backend/tests`. If it reports a failure,
-fix it before doing anything else — do not stack changes on a red suite.
+Hooks in `.claude/settings.json` enforce this guide automatically:
+- **Suite runner** (PostToolUse): re-runs the whole suite after every edit
+  under `backend/src` or `backend/tests`, and runs `composer test` (cache
+  clear + migrations) after edits to `backend/config/`, `.env.test` or
+  `phpunit.dist.xml`. If it reports a failure, fix it before doing anything
+  else — do not stack changes on a red suite.
+- **Test reminder** (PostToolUse): after each `backend/src` edit, if nothing
+  under `backend/tests` has changed yet, a reminder to add/update the
+  matching test is injected.
+- **Stop guard** (Stop): you cannot end a turn with uncommitted `backend/src`
+  changes and zero `backend/tests` changes. Write the test, or if the change
+  genuinely needs none (comment-only, pure rename), say so explicitly to the
+  user — never skip silently.
 
 ## Architecture (backend/tests/)
 
