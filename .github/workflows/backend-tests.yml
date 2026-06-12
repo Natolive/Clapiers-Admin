@@ -46,6 +46,12 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Create .env stub
+        # backend/.env is gitignored (docker-compose injects the real values)
+        # but Symfony's Dotenv bootstrap requires the file to exist;
+        # actual test values come from .env.test and the job env
+        run: touch .env
+
       - name: Setup PHP 8.4 with Xdebug coverage
         uses: shivammathur/setup-php@v2
         with:
