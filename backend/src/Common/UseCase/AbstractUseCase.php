@@ -42,18 +42,26 @@ abstract class AbstractUseCase
             return new JsonResponse(
                 [
                     'message' => $isDev ? $e->getMessage() : 'Unknown Error',
-                    'error' => $isDev ? [
-                        'class' => \get_class($e),
-                        'message' => $e->getMessage(),
-                        'code' => $e->getCode(),
-                        'file' => $e->getFile(),
-                        'line' => $e->getLine(),
-                        'trace' => $e->getTraceAsString(),
-                    ] : null,
+                    'error' => $isDev ? $this->errorDetails($e) : null,
                 ],
                 Response::HTTP_INTERNAL_SERVER_ERROR
             );
         }
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function errorDetails(\Throwable $e): array
+    {
+        return [
+            'class' => \get_class($e),
+            'message' => $e->getMessage(),
+            'code' => $e->getCode(),
+            'file' => $e->getFile(),
+            'line' => $e->getLine(),
+            'trace' => $e->getTraceAsString(),
+        ];
     }
 
     private function serializeResult(mixed $result): mixed

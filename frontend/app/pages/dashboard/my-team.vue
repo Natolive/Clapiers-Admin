@@ -46,8 +46,8 @@
                     :member="member"
                     size="xlarge"
                     editable
-                    @upload="(file: File) => onUploadProfilePicture(group, member, file)"
-                    @delete="onDeleteProfilePicture(group, member)"
+                    @upload="(file: File) => onUploadProfilePicture(member, file)"
+                    @delete="onDeleteProfilePicture(member)"
                   />
                   <div class="text-center">
                     <p class="text-xl font-semibold m-0">{{ member.firstName }} {{ member.lastName }}</p>
@@ -126,19 +126,23 @@ const memberRepository = new MemberRepository();
 const groups = ref<MyTeamGroup[]>([]);
 const loading = ref(true);
 
-const replaceMember = (group: MyTeamGroup, updated: Member) => {
-  const idx = group.members.findIndex(m => m.id === updated.id);
-  if (idx !== -1) group.members[idx] = updated;
+// Un licencié multi-équipes a une carte par section : mettre à jour toutes
+// ses occurrences, pas seulement celle du groupe cliqué
+const replaceMember = (updated: Member) => {
+  for (const group of groups.value) {
+    const idx = group.members.findIndex(m => m.id === updated.id);
+    if (idx !== -1) group.members[idx] = updated;
+  }
 };
 
-const onUploadProfilePicture = async (group: MyTeamGroup, member: Member, file: File) => {
+const onUploadProfilePicture = async (member: Member, file: File) => {
   const updated = await memberRepository.uploadProfilePicture(member.id, file);
-  replaceMember(group, updated);
+  replaceMember(updated);
 };
 
-const onDeleteProfilePicture = async (group: MyTeamGroup, member: Member) => {
+const onDeleteProfilePicture = async (member: Member) => {
   const updated = await memberRepository.deleteProfilePicture(member.id);
-  replaceMember(group, updated);
+  replaceMember(updated);
 };
 
 const downloadLicense = async (member: Member) => {

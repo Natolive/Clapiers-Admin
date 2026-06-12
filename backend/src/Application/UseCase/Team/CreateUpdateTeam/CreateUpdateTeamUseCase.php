@@ -8,6 +8,7 @@ use App\Common\UseCase\AbstractUseCase;
 use App\Entity\Team;
 use App\Repository\TeamRepository;
 use Doctrine\ORM\EntityManagerInterface;
+use Symfony\Component\HttpFoundation\Response;
 
 /**
  * @extends AbstractUseCase<CreateUpdateTeamCommand>
@@ -49,7 +50,7 @@ class CreateUpdateTeamUseCase extends AbstractUseCase
         $team = $this->teamRepository->find($command->id);
 
         if (!$team) {
-            throw new UseCaseException('Team not found');
+            throw new UseCaseException('Team not found', Response::HTTP_NOT_FOUND);
         }
 
         $team->setName($command->name);

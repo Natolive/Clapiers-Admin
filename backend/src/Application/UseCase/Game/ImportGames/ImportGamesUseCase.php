@@ -121,7 +121,7 @@ class ImportGamesUseCase extends AbstractUseCase
         }
 
         $headerLine = array_shift($lines);
-        $headers    = array_map('trim', str_getcsv($headerLine));
+        $headers    = array_map('trim', str_getcsv($headerLine, escape: '\\'));
 
         $requiredHeaders = ['team', 'opponent', 'date', 'venue', 'meetingTime', 'location'];
         $missing         = array_diff($requiredHeaders, $headers);
@@ -138,7 +138,7 @@ class ImportGamesUseCase extends AbstractUseCase
 
         $rows = [];
         foreach ($lines as $line) {
-            $values = str_getcsv(trim($line));
+            $values = str_getcsv(trim($line), escape: '\\');
             if (count($values) !== count($headers)) {
                 continue; // ignorer les lignes malformées (ex: ligne vide finale)
             }

@@ -21,7 +21,7 @@
           />
           <div>
             <h2 class="member-name">{{ currentMember.firstName }} {{ currentMember.lastName }}</h2>
-            <span class="member-team">{{ (currentMember.teams ?? []).map(t => t.name).join(' · ') }}</span>
+            <span class="member-team">{{ (currentMember.teams ?? []).map(t => t.name).join(' · ') || '—' }}</span>
             <div class="member-badges">
               <Tag :value="currentMember.licensePaid ? 'Licence payée' : 'Licence non payée'" :severity="currentMember.licensePaid ? 'success' : 'danger'" />
               <Tag v-if="currentMember.licenseNumber" :value="`N° ${currentMember.licenseNumber}`" severity="secondary" />
