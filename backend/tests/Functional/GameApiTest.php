@@ -125,6 +125,19 @@ class GameApiTest extends ApiTestCase
         $this->assertSame($team->getId(), $body['team']['id']);
     }
 
+    public function testCreateGameWithUnknownTeamReturns404(): void
+    {
+        $this->actingAsSuperAdmin();
+        $this->postJson('/api/game', [
+            'opponent' => 'Fantôme',
+            'date' => '2026-09-25',
+            'teamId' => 999999,
+        ]);
+
+        $body = $this->assertJsonResponse(404);
+        $this->assertSame('Team not found', $body['message']);
+    }
+
     public function testSuperAdminMustProvideTeamId(): void
     {
         $this->actingAsSuperAdmin();

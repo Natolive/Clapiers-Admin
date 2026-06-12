@@ -83,6 +83,34 @@ class ImportGamesUseCaseTest extends TestCase
         $this->assertSame(['imported' => 1], $result);
     }
 
+    public function testDatabaseFailureRollsBackAndSurfacesA500(): void
+    {
+        $team = new \App\Entity\Team();
+        $team->setName('Équipe 7');
+
+        $teamRepository = $this->createStub(TeamRepository::class);
+        $teamRepository->method('find')->willReturn($team);
+
+        $entityManager = $this->createMock(EntityManagerInterface::class);
+        $entityManager->expects($this->once())->method('beginTransaction');
+        $entityManager->method('flush')->willThrowException(new \RuntimeException('connexion perdue'));
+        $entityManager->expects($this->once())->method('rollback');
+        $entityManager->expects($this->never())->method('commit');
+
+        $useCase = new ImportGamesUseCase($teamRepository, $entityManager);
+
+        try {
+            $useCase->run(new ImportGamesCommand(
+                user: $this->superAdmin(),
+                csvContent: "team,opponent,date,venue,meetingTime,location\n7,Perols,23/03/2026,HOME,,\n",
+            ));
+            $this->fail('Expected UseCaseException');
+        } catch (UseCaseException $e) {
+            $this->assertSame(Response::HTTP_INTERNAL_SERVER_ERROR, $e->getCode());
+            $this->assertStringContainsString('connexion perdue', $e->getMessage());
+        }
+    }
+
     public function testNonSuperAdminIsRefused(): void
     {
         $coach = new AppUser();

@@ -61,6 +61,22 @@ class UserApiTest extends ApiTestCase
         $this->assertSame('findme@test.fr', $body['data'][0]['email']);
     }
 
+    public function testPaginatedUsersSortByLinkedMemberName(): void
+    {
+        $team = $this->aTeam()->persist();
+        $memberA = $this->aMember()->named('Aaa', 'Premier')->inTeams($team)->persist();
+        $memberZ = $this->aMember()->named('Zzz', 'Dernier')->inTeams($team)->persist();
+        $userA = $this->aUser()->withEmail('a-member@test.fr')->linkedTo($memberA)->persist();
+        $this->aUser()->withEmail('z-member@test.fr')->linkedTo($memberZ)->persist();
+
+        $this->actingAsSuperAdmin();
+        $this->getJson('/api/user/paginated?sortField=member.name&sortOrder=asc');
+
+        $body = $this->assertJsonResponse(200);
+        // ASC puts members first (NULLS LAST), starting with the lowest first name
+        $this->assertSame($userA->getEmail(), $body['data'][0]['email']);
+    }
+
     // ── POST/PUT /api/user ──────────────────────────────────────────────────
 
     public function testSuperAdminCreatesUserWithRoleAndTeams(): void

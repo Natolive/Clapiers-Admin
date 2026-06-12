@@ -82,6 +82,26 @@ class AbstractUseCaseTest extends TestCase
         $this->assertNull($body['error']);
     }
 
+    public function testUnexpectedExceptionExposesDetailsInDev(): void
+    {
+        $previousEnv = $_ENV['APP_ENV'] ?? null;
+        $_ENV['APP_ENV'] = 'dev';
+
+        try {
+            $useCase = $this->useCaseThrowing(new \RuntimeException('détail interne'));
+
+            $response = $useCase->execute();
+
+            $this->assertSame(Response::HTTP_INTERNAL_SERVER_ERROR, $response->getStatusCode());
+            $body = json_decode($response->getContent(), true);
+            $this->assertSame('détail interne', $body['message']);
+            $this->assertSame(\RuntimeException::class, $body['error']['class']);
+            $this->assertArrayHasKey('trace', $body['error']);
+        } finally {
+            $_ENV['APP_ENV'] = $previousEnv;
+        }
+    }
+
     private function useCaseReturning(mixed $result): AbstractUseCase
     {
         return new class($result) extends AbstractUseCase {

@@ -72,11 +72,13 @@ Never write a unit test that duplicates an existing functional test.
 
 ## Coverage
 
-Target: **≥90% lines** (currently 91%). Check with `composer test:coverage`.
-Do NOT chase the last percent into dead defensive code (DB-failure rollback
-catches, `__serialize`, `file_get_contents === false`) — mocking
-infrastructure failures buys nothing. If new code drops coverage below 90%,
-add tests before committing. CI publishes the coverage badge from main.
+Target: **≥95% lines** (currently 99.8%). Check with `composer test:coverage`.
+The two known uncovered lines are deliberate: `GameController` line ~135
+(unreadable-tmp-file guard, unreachable) and an Xdebug attribution artifact on
+the multiline ternary in `AbstractUseCase` (both branches ARE asserted). If
+new code drops coverage, add tests before committing — including a
+`FixturesSmokeTest`-style check when touching fixtures. CI publishes the
+coverage badge from main.
 
 ## Known traps
 

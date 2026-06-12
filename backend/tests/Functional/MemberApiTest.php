@@ -202,6 +202,25 @@ class MemberApiTest extends ApiTestCase
         $this->assertSame($paid->getId(), $body['data'][0]['id']);
     }
 
+    public function testPaginatedMembersFiltersByHasLicense(): void
+    {
+        $team = $this->aTeam()->persist();
+        $withFile = $this->aMember()->inTeams($team)->withLicenseFileName('doc.pdf')->persist();
+        $without = $this->aMember()->inTeams($team)->persist();
+
+        $this->actingAsSuperAdmin();
+
+        $this->getJson('/api/member/paginated?hasLicense=true');
+        $body = $this->assertJsonResponse(200);
+        $this->assertSame(1, $body['total']);
+        $this->assertSame($withFile->getId(), $body['data'][0]['id']);
+
+        $this->getJson('/api/member/paginated?hasLicense=false');
+        $body = $this->assertJsonResponse(200);
+        $this->assertSame(1, $body['total']);
+        $this->assertSame($without->getId(), $body['data'][0]['id']);
+    }
+
     public function testPaginatedMembersSortsByLastNameDesc(): void
     {
         $team = $this->aTeam()->persist();
@@ -341,6 +360,20 @@ class MemberApiTest extends ApiTestCase
         $this->actingAsSuperAdmin();
         $this->uploadFile('/api/member/999999/upload-license', $this->fakePdf());
 
+        $this->assertJsonResponse(400);
+    }
+
+    public function testFileRoutesOnUnknownMemberFail(): void
+    {
+        $this->actingAsSuperAdmin();
+
+        $this->uploadFile('/api/member/999999/upload-profile-picture', $this->fakePng());
+        $this->assertJsonResponse(400);
+
+        $this->deleteJson('/api/member/999999/delete-license');
+        $this->assertJsonResponse(400);
+
+        $this->deleteJson('/api/member/999999/delete-profile-picture');
         $this->assertJsonResponse(400);
     }
 
