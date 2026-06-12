@@ -1,0 +1,17 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "f=$(jq -r '.tool_input.file_path // empty'); case \"$f\" in */backend/src/*|*/backend/tests/*) if ! out=$(docker compose exec -T php php bin/phpunit 2>&1); then { echo \"PHPUnit FAILED after editing $f:\"; echo \"$out\" | tail -30; } >&2; exit 2; fi ;; esac",
+            "timeout": 180,
+            "statusMessage": "Running backend test suite…"
+          }
+        ]
+      }
+    ]
+  }
+}
