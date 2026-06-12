@@ -73,7 +73,7 @@ class AppFixtures extends Fixture
                 $member->setLastName($lastName);
                 $member->setEmail(strtolower($firstName . "." . $lastName) . ($mIdx + $fIdx + 1) . "@email.fr");
                 $member->setPhoneNumber(sprintf("+336%08d", random_int(10000000, 99999999)));
-                $member->setTeam($team);
+                $member->addTeam($team);
                 $member->setGender($gender);
                 $member->setLicensePaid((bool) random_int(0, 1));
                 $member->setLicenseNumber(random_int(0, 2) > 0 ? (string) random_int(100000000, 999999999) : null);
