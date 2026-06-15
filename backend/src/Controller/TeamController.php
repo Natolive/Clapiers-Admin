@@ -9,6 +9,7 @@ use App\Application\UseCase\Team\DownloadMyTeamMemberLicense\DownloadMyTeamMembe
 use App\Application\UseCase\Team\DownloadMyTeamMemberLicense\DownloadMyTeamMemberLicenseUseCase;
 use App\Application\UseCase\Team\GetMyTeam\GetMyTeamCommand;
 use App\Application\UseCase\Team\GetMyTeam\GetMyTeamUseCase;
+use App\Common\Exception\UseCaseException;
 use App\Entity\AppUser;
 use App\Entity\Enum\AppUserRole;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -57,6 +58,16 @@ class TeamController extends AbstractController
         $user = $this->getUser();
         $command = new DownloadMyTeamMemberLicenseCommand($user, $memberId);
 
-        return $useCase->run($command);
+        // run() returns a BinaryFileResponse, so execute() (JSON wrapper) cannot be
+        // used here: map the use case errors to JSON manually
+        try {
+            return $useCase->run($command);
+        } catch (UseCaseException $e) {
+            return $this->json(['message' => $e->getMessage()], $e->getCode());
+        } catch (\Throwable) {
+            // e.g. file removed between the use case's file_exists check and
+            // BinaryFileResponse construction: keep the JSON error shape
+            return $this->json(['message' => 'Unknown Error'], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
     }
 }

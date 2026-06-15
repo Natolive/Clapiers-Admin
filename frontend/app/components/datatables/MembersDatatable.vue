@@ -83,7 +83,7 @@
       <template #body="slotProps">
         <div class="flex gap-1 flex-wrap">
           <Tag
-            v-for="team in slotProps.data.teams"
+            v-for="team in slotProps.data.teams ?? []"
             :key="team.id"
             :value="team.name"
             severity="secondary"

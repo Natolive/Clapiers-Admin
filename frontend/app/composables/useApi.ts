@@ -11,7 +11,7 @@ export function useApi() {
             const token = useCookie('auth_token').value
             if (token) options.headers.set('Authorization', `Bearer ${token}`)
         },
-        onResponseError({ response }) {
+        onResponseError({ request, response }) {
             const message = response._data?.message || response.statusText || 'An error occurred'
             toast.add({
                 severity: 'error',
@@ -20,8 +20,11 @@ export function useApi() {
                 life: 5000
             });
 
-            // Check if it's an authentication error
-            if (response.status === 401) {
+            // 401 = session expirée → logout + redirection. Exception : un 401
+            // de /login signifie « identifiants invalides » — on affiche le
+            // toast et on reste sur la page de connexion.
+            const url = typeof request === 'string' ? request : request.url
+            if (response.status === 401 && !url.endsWith('/login')) {
                 const authStore = useAuthStore()
                 authStore.logout();
             }

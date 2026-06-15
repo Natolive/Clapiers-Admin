@@ -9,6 +9,7 @@ use App\Entity\AppUser;
 use App\Repository\TeamRepository;
 use App\Repository\UserRepository;
 use Doctrine\ORM\EntityManagerInterface;
+use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
 /**
@@ -109,7 +110,7 @@ class CreateUpdateUserUseCase extends AbstractUseCase
         foreach (array_unique($command->teamIds) as $teamId) {
             $team = $this->teamRepository->find($teamId);
             if (!$team) {
-                throw new UseCaseException(sprintf('Team %d not found', $teamId));
+                throw new UseCaseException(sprintf('Team %d not found', $teamId), Response::HTTP_NOT_FOUND);
             }
             $teams[] = $team;
         }

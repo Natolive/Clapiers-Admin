@@ -13,8 +13,12 @@ export type AppUser = {
     email: string;
     roles: AppUserRole[];
     member: Member | null;
-    /** Équipes gérées par l'utilisateur (coachs) */
-    teams: Team[];
+    /**
+     * Équipes gérées par l'utilisateur (coachs). Optionnel : un store
+     * d'authentification persisté avant la migration multi-équipes peut
+     * encore contenir des utilisateurs sans ce tableau.
+     */
+    teams?: Team[];
     createdAt: string;
     updatedAt: string;
 };

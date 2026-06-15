@@ -1,0 +1,205 @@
+name: Backend Tests
+
+on:
+  pull_request:
+    paths:
+      - 'backend/**'
+      - '.github/workflows/backend-tests.yml'
+  push:
+    branches: [ main ]
+    paths:
+      - 'backend/**'
+      - '.github/workflows/backend-tests.yml'
+
+# Read-only by default: composer install runs third-party code, which must
+# never see a write-scoped token. The badges job re-scopes its own permission.
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    name: API integration & unit tests
+    runs-on: ubuntu-latest
+
+    outputs:
+      coverage: ${{ steps.metrics.outputs.coverage }}
+      color: ${{ steps.metrics.outputs.color }}
+      tests: ${{ steps.metrics.outputs.tests }}
+      assertions: ${{ steps.metrics.outputs.assertions }}
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: clapiers_db
+          POSTGRES_USER: symfony
+          POSTGRES_PASSWORD: symfony
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U symfony -d clapiers_db"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      APP_ENV: test
+      DATABASE_URL: postgresql://symfony:symfony@127.0.0.1:5432/clapiers_db?serverVersion=16&charset=utf8
+
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          # composer install executes dependency code: never leave the token
+          # in .git/config within this job
+          persist-credentials: false
+
+      - name: Create .env stub
+        # backend/.env is gitignored (docker-compose injects the real values)
+        # but Symfony's Dotenv bootstrap requires the file to exist;
+        # actual test values come from .env.test and the job env
+        run: touch .env
+
+      - name: Setup PHP 8.4 with Xdebug coverage
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: pdo_pgsql, pgsql, intl
+          coverage: xdebug
+          tools: composer:v2
+
+      - name: Get composer cache directory
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache composer dependencies
+        uses: actions/cache@v5
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: composer-${{ runner.os }}-${{ hashFiles('backend/composer.lock') }}
+          restore-keys: composer-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: composer install --prefer-dist --no-progress --no-interaction
+
+      - name: Generate JWT keypair
+        run: php bin/console lexik:jwt:generate-keypair --skip-if-exists
+
+      - name: Create test database & run migrations
+        run: |
+          php bin/console -e test doctrine:database:create --if-not-exists
+          php bin/console -e test doctrine:migrations:migrate -n --allow-no-migration
+
+      - name: Run test suite with coverage
+        env:
+          XDEBUG_MODE: coverage
+        run: |
+          php bin/phpunit \
+            --coverage-clover var/coverage/clover.xml \
+            --coverage-html var/coverage/html \
+            --log-junit var/coverage/junit.xml \
+            --coverage-text=var/coverage/coverage.txt
+          cat var/coverage/coverage.txt
+
+      - name: Compute test metrics
+        id: metrics
+        run: |
+          COVERAGE=$(php -r '
+            $xml = new SimpleXMLElement(file_get_contents("var/coverage/clover.xml"));
+            $m = $xml->project->metrics;
+            printf("%.1f", 100 * (int) $m["coveredstatements"] / max(1, (int) $m["statements"]));
+          ')
+          TESTS=$(php -r '
+            $xml = new SimpleXMLElement(file_get_contents("var/coverage/junit.xml"));
+            echo (int) $xml->testsuite["tests"];
+          ')
+          ASSERTIONS=$(php -r '
+            $xml = new SimpleXMLElement(file_get_contents("var/coverage/junit.xml"));
+            echo (int) $xml->testsuite["assertions"];
+          ')
+          if   awk "BEGIN{exit !($COVERAGE >= 90)}"; then COLOR=brightgreen
+          elif awk "BEGIN{exit !($COVERAGE >= 80)}"; then COLOR=green
+          elif awk "BEGIN{exit !($COVERAGE >= 70)}"; then COLOR=yellowgreen
+          elif awk "BEGIN{exit !($COVERAGE >= 60)}"; then COLOR=yellow
+          else COLOR=red; fi
+          {
+            echo "coverage=$COVERAGE"
+            echo "color=$COLOR"
+            echo "tests=$TESTS"
+            echo "assertions=$ASSERTIONS"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Write job summary
+        run: |
+          {
+            echo "## Backend test report"
+            echo ""
+            echo "| Metric | Value |"
+            echo "| --- | --- |"
+            echo "| Tests | ${{ steps.metrics.outputs.tests }} |"
+            echo "| Assertions | ${{ steps.metrics.outputs.assertions }} |"
+            echo "| Line coverage | ${{ steps.metrics.outputs.coverage }}% |"
+            echo ""
+            echo "<details><summary>Coverage by class</summary>"
+            echo ""
+            echo '```'
+            cat var/coverage/coverage.txt
+            echo '```'
+            echo "</details>"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload test reports (junit + coverage html + clover)
+        uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: backend-test-reports
+          path: |
+            backend/var/coverage/junit.xml
+            backend/var/coverage/clover.xml
+            backend/var/coverage/coverage.txt
+            backend/var/coverage/html
+          retention-days: 30
+
+  badges:
+    name: Publish badges (main only)
+    needs: tests
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    # The only job that may write to the repo; it checks out nothing and runs
+    # no third-party code. A shields.io outage must not fail a green build.
+    permissions:
+      contents: write
+    continue-on-error: true
+
+    steps:
+      - name: Build and push badge files
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p /tmp/badges
+          curl -sf --retry 3 --retry-delay 2 \
+            "https://img.shields.io/badge/coverage-${{ needs.tests.outputs.coverage }}%25-${{ needs.tests.outputs.color }}" \
+            -o /tmp/badges/coverage.svg
+          curl -sf --retry 3 --retry-delay 2 \
+            "https://img.shields.io/badge/tests-${{ needs.tests.outputs.tests }}%20passed-blue" \
+            -o /tmp/badges/tests.svg
+          cat > /tmp/badges/metrics.json <<EOF
+          {
+            "coverage": ${{ needs.tests.outputs.coverage }},
+            "tests": ${{ needs.tests.outputs.tests }},
+            "assertions": ${{ needs.tests.outputs.assertions }},
+            "commit": "${GITHUB_SHA}",
+            "date": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          }
+          EOF
+          cd /tmp/badges
+          git init -b badges
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .
+          git commit -m "chore: update test badges for ${GITHUB_SHA}"
+          git push -f "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" badges

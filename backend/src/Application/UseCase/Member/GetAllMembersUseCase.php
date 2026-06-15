@@ -22,6 +22,6 @@ class GetAllMembersUseCase extends AbstractUseCase
      */
     public function run(?CommandInterface $command = null): array
     {
-        return $this->memberRepository->findAll();
+        return $this->memberRepository->findAllWithTeams();
     }
 }

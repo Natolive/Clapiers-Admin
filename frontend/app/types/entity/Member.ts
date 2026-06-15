@@ -20,7 +20,8 @@ export type Member = {
     gender: MemberGender;
     birthDate: string;
     nationality: string;
-    teams: Team[];
+    /** Optionnel : données persistées avant la migration multi-équipes */
+    teams?: Team[];
     createdAt: string;
     updatedAt: string;
 };

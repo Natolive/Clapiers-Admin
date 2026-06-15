@@ -5,6 +5,7 @@ namespace App\Repository;
 use App\Entity\Member;
 use App\Entity\Team;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\ORM\Tools\Pagination\Paginator;
 use Doctrine\Persistence\ManagerRegistry;
 
 /**
@@ -84,11 +85,15 @@ class MemberRepository extends ServiceEntityRepository
             $qb->addOrderBy('m.lastName', 'ASC');
         }
 
-        $data = $qb
+        // Fetch join APRÈS le COUNT cloné ; le Paginator pagine correctement
+        // malgré la collection jointe (sinon setMaxResults tronque les lignes
+        // SQL, pas les membres) et évite une requête teams par membre sérialisé.
+        $qb->leftJoin('m.teams', 'allTeams')
+            ->addSelect('allTeams')
             ->setFirstResult(($page - 1) * $limit)
-            ->setMaxResults($limit)
-            ->getQuery()
-            ->getResult();
+            ->setMaxResults($limit);
+
+        $data = iterator_to_array(new Paginator($qb->getQuery()));
 
         return ['data' => $data, 'total' => (int) $total];
     }
@@ -187,8 +192,24 @@ class MemberRepository extends ServiceEntityRepository
     public function findByTeam(Team $team): array
     {
         return $this->createQueryBuilder('m')
+            ->leftJoin('m.teams', 't')
+            ->addSelect('t')
             ->andWhere(':team MEMBER OF m.teams')
             ->setParameter('team', $team)
+            ->orderBy('m.lastName', 'ASC')
+            ->addOrderBy('m.firstName', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
+     * @return Member[]
+     */
+    public function findAllWithTeams(): array
+    {
+        return $this->createQueryBuilder('m')
+            ->leftJoin('m.teams', 't')
+            ->addSelect('t')
             ->orderBy('m.lastName', 'ASC')
             ->addOrderBy('m.firstName', 'ASC')
             ->getQuery()

@@ -22,3 +22,16 @@ services:
 
     # add more service definitions when explicit configuration is needed
     # please note that last definitions always *replace* previous ones
+
+when@test:
+    parameters:
+        # Les uploads échappent au rollback transactionnel des tests : les
+        # isoler du répertoire de dev pour ne pas y accumuler de fichiers
+        upload_directory: '%kernel.project_dir%/var/test-uploads'
+
+    services:
+        # Without monolog, the kernel logger writes every uncaught exception to
+        # stderr — negative tests (403/422 assertions) would flood the PHPUnit
+        # output. Tests assert on responses, not logs, so drop them entirely.
+        logger:
+            class: Psr\Log\NullLogger

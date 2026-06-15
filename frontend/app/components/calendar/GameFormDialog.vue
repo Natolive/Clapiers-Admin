@@ -17,9 +17,13 @@
                     option-label="name"
                     option-value="id"
                     placeholder="Sélectionner une équipe"
+                    :disabled="noTeamAvailable"
                     :invalid="!!errors.teamId"
                     :fluid="true"
                 />
+                <small v-if="noTeamAvailable" class="text-orange-500">
+                    Aucune équipe ne vous est assignée — contactez un administrateur.
+                </small>
                 <small v-if="errors.teamId" class="text-red-500">{{ errors.teamId }}</small>
             </div>
 
@@ -148,8 +152,11 @@ const errors = ref<Record<string, string>>({});
 
 const isEdit = computed(() => !!props.game?.id);
 
-// Le sélecteur n'est masqué que si l'utilisateur n'a qu'une seule équipe possible
-const showTeamSelect = computed(() => isSuperAdmin.value || (props.teams?.length ?? 0) > 1);
+// Le sélecteur n'est masqué que si l'équipe est implicite (exactement une) :
+// un admin sans équipe doit voir le champ et son erreur, pas un submit muet
+const showTeamSelect = computed(() => isSuperAdmin.value || (props.teams?.length ?? 0) !== 1);
+
+const noTeamAvailable = computed(() => !isSuperAdmin.value && (props.teams?.length ?? 0) === 0);
 
 // Équipe implicite quand le sélecteur est masqué
 const implicitTeamId = computed(() =>
