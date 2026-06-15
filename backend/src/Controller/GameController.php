@@ -6,6 +6,8 @@ use App\Application\UseCase\Game\CreateUpdateGame\CreateUpdateGameCommand;
 use App\Application\UseCase\Game\CreateUpdateGame\CreateUpdateGameUseCase;
 use App\Application\UseCase\Game\DeleteGame\DeleteGameCommand;
 use App\Application\UseCase\Game\DeleteGame\DeleteGameUseCase;
+use App\Application\UseCase\Game\GetGameHistory\GetGameHistoryCommand;
+use App\Application\UseCase\Game\GetGameHistory\GetGameHistoryUseCase;
 use App\Application\UseCase\Game\GetGames\GetGamesCommand;
 use App\Application\UseCase\Game\GetGames\GetGamesUseCase;
 use App\Application\UseCase\Game\ImportGames\ImportGamesCommand;
@@ -44,6 +46,19 @@ class GameController extends AbstractController
             end:    $input->end,
         );
 
+        return $useCase->execute($command);
+    }
+
+    /**
+     * Historique des transactions sur les matchs (super admin uniquement).
+     * Paginé, filtrable par match (gameId) ou équipe (teamId).
+     */
+    #[Route('/history', name: 'history', methods: ['GET'])]
+    #[IsGranted(AppUserRole::ROLE_SUPER_ADMIN)]
+    public function history(
+        #[MapQueryString] GetGameHistoryCommand $command,
+        GetGameHistoryUseCase $useCase
+    ): Response {
         return $useCase->execute($command);
     }
 

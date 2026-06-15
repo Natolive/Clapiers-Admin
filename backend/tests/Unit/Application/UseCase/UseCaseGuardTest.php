@@ -34,6 +34,7 @@ class UseCaseGuardTest extends TestCase
             \App\Application\UseCase\ContactMessage\CreateContactMessage\CreateContactMessageUseCase::class,
             \App\Application\UseCase\Game\CreateUpdateGame\CreateUpdateGameUseCase::class,
             \App\Application\UseCase\Game\DeleteGame\DeleteGameUseCase::class,
+            \App\Application\UseCase\Game\GetGameHistory\GetGameHistoryUseCase::class,
             \App\Application\UseCase\Game\GetGames\GetGamesUseCase::class,
             \App\Application\UseCase\Game\ImportGames\ImportGamesUseCase::class,
             \App\Application\UseCase\Member\CreateUpdateMember\CreateUpdateMemberUseCase::class,

@@ -7,6 +7,7 @@ use App\Entity\Enum\AppUserRole;
 use App\Tests\Support\Builder\AppUserBuilder;
 use App\Tests\Support\Builder\ContactMessageBuilder;
 use App\Tests\Support\Builder\GameBuilder;
+use App\Tests\Support\Builder\GameHistoryBuilder;
 use App\Tests\Support\Builder\MemberBuilder;
 use App\Tests\Support\Builder\SalleClosureBuilder;
 use App\Tests\Support\Builder\TeamBuilder;
@@ -99,6 +100,11 @@ abstract class ApiTestCase extends WebTestCase
     protected function aGame(): GameBuilder
     {
         return new GameBuilder($this->em());
+    }
+
+    protected function aGameHistory(): GameHistoryBuilder
+    {
+        return new GameHistoryBuilder($this->em());
     }
 
     protected function aClosure(): SalleClosureBuilder
