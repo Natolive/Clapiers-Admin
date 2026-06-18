@@ -27,6 +27,7 @@ export const useDashboardNav = (onNavigate?: () => void) => {
 
         if (isSuperAdmin.value) {
             items.unshift({ label: 'Tableau de bord', icon: 'pi pi-home', route: '/dashboard', command: go('/dashboard') });
+            items.push({ label: 'Historique des matchs', icon: 'pi pi-history', route: '/dashboard/game-history', command: go('/dashboard/game-history') });
         }
 
         if (isAdmin.value) {
