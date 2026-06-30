@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="fr">
+<body style="font-family: Arial, sans-serif; color: #222; line-height: 1.6;">
+    <h2>Bonjour {{ firstName }},</h2>
+
+    <p>
+        Bonne nouvelle&nbsp;: votre demande de licence pour la saison
+        <strong>{{ season }}</strong> a été validée par le club.
+    </p>
+
+    <p>
+        Il ne reste plus qu'à régler votre adhésion d'un montant de
+        <strong>{{ amount }}&nbsp;€</strong> en ligne via HelloAsso&nbsp;:
+    </p>
+
+    <p>
+        <a href="{{ paymentUrl }}"
+           style="display: inline-block; padding: 12px 24px; background: #e63946; color: #fff; text-decoration: none; border-radius: 6px;">
+            Régler ma licence
+        </a>
+    </p>
+
+    <p style="color: #666; font-size: 0.9em;">
+        Si le bouton ne fonctionne pas, copiez ce lien dans votre navigateur&nbsp;:<br>
+        {{ paymentUrl }}
+    </p>
+
+    <p>Sportivement,<br>Le Clapiers Volley-Ball</p>
+</body>
+</html>

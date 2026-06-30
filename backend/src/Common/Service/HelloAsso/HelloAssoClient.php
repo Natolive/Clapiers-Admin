@@ -19,7 +19,7 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
  * on every call. Network/HTTP failures are logged and surfaced as a
  * UseCaseException (502) so callers can report a clean error.
  */
-class HelloAssoClient
+class HelloAssoClient implements HelloAssoClientInterface
 {
     private const TOKEN_CACHE_KEY = 'helloasso.access_token';
     private const TOKEN_TTL = 1500; // 25 min — safety margin under HelloAsso's 30 min

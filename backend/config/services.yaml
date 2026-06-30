@@ -20,6 +20,9 @@ services:
     App\:
         resource: '../src/'
 
+    # Bind the HelloAsso client interface to its real implementation
+    App\Common\Service\HelloAsso\HelloAssoClientInterface: '@App\Common\Service\HelloAsso\HelloAssoClient'
+
     # add more service definitions when explicit configuration is needed
     # please note that last definitions always *replace* previous ones
 
@@ -35,3 +38,8 @@ when@test:
         # output. Tests assert on responses, not logs, so drop them entirely.
         logger:
             class: Psr\Log\NullLogger
+
+        # Never hit the real HelloAsso API in tests: swap in a controllable fake.
+        App\Tests\Support\Fake\FakeHelloAssoClient:
+            public: true
+        App\Common\Service\HelloAsso\HelloAssoClientInterface: '@App\Tests\Support\Fake\FakeHelloAssoClient'

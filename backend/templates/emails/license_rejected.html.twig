@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="fr">
+<body style="font-family: Arial, sans-serif; color: #222; line-height: 1.6;">
+    <h2>Bonjour {{ firstName }},</h2>
+
+    <p>
+        Après examen, votre demande de licence n'a pas pu être validée en l'état
+        pour la raison suivante&nbsp;:
+    </p>
+
+    <blockquote style="border-left: 3px solid #e63946; margin: 1em 0; padding: 0.5em 1em; color: #555;">
+        {{ reason }}
+    </blockquote>
+
+    <p>
+        N'hésitez pas à nous contacter pour régulariser votre situation ou
+        soumettre une nouvelle demande.
+    </p>
+
+    <p>Sportivement,<br>Le Clapiers Volley-Ball</p>
+</body>
+</html>
