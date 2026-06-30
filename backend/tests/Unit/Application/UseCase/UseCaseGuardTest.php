@@ -37,6 +37,8 @@ class UseCaseGuardTest extends TestCase
             \App\Application\UseCase\Game\GetGameHistory\GetGameHistoryUseCase::class,
             \App\Application\UseCase\Game\GetGames\GetGamesUseCase::class,
             \App\Application\UseCase\Game\ImportGames\ImportGamesUseCase::class,
+            \App\Application\UseCase\License\SubmitLicenseRequest\SubmitLicenseRequestUseCase::class,
+            \App\Application\UseCase\License\UploadMedicalCertificate\UploadMedicalCertificateUseCase::class,
             \App\Application\UseCase\Member\CreateUpdateMember\CreateUpdateMemberUseCase::class,
             \App\Application\UseCase\Member\DeleteLicense\DeleteLicenseUseCase::class,
             \App\Application\UseCase\Member\DeleteProfilePicture\DeleteProfilePictureUseCase::class,

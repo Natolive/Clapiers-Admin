@@ -3,6 +3,7 @@
 namespace App\Entity;
 
 use App\Entity\Enum\MemberGender;
+use App\Entity\Enum\MemberStatus;
 use App\Entity\Trait\IdTrait;
 use App\Entity\Trait\TimestampableTrait;
 use App\Entity\ValueObject\Address;
@@ -63,6 +64,9 @@ class Member
 
     #[ORM\Column(length: 100)]
     private string $nationality;
+
+    #[ORM\Column(length: 20, enumType: MemberStatus::class, options: ['default' => 'active'])]
+    private MemberStatus $status = MemberStatus::ACTIVE;
 
     public function __construct()
     {
@@ -253,6 +257,18 @@ class Member
         return $this;
     }
 
+    public function getStatus(): MemberStatus
+    {
+        return $this->status;
+    }
+
+    public function setStatus(MemberStatus $status): static
+    {
+        $this->status = $status;
+
+        return $this;
+    }
+
     public function toArray(): array
     {
         return [
@@ -270,6 +286,7 @@ class Member
             'gender' => $this->getGender()->value,
             'birthDate' => $this->getBirthDate()->format('Y-m-d'),
             'nationality' => $this->getNationality(),
+            'status' => $this->getStatus()->value,
             'teams' => array_map(fn (Team $t) => $t->toArray(), $this->getTeams()->toArray()),
             'createdAt' => $this->getCreatedAt()?->format(DATE_ATOM),
             'updatedAt' => $this->getUpdatedAt()?->format(DATE_ATOM),

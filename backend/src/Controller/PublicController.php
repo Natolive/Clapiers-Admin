@@ -4,15 +4,22 @@ namespace App\Controller;
 
 use App\Application\UseCase\ContactMessage\CreateContactMessage\CreateContactMessageCommand;
 use App\Application\UseCase\ContactMessage\CreateContactMessage\CreateContactMessageUseCase;
+use App\Application\UseCase\License\SubmitLicenseRequest\SubmitLicenseRequestCommand;
+use App\Application\UseCase\License\SubmitLicenseRequest\SubmitLicenseRequestUseCase;
+use App\Application\UseCase\License\UploadMedicalCertificate\UploadMedicalCertificateCommand;
+use App\Application\UseCase\License\UploadMedicalCertificate\UploadMedicalCertificateUseCase;
 use App\Entity\Enum\MemberNationality;
 use App\Repository\GameRepository;
 use App\Repository\SalleClosureRepository;
 use App\Repository\TeamRepository;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Attribute\MapQueryString;
 use Symfony\Component\HttpKernel\Attribute\MapRequestPayload;
+use Symfony\Component\HttpKernel\Attribute\MapUploadedFile;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\Validator\Constraints as Assert;
 
 #[Route('/api/public', name: 'api_public_')]
 class PublicController extends AbstractController
@@ -23,6 +30,24 @@ class PublicController extends AbstractController
         CreateContactMessageUseCase $useCase
     ): Response {
         return $useCase->execute($command);
+    }
+
+    #[Route('/license-request', name: 'license_request', methods: ['POST'])]
+    public function submitLicenseRequest(
+        #[MapRequestPayload] SubmitLicenseRequestCommand $command,
+        SubmitLicenseRequestUseCase $useCase
+    ): Response {
+        return $useCase->execute($command);
+    }
+
+    #[Route('/license-request/{token}/medical-certificate', name: 'license_medical_certificate', methods: ['POST'])]
+    public function uploadMedicalCertificate(
+        string $token,
+        #[MapUploadedFile([new Assert\File(maxSize: '5M', mimeTypes: ['application/pdf', 'image/png', 'image/jpeg'])])]
+        UploadedFile $file,
+        UploadMedicalCertificateUseCase $useCase
+    ): Response {
+        return $useCase->execute(new UploadMedicalCertificateCommand($token, $file));
     }
 
     #[Route('/home-games', name: 'home_games', methods: ['GET'])]
