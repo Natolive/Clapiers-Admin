@@ -4,6 +4,10 @@ namespace App\Controller;
 
 use App\Application\UseCase\ContactMessage\CreateContactMessage\CreateContactMessageCommand;
 use App\Application\UseCase\ContactMessage\CreateContactMessage\CreateContactMessageUseCase;
+use App\Application\UseCase\License\CreateCheckout\CreateCheckoutCommand;
+use App\Application\UseCase\License\CreateCheckout\CreateCheckoutUseCase;
+use App\Application\UseCase\License\GetLicenseForPayment\GetLicenseForPaymentCommand;
+use App\Application\UseCase\License\GetLicenseForPayment\GetLicenseForPaymentUseCase;
 use App\Application\UseCase\License\SubmitLicenseRequest\SubmitLicenseRequestCommand;
 use App\Application\UseCase\License\SubmitLicenseRequest\SubmitLicenseRequestUseCase;
 use App\Application\UseCase\License\UploadMedicalCertificate\UploadMedicalCertificateCommand;
@@ -48,6 +52,22 @@ class PublicController extends AbstractController
         UploadMedicalCertificateUseCase $useCase
     ): Response {
         return $useCase->execute(new UploadMedicalCertificateCommand($token, $file));
+    }
+
+    #[Route('/license/{token}', name: 'license_for_payment', methods: ['GET'])]
+    public function licenseForPayment(
+        string $token,
+        GetLicenseForPaymentUseCase $useCase
+    ): Response {
+        return $useCase->execute(new GetLicenseForPaymentCommand($token));
+    }
+
+    #[Route('/license/{token}/checkout', name: 'license_checkout', methods: ['POST'])]
+    public function createCheckout(
+        string $token,
+        CreateCheckoutUseCase $useCase
+    ): Response {
+        return $useCase->execute(new CreateCheckoutCommand($token));
     }
 
     #[Route('/home-games', name: 'home_games', methods: ['GET'])]

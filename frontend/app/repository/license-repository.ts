@@ -1,5 +1,14 @@
 import type { License } from '~/types/entity/License';
 
+/** Vue publique du portail de paiement (magic link). */
+export interface LicensePaymentView {
+    status: string;
+    season: string;
+    amount: number | null;
+    firstName: string;
+    lastName: string;
+}
+
 export interface SubmitLicenseRequestBody {
     firstName: string;
     lastName: string;
@@ -36,6 +45,16 @@ export class LicenseRepository {
         return await this.api<License>(`/public/license-request/${token}/medical-certificate`, {
             method: 'POST',
             body: formData,
+        });
+    }
+
+    async getForPayment(token: string): Promise<LicensePaymentView> {
+        return await this.api<LicensePaymentView>(`/public/license/${token}`, { method: 'GET' });
+    }
+
+    async createCheckout(token: string): Promise<{ redirectUrl: string | null }> {
+        return await this.api<{ redirectUrl: string | null }>(`/public/license/${token}/checkout`, {
+            method: 'POST',
         });
     }
 }

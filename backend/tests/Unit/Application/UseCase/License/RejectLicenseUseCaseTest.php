@@ -34,7 +34,7 @@ class RejectLicenseUseCaseTest extends TestCase
 
         $useCase = new RejectLicenseUseCase(
             $repository,
-            $this->createMock(EntityManagerInterface::class),
+            $this->createStub(EntityManagerInterface::class),
             $mailer,
             new NullLogger(),
             'club@test.fr',

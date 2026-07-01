@@ -17,6 +17,7 @@ final class LicenseBuilder
     private LicenseStatus $status = LicenseStatus::SOUMISE;
     private ?string $accessToken = null;
     private ?string $medicalCertificateFileName = null;
+    private ?int $amount = null;
 
     public function __construct(private readonly EntityManagerInterface $em)
     {
@@ -50,6 +51,13 @@ final class LicenseBuilder
         return $this;
     }
 
+    public function withAmount(?int $amount): self
+    {
+        $this->amount = $amount;
+
+        return $this;
+    }
+
     public function build(): License
     {
         $n = ++self::$seq;
@@ -63,6 +71,7 @@ final class LicenseBuilder
         $license->setStatus($this->status);
         $license->setAccessToken($this->accessToken ?? sprintf('token-%03d-%s', $n, bin2hex(random_bytes(4))));
         $license->setMedicalCertificateFileName($this->medicalCertificateFileName);
+        $license->setAmount($this->amount);
 
         return $license;
     }

@@ -38,6 +38,8 @@ class UseCaseGuardTest extends TestCase
             \App\Application\UseCase\Game\GetGames\GetGamesUseCase::class,
             \App\Application\UseCase\Game\ImportGames\ImportGamesUseCase::class,
             \App\Application\UseCase\License\ApproveLicense\ApproveLicenseUseCase::class,
+            \App\Application\UseCase\License\CreateCheckout\CreateCheckoutUseCase::class,
+            \App\Application\UseCase\License\GetLicenseForPayment\GetLicenseForPaymentUseCase::class,
             \App\Application\UseCase\License\GetPaginatedLicenses\GetPaginatedLicensesUseCase::class,
             \App\Application\UseCase\License\RejectLicense\RejectLicenseUseCase::class,
             \App\Application\UseCase\License\SubmitLicenseRequest\SubmitLicenseRequestUseCase::class,
