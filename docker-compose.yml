@@ -73,7 +73,7 @@ services:
       HELLOASSO_ORGANIZATION_SLUG: ${HELLOASSO_ORGANIZATION_SLUG:-}
       HELLOASSO_MEMBERSHIP_FORM_TYPE: ${HELLOASSO_MEMBERSHIP_FORM_TYPE:-Membership}
       HELLOASSO_MEMBERSHIP_FORM_SLUG: ${HELLOASSO_MEMBERSHIP_FORM_SLUG:-}
-      APP_FRONTEND_URL: ${APP_FRONTEND_URL:-http://app.clapiers.local}
+      APP_FRONTEND_URL: ${APP_FRONTEND_URL:-https://app.clapiers.local}
     depends_on:
       postgres:
         condition: service_healthy
