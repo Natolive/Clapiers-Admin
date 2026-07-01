@@ -8,6 +8,8 @@ use App\Application\UseCase\License\CreateCheckout\CreateCheckoutCommand;
 use App\Application\UseCase\License\CreateCheckout\CreateCheckoutUseCase;
 use App\Application\UseCase\License\GetLicenseForPayment\GetLicenseForPaymentCommand;
 use App\Application\UseCase\License\GetLicenseForPayment\GetLicenseForPaymentUseCase;
+use App\Application\UseCase\License\HandleHelloAssoWebhook\HandleHelloAssoWebhookCommand;
+use App\Application\UseCase\License\HandleHelloAssoWebhook\HandleHelloAssoWebhookUseCase;
 use App\Application\UseCase\License\SubmitLicenseRequest\SubmitLicenseRequestCommand;
 use App\Application\UseCase\License\SubmitLicenseRequest\SubmitLicenseRequestUseCase;
 use App\Application\UseCase\License\UploadMedicalCertificate\UploadMedicalCertificateCommand;
@@ -18,6 +20,7 @@ use App\Repository\SalleClosureRepository;
 use App\Repository\TeamRepository;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
+use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Attribute\MapQueryString;
 use Symfony\Component\HttpKernel\Attribute\MapRequestPayload;
@@ -68,6 +71,16 @@ class PublicController extends AbstractController
         CreateCheckoutUseCase $useCase
     ): Response {
         return $useCase->execute(new CreateCheckoutCommand($token));
+    }
+
+    #[Route('/helloasso/webhook', name: 'helloasso_webhook', methods: ['POST'])]
+    public function helloAssoWebhook(
+        Request $request,
+        HandleHelloAssoWebhookUseCase $useCase
+    ): Response {
+        $payload = json_decode($request->getContent(), true);
+
+        return $useCase->execute(new HandleHelloAssoWebhookCommand(is_array($payload) ? $payload : []));
     }
 
     #[Route('/home-games', name: 'home_games', methods: ['GET'])]
