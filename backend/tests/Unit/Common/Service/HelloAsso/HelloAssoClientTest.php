@@ -90,18 +90,19 @@ class HelloAssoClientTest extends TestCase
         $this->assertStringContainsString('/v5/organizations/mon-asso/checkout-intents/42', $intent->getRequestUrl());
     }
 
-    public function testGetFormTiersHitsTheMembershipFormAndCaches(): void
+    public function testGetFormTiersReadsPublicFormTiersAndCaches(): void
     {
-        $http = new MockHttpClient([
-            $this->jsonResponse(['access_token' => 'tok-123']),
-            $this->jsonResponse(['data' => [['id' => 7, 'name' => 'Senior', 'amount' => 12000]]]),
-        ]);
+        $token = $this->jsonResponse(['access_token' => 'tok-123']);
+        $form = $this->jsonResponse(['tiers' => [['id' => 7, 'label' => 'Senior', 'price' => 12000]]]);
+        $http = new MockHttpClient([$token, $form]);
         $client = $this->makeClient($http);
 
         $first = $client->getFormTiers();
         $second = $client->getFormTiers(); // served from cache, no extra request
 
-        $this->assertSame(7, $first['data'][0]['id']);
+        // Les tiers du formulaire public sont normalisés en {id, label, amount}
+        $this->assertSame(['id' => 7, 'label' => 'Senior', 'amount' => 12000], $first['data'][0]);
+        $this->assertStringContainsString('/forms/Membership/adhesion-2026/public', $form->getRequestUrl());
         $this->assertSame($first, $second);
         $this->assertSame(2, $http->getRequestsCount());
     }

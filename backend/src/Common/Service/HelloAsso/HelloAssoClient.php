@@ -81,15 +81,25 @@ class HelloAssoClient implements HelloAssoClientInterface
         return $this->cache->get(self::TIERS_CACHE_KEY, function (ItemInterface $item): array {
             $item->expiresAfter(self::TIERS_TTL);
 
-            return $this->request(
+            // Le catalogue des tarifs est exposé sous "tiers" par l'endpoint public
+            // du formulaire (l'endpoint /items renvoie les articles *vendus*).
+            $form = $this->request(
                 'GET',
                 sprintf(
-                    '/v5/organizations/%s/forms/%s/%s/items',
+                    '/v5/organizations/%s/forms/%s/%s/public',
                     $this->organizationSlug,
                     $this->membershipFormType,
                     $this->membershipFormSlug,
                 ),
             );
+
+            $tiers = array_map(static fn (array $tier): array => [
+                'id' => $tier['id'] ?? null,
+                'label' => $tier['label'] ?? '',
+                'amount' => $tier['price'] ?? 0,
+            ], $form['tiers'] ?? []);
+
+            return ['data' => $tiers];
         });
     }
 
