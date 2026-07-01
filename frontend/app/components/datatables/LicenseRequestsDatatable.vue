@@ -69,12 +69,21 @@
       <Column field="createdAt" header="Reçue le" style="width: 9%">
         <template #body="{ data }">{{ formatDate(data.createdAt) }}</template>
       </Column>
-      <Column header="Actions" style="width: 14%">
+      <Column header="Actions" style="width: 16%">
         <template #body="{ data }">
           <div v-if="data.status === 'soumise'" class="flex gap-2">
             <Button label="Valider" icon="pi pi-check" size="small" severity="success" @click="openApprove(data)" />
             <Button icon="pi pi-times" size="small" severity="danger" outlined v-tooltip.top="'Refuser'" @click="openReject(data)" />
           </div>
+          <Button
+            v-else-if="canCopyLink(data)"
+            label="Copier le lien"
+            icon="pi pi-copy"
+            size="small"
+            severity="secondary"
+            outlined
+            @click="copyPaymentLink(data)"
+          />
           <span v-else class="text-color-secondary">—</span>
         </template>
       </Column>
@@ -107,6 +116,9 @@
             <Button label="Valider" icon="pi pi-check" size="small" severity="success" class="flex-1" @click="openApprove(license)" />
             <Button label="Refuser" icon="pi pi-times" size="small" severity="danger" outlined class="flex-1" @click="openReject(license)" />
           </div>
+          <div v-else-if="canCopyLink(license)" class="license-card__actions">
+            <Button label="Copier le lien de paiement" icon="pi pi-copy" size="small" severity="secondary" outlined class="flex-1" @click="copyPaymentLink(license)" />
+          </div>
         </div>
       </template>
 
@@ -134,7 +146,22 @@ import { LicenseStatus, LicenseStatusLabels } from '~/types/enum/LicenseStatus'
 
 const repo = new LicenseAdminRepository()
 const { show } = useDialogManager()
+const toast = usePVToastService()
 const isMobile = useIsMobile()
+
+// Le lien de paiement reste utile tant que la licence n'est pas réglée.
+const canCopyLink = (license: License): boolean =>
+  !!license.accessToken && ['validee', 'en_paiement'].includes(license.status)
+
+const copyPaymentLink = async (license: License) => {
+  const url = `${window.location.origin}/licence/${license.accessToken}`
+  try {
+    await navigator.clipboard.writeText(url)
+    toast.add({ severity: 'success', summary: 'Lien copié', detail: url, life: 3000 })
+  } catch {
+    toast.add({ severity: 'warn', summary: 'Copie impossible', detail: url, life: 6000 })
+  }
+}
 
 const items = ref<License[]>([])
 const total = ref(0)
