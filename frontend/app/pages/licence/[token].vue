@@ -1,68 +1,60 @@
 <template>
-  <div class="licence-page">
-    <div class="container">
-      <div class="card">
-        <div v-if="loading" class="centered">
-          <ProgressSpinner style="width: 48px; height: 48px" />
-        </div>
-
-        <div v-else-if="notFound" class="centered">
-          <i class="pi pi-times-circle icon error"></i>
-          <h2>Lien invalide</h2>
-          <p>Ce lien de paiement n'est pas valide ou a expiré.</p>
-        </div>
-
-        <template v-else>
-          <span class="section-label">Licence {{ view.season }}</span>
-          <h1>Bonjour {{ view.firstName }},</h1>
-
-          <Message v-if="returnStatus === 'success'" severity="info" :closable="false">
-            Votre paiement est en cours de confirmation. Vous recevrez un e-mail dès qu'il sera validé.
-          </Message>
-          <Message v-else-if="returnStatus === 'error'" severity="error" :closable="false">
-            Le paiement a échoué ou a été annulé. Vous pouvez réessayer ci-dessous.
-          </Message>
-          <Message v-if="error" severity="error" :closable="false">{{ error }}</Message>
-
-          <!-- Payable -->
-          <div v-if="payable" class="pay-box">
-            <p class="amount-label">Montant de votre licence</p>
-            <p class="amount">{{ formattedAmount }}</p>
-            <Button
-              label="Payer ma licence"
-              icon="pi pi-credit-card"
-              class="pay-btn"
-              :loading="paying"
-              @click="pay"
-            />
-            <p class="secure-note"><i class="pi pi-lock"></i> Paiement sécurisé via HelloAsso</p>
-          </div>
-
-          <!-- Autres états -->
-          <Message v-else-if="view.status === 'soumise'" severity="info" :closable="false">
-            Votre demande est en attente de validation par le club. Vous recevrez un e-mail
-            dès qu'elle sera validée pour procéder au paiement.
-          </Message>
-          <Message v-else-if="view.status === 'payee'" severity="success" :closable="false">
-            Votre licence est réglée. Merci&nbsp;! 🎉
-          </Message>
-          <Message v-else-if="view.status === 'refusee'" severity="warn" :closable="false">
-            Votre demande de licence n'a pas été validée. Contactez le club pour plus d'informations.
-          </Message>
-          <Message v-else severity="info" :closable="false">
-            Statut de la licence&nbsp;: {{ view.status }}
-          </Message>
-        </template>
+  <main class="pay">
+    <section class="card">
+      <div v-if="loading" class="centered">
+        <ProgressSpinner style="width: 44px; height: 44px" />
       </div>
-    </div>
-  </div>
+
+      <div v-else-if="notFound" class="centered">
+        <i class="pi pi-times-circle icon-error" />
+        <h1>Lien invalide</h1>
+        <p class="muted">Ce lien de paiement n'est pas valide ou a expiré.</p>
+      </div>
+
+      <template v-else>
+        <p class="eyebrow">Licence {{ view.season }}</p>
+        <h1>Bonjour {{ view.firstName }}</h1>
+
+        <Message v-if="returnStatus === 'success'" severity="info" :closable="false">
+          Paiement en cours de confirmation. Vous recevrez un e-mail dès qu'il sera validé.
+        </Message>
+        <Message v-else-if="returnStatus === 'error'" severity="error" :closable="false">
+          Le paiement a échoué ou a été annulé. Vous pouvez réessayer.
+        </Message>
+        <Message v-if="error" severity="error" :closable="false">{{ error }}</Message>
+
+        <div v-if="payable" class="pay-box">
+          <p class="muted">Montant de votre licence</p>
+          <p class="amount">{{ formattedAmount }}</p>
+          <Button
+            label="Payer ma licence"
+            icon="pi pi-credit-card"
+            class="w-full"
+            :loading="paying"
+            @click="pay"
+          />
+          <p class="secure"><i class="pi pi-lock" /> Paiement sécurisé via HelloAsso</p>
+        </div>
+
+        <Message v-else-if="view.status === 'soumise'" severity="info" :closable="false">
+          Votre demande est en attente de validation. Vous recevrez un e-mail dès qu'elle sera validée.
+        </Message>
+        <Message v-else-if="view.status === 'payee'" severity="success" :closable="false">
+          Votre licence est réglée. Merci&nbsp;! 🎉
+        </Message>
+        <Message v-else-if="view.status === 'refusee'" severity="warn" :closable="false">
+          Votre demande n'a pas été validée. Contactez le club pour plus d'informations.
+        </Message>
+      </template>
+    </section>
+  </main>
 </template>
 
 <script setup lang="ts">
 import { LicenseRepository, type LicensePaymentView } from '~/repository/license-repository'
 
-definePageMeta({ layout: 'public' })
-useSeoMeta({ title: 'Paiement de licence - Clapiers Volley Ball' })
+definePageMeta({ layout: false })
+useSeoMeta({ title: 'Paiement de licence' })
 
 const route = useRoute()
 const token = route.params.token as string
@@ -108,25 +100,22 @@ const pay = async () => {
 </script>
 
 <style scoped>
-.licence-page {
-  min-height: 60vh;
-  padding: 4rem 2rem;
-  background: var(--club-gradient);
+.pay {
+  min-height: 100vh;
   display: flex;
   align-items: center;
-}
-
-.container {
-  max-width: 520px;
-  margin: 0 auto;
-  width: 100%;
+  justify-content: center;
+  padding: 1.5rem;
+  background: #f4f5f7;
 }
 
 .card {
-  background: white;
-  border-radius: 20px;
-  padding: 2.5rem;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+  width: 100%;
+  max-width: 420px;
+  background: #fff;
+  border-radius: 16px;
+  padding: 2rem;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
 }
 
 .centered {
@@ -134,67 +123,53 @@ const pay = async () => {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 1rem;
+  gap: 0.75rem;
 }
 
-.icon {
-  font-size: 3rem;
+.icon-error {
+  font-size: 2.5rem;
+  color: #e11d48;
 }
 
-.icon.error {
-  color: #e63946;
-}
-
-.section-label {
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
+.eyebrow {
+  margin: 0;
   font-size: 0.8rem;
-  color: var(--club-accent);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #6b7280;
 }
 
 h1 {
-  font-size: 1.75rem;
-  color: var(--club-dark);
-  margin: 0.25rem 0 1.5rem;
+  margin: 0.25rem 0 1.25rem;
+  font-size: 1.5rem;
+  color: #111827;
 }
 
-.pay-box {
-  text-align: center;
-  margin-top: 1rem;
-}
-
-.amount-label {
+.muted {
   color: #6b7280;
   margin: 0;
   font-size: 0.9rem;
 }
 
+.pay-box {
+  text-align: center;
+  margin-top: 0.5rem;
+}
+
 .amount {
-  font-size: 2.5rem;
+  font-size: 2.25rem;
   font-weight: 700;
-  color: var(--club-dark);
-  margin: 0.25rem 0 1.5rem;
+  color: #111827;
+  margin: 0.25rem 0 1.25rem;
 }
 
-.pay-btn {
+.w-full {
   width: 100%;
-  background: var(--club-secondary);
-  border-color: var(--club-secondary);
 }
 
-.secure-note {
+.secure {
   color: #9ca3af;
-  font-size: 0.85rem;
-  margin-top: 1rem;
-}
-
-@media (max-width: 600px) {
-  .licence-page {
-    padding: 3rem 1rem;
-  }
-
-  .card {
-    padding: 1.5rem;
-  }
+  font-size: 0.8rem;
+  margin-top: 0.9rem;
 }
 </style>
