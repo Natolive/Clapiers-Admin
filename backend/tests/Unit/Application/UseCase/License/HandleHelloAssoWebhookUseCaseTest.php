@@ -57,7 +57,6 @@ class HandleHelloAssoWebhookUseCaseTest extends TestCase
 
         $this->assertSame('processed', $result['status']);
         $this->assertSame(LicenseStatus::PAYEE, $license->getStatus());
-        $this->assertTrue($member->isLicensePaid());
         $this->assertSame(PaymentState::AUTHORIZED, $payment->getState());
     }
 }

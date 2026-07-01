@@ -20,7 +20,6 @@ final class MemberBuilder
     private \DateTimeImmutable $birthDate;
     private string $nationality = 'Française';
     private Address $address;
-    private bool $licensePaid = false;
     private ?string $licenseNumber = null;
     private ?string $licenseFileName = null;
     private ?string $profilePicture = null;
@@ -62,13 +61,6 @@ final class MemberBuilder
         return $this;
     }
 
-    public function licensePaid(bool $paid = true): self
-    {
-        $this->licensePaid = $paid;
-
-        return $this;
-    }
-
     public function withLicenseNumber(?string $number): self
     {
         $this->licenseNumber = $number;
@@ -104,7 +96,6 @@ final class MemberBuilder
         $member->setBirthDate($this->birthDate);
         $member->setNationality($this->nationality);
         $member->setAddress($this->address);
-        $member->setLicensePaid($this->licensePaid);
         $member->setLicenseNumber($this->licenseNumber);
         $member->setLicenseFileName($this->licenseFileName);
         $member->setProfilePicture($this->profilePicture);

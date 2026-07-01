@@ -92,12 +92,12 @@
         </div>
       </template>
     </Column>
-    <Column field="licensePaid" header="Payée" sortable style="width: 8%">
+    <Column header="Payée" style="width: 8%">
       <template #body="slotProps">
-        <ToggleSwitch
-          :modelValue="slotProps.data.licensePaid"
-          @update:modelValue="toggleLicense(slotProps.data)"
-          :disabled="togglingIds.has(slotProps.data.id)"
+        <Tag
+          :value="slotProps.data.licensePaid ? 'Payée' : 'Non payée'"
+          :severity="slotProps.data.licensePaid ? 'success' : 'danger'"
+          class="text-xs"
         />
       </template>
     </Column>
@@ -243,7 +243,6 @@ const memberRepository = new MemberRepository();
 const members = ref<Member[]>([]);
 const totalRecords = ref(0);
 const loading = ref(false);
-const togglingIds = ref(new Set<number>());
 const uploadingIds = ref(new Set<number>());
 const fileInput = ref<HTMLInputElement | null>(null);
 const uploadTargetMember = ref<Member | null>(null);
@@ -322,16 +321,6 @@ const refresh = () => {
 };
 
 defineExpose({ refresh });
-
-const toggleLicense = async (member: Member) => {
-  togglingIds.value.add(member.id);
-  try {
-    await memberRepository.toggleLicense(member.id);
-    await fetchData();
-  } finally {
-    togglingIds.value.delete(member.id);
-  }
-};
 
 const triggerUpload = (member: Member) => {
   if (member.licenseFileName) {

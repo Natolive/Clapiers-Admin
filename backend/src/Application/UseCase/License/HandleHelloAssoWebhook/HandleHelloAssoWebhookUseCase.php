@@ -100,7 +100,6 @@ class HandleHelloAssoWebhookUseCase extends AbstractUseCase
             $payment->setState(PaymentState::AUTHORIZED);
             $payment->setPaymentReceiptUrl($intentPayment['paymentReceiptUrl'] ?? null);
             $license->setStatus(LicenseStatus::PAYEE);
-            $license->getMember()->setLicensePaid(true);
 
             $this->entityManager->flush();
             $this->sendReceiptEmail($license);

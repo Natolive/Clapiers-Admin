@@ -90,14 +90,12 @@
               <span>Licence</span>
             </div>
 
-            <!-- Toggle licence payée -->
+            <!-- Statut de paiement (dérivé de la licence, lecture seule) -->
             <div class="license-toggle">
-              <ToggleSwitch
-                :modelValue="currentMember.licensePaid"
-                :disabled="togglingLicense"
-                @update:modelValue="toggleLicensePaid"
+              <Tag
+                :value="currentMember.licensePaid ? 'Licence payée' : 'Licence non payée'"
+                :severity="currentMember.licensePaid ? 'success' : 'danger'"
               />
-              <span class="text-sm">{{ currentMember.licensePaid ? 'Licence payée' : 'Licence non payée' }}</span>
             </div>
 
             <div class="license-actions mt-2">
@@ -189,7 +187,6 @@ onMounted(async () => {
 
 const saving = ref(false);
 const uploading = ref(false);
-const togglingLicense = ref(false);
 const licenseFileInput = ref<HTMLInputElement | null>(null);
 
 const formatDate = (dateStr: string) =>
@@ -226,21 +223,6 @@ const onSave = async (values: Record<string, any>) => {
   }
 };
 
-// ── Toggle licence payée ──────────────────────────────
-
-const toggleLicensePaid = async () => {
-  togglingLicense.value = true;
-  try {
-    const updated = await memberRepository.toggleLicense(currentMember.value.id);
-    currentMember.value = updated;
-    emit('update:member', updated);
-    emit('saved', updated);
-  } catch {
-    toast.add({ severity: 'error', summary: 'Erreur', detail: 'Impossible de modifier le statut', life: 3000 });
-  } finally {
-    togglingLicense.value = false;
-  }
-};
 
 // ── License file ──────────────────────────────────────
 

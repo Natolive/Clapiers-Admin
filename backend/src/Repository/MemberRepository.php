@@ -2,7 +2,9 @@
 
 namespace App\Repository;
 
+use App\Entity\Enum\LicenseStatus;
 use App\Entity\Enum\MemberStatus;
+use App\Entity\License;
 use App\Entity\Member;
 use App\Entity\Team;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
@@ -38,7 +40,6 @@ class MemberRepository extends ServiceEntityRepository
             'email' => 'm.email',
             'phoneNumber' => 'm.phoneNumber',
             'createdAt' => 'm.createdAt',
-            'licensePaid' => 'm.licensePaid',
         ];
 
         $orderColumn = $allowedFields[$sortField] ?? 'm.firstName';
@@ -65,8 +66,10 @@ class MemberRepository extends ServiceEntityRepository
         }
 
         if ($licensePaid !== null) {
-            $qb->andWhere('m.licensePaid = :licensePaid')
-                ->setParameter('licensePaid', $licensePaid);
+            // "Payé" est dérivé : le membre a (ou non) une licence au statut PAYEE.
+            $exists = 'EXISTS (SELECT lp.id FROM '.License::class.' lp WHERE lp.member = m AND lp.status = :paidStatus)';
+            $qb->andWhere($licensePaid ? $exists : 'NOT '.$exists)
+                ->setParameter('paidStatus', LicenseStatus::PAYEE);
         }
 
         if ($hasLicense !== null) {
@@ -112,7 +115,8 @@ class MemberRepository extends ServiceEntityRepository
 
         $withLicense = (int) $this->createQueryBuilder('m')
             ->select('COUNT(m.id)')
-            ->andWhere('m.licensePaid = true')
+            ->andWhere('EXISTS (SELECT lp.id FROM '.License::class.' lp WHERE lp.member = m AND lp.status = :paidStatus)')
+            ->setParameter('paidStatus', LicenseStatus::PAYEE)
             ->getQuery()->getSingleScalarResult();
 
         $conn = $this->getEntityManager()->getConnection();

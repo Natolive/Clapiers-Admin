@@ -48,12 +48,6 @@ return await this.api<Member>('/member', {
         });
     }
 
-    async toggleLicense(id: number): Promise<Member> {
-        return await this.api<Member>(`/member/${id}/toggle-license`, {
-            method: 'PATCH'
-        });
-    }
-
     async uploadLicense(id: number, file: File): Promise<Member> {
         const formData = new FormData();
         formData.append('file', file);

@@ -2,6 +2,7 @@
 
 namespace App\Entity;
 
+use App\Entity\Enum\LicenseStatus;
 use App\Entity\Enum\MemberGender;
 use App\Entity\Enum\MemberStatus;
 use App\Entity\Trait\IdTrait;
@@ -41,8 +42,11 @@ class Member
     #[ORM\Column(length: 255)]
     private string $email;
 
-    #[ORM\Column(type: 'boolean', options: ['default' => false])]
-    private bool $licensePaid = false;
+    /**
+     * @var Collection<int, License>
+     */
+    #[ORM\OneToMany(mappedBy: 'member', targetEntity: License::class)]
+    private Collection $licenses;
 
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $licenseFileName = null;
@@ -73,6 +77,7 @@ class Member
         $this->color   = $this->generateRandomHexColor();
         $this->address = new Address();
         $this->teams   = new ArrayCollection();
+        $this->licenses = new ArrayCollection();
     }
 
     private function generateRandomHexColor(): string
@@ -179,16 +184,19 @@ class Member
         return $this;
     }
 
+    /**
+     * Dérivé (plus de colonne stockée) : le membre est "à jour" dès qu'il a
+     * au moins une licence payée. La vérité est portée par License.status.
+     */
     public function isLicensePaid(): bool
     {
-        return $this->licensePaid;
-    }
+        foreach ($this->licenses as $license) {
+            if ($license->getStatus() === LicenseStatus::PAYEE) {
+                return true;
+            }
+        }
 
-    public function setLicensePaid(bool $licensePaid): static
-    {
-        $this->licensePaid = $licensePaid;
-
-        return $this;
+        return false;
     }
 
     public function getLicenseFileName(): ?string

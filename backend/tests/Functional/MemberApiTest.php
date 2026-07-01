@@ -2,6 +2,7 @@
 
 namespace App\Tests\Functional;
 
+use App\Entity\Enum\LicenseStatus;
 use App\Entity\Enum\MemberStatus;
 use App\Entity\Member;
 use App\Tests\Support\ApiTestCase;
@@ -211,15 +212,23 @@ class MemberApiTest extends ApiTestCase
     public function testPaginatedMembersFiltersByLicensePaid(): void
     {
         $team = $this->aTeam()->persist();
-        $paid = $this->aMember()->inTeams($team)->licensePaid()->persist();
-        $this->aMember()->inTeams($team)->licensePaid(false)->persist();
+        $paid = $this->aMember()->inTeams($team)->persist();
+        $this->aLicense()->forMember($paid)->withStatus(LicenseStatus::PAYEE)->persist();
+        $paid->setStatus(MemberStatus::ACTIVE); // le builder de licence l'avait passé en attente
+        $this->aMember()->inTeams($team)->persist(); // actif, sans licence payée
+        $this->em()->flush();
 
         $this->actingAsSuperAdmin();
         $this->getJson('/api/member/paginated?licensePaid=true');
-
         $body = $this->assertJsonResponse(200);
         $this->assertSame(1, $body['total']);
         $this->assertSame($paid->getId(), $body['data'][0]['id']);
+
+        // Le filtre inverse ne renvoie que le membre actif sans licence payée.
+        $this->getJson('/api/member/paginated?licensePaid=false');
+        $body = $this->assertJsonResponse(200);
+        $this->assertSame(1, $body['total']);
+        $this->assertNotSame($paid->getId(), $body['data'][0]['id']);
     }
 
     public function testPaginatedMembersFiltersByHasLicense(): void
@@ -282,32 +291,6 @@ class MemberApiTest extends ApiTestCase
 
         $body = $this->assertJsonResponse(404);
         $this->assertSame('Team not found', $body['message']);
-    }
-
-    // ── PATCH /api/member/{id}/toggle-license ───────────────────────────────
-
-    public function testToggleLicenseFlipsThePaidFlag(): void
-    {
-        $team = $this->aTeam()->persist();
-        $member = $this->aMember()->inTeams($team)->licensePaid(false)->persist();
-
-        $this->actingAsSuperAdmin();
-
-        $this->patchJson('/api/member/'.$member->getId().'/toggle-license');
-        $body = $this->assertJsonResponse(200);
-        $this->assertTrue($body['licensePaid']);
-
-        $this->patchJson('/api/member/'.$member->getId().'/toggle-license');
-        $body = $this->assertJsonResponse(200);
-        $this->assertFalse($body['licensePaid']);
-    }
-
-    public function testToggleLicenseOnUnknownMemberReturns404(): void
-    {
-        $this->actingAsSuperAdmin();
-        $this->patchJson('/api/member/999999/toggle-license');
-
-        $this->assertJsonResponse(404);
     }
 
     // ── Licence : upload / download / delete ────────────────────────────────

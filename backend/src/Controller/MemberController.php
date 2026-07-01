@@ -64,24 +64,6 @@ class MemberController extends AbstractController
         return $useCase->execute($command);
     }
 
-    #[Route('/{id}/toggle-license', name: 'toggle_license', methods: ['PATCH'])]
-    public function toggleLicense(
-        int $id,
-        MemberRepository $memberRepository,
-        EntityManagerInterface $entityManager
-    ): Response {
-        $member = $memberRepository->find($id);
-
-        if (!$member) {
-            return $this->json(['error' => 'Member not found'], 404);
-        }
-
-        $member->setLicensePaid(!$member->isLicensePaid());
-        $entityManager->flush();
-
-        return $this->json($member->toArray());
-    }
-
     #[Route('/{id}/upload-license', name: 'upload_license', methods: ['POST'])]
     public function uploadLicense(
         int $id,
