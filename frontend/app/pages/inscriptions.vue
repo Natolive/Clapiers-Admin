@@ -66,7 +66,13 @@
           </div>
           <div class="form-group">
             <label for="phoneNumber">Téléphone</label>
-            <InputText id="phoneNumber" v-model="form.phoneNumber" type="tel" autocomplete="tel" placeholder="+33…" />
+            <VueTelInput
+              mode="international"
+              default-country="fr"
+              :input-options="{ placeholder: 'Numéro de téléphone', autocomplete: 'tel', id: 'phoneNumber' }"
+              class="phone-field"
+              @on-input="onPhoneInput"
+            />
           </div>
         </div>
 
@@ -116,6 +122,8 @@
 </template>
 
 <script setup lang="ts">
+import { VueTelInput } from 'vue-tel-input'
+import 'vue-tel-input/vue-tel-input.css'
 import { LicenseRepository } from '~/repository/license-repository'
 import { MemberGenderOptions } from '~/types/enum/MemberGender'
 
@@ -158,6 +166,12 @@ const form = ref({
   addressCity: '',
   licenseNumber: '',
 })
+
+// vue-tel-input émet (numéro formaté, objet) ; on stocke le E.164 (+33…) attendu
+// par le backend, ou '' tant que le numéro n'est pas complet/valide.
+const onPhoneInput = (_formatted: string, phone: { number?: string; valid?: boolean }) => {
+  form.value.phoneNumber = phone?.valid && phone.number ? phone.number : ''
+}
 
 const handleSubmit = async () => {
   const f = form.value
@@ -303,6 +317,15 @@ const finish = () => {
 .form-group :deep(.p-inputtext),
 .form-group :deep(.p-select) {
   width: 100%;
+}
+
+.phone-field {
+  width: 100%;
+}
+
+.phone-field :deep(.vti__input) {
+  border: none;
+  outline: none;
 }
 
 .submit-btn {
