@@ -8,8 +8,13 @@ services:
       - "--providers.docker.exposedbydefault=false"
       - "--providers.docker.network=clapiers-admin_proxy"
       - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      # Redirige tout le trafic http vers https
+      - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
     ports:
       - "80:80"
+      - "443:443"
       - "8080:8080"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
@@ -55,7 +60,7 @@ services:
       APP_SECRET: ${APP_SECRET:-local_dev_secret_change_me}
       APP_SHARE_DIR: var/share
       DATABASE_URL: postgresql://${POSTGRES_USER:-symfony}:${POSTGRES_PASSWORD:-symfony}@postgres:5432/${POSTGRES_DB:-clapiers_db}?serverVersion=16&charset=utf8
-      DEFAULT_URI: ${DEFAULT_URI:-http://api.clapiers.local}
+      DEFAULT_URI: ${DEFAULT_URI:-https://api.clapiers.local}
       CORS_ALLOW_ORIGIN: ${CORS_ALLOW_ORIGIN:-^https?://(app\.clapiers\.local|localhost)(:[0-9]+)?$$}
       JWT_SECRET_KEY: "%kernel.project_dir%/config/jwt/private.pem"
       JWT_PUBLIC_KEY: "%kernel.project_dir%/config/jwt/public.pem"
@@ -91,7 +96,8 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.api.rule=Host(`api.clapiers.local`)"
-      - "traefik.http.routers.api.entrypoints=web"
+      - "traefik.http.routers.api.entrypoints=websecure"
+      - "traefik.http.routers.api.tls=true"
       - "traefik.http.services.api.loadbalancer.server.port=80"
     networks:
       - proxy
@@ -105,12 +111,13 @@ services:
       - ./frontend:/app
     environment:
       NODE_ENV: development
-      NUXT_PUBLIC_API_BASE: ${NUXT_PUBLIC_API_BASE:-http://api.clapiers.local/api}
+      NUXT_PUBLIC_API_BASE: ${NUXT_PUBLIC_API_BASE:-https://api.clapiers.local/api}
       NUXT_PUBLIC_RECAPTCHA_SITE_KEY: ${NUXT_PUBLIC_RECAPTCHA_SITE_KEY:-}
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.frontend.rule=Host(`app.clapiers.local`)"
-      - "traefik.http.routers.frontend.entrypoints=web"
+      - "traefik.http.routers.frontend.entrypoints=websecure"
+      - "traefik.http.routers.frontend.tls=true"
       - "traefik.http.services.frontend.loadbalancer.server.port=3000"
     networks:
       - proxy
