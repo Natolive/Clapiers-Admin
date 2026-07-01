@@ -2,6 +2,7 @@
 
 namespace App\Repository;
 
+use App\Entity\Enum\MemberStatus;
 use App\Entity\Member;
 use App\Entity\Team;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
@@ -44,6 +45,11 @@ class MemberRepository extends ServiceEntityRepository
         $orderDir = strtolower($sortOrder) === 'desc' ? 'DESC' : 'ASC';
 
         $qb = $this->createQueryBuilder('m');
+
+        // La liste des licenciés n'affiche que les membres actifs : les demandes
+        // en attente de validation ou refusées restent dans "Demandes de licence".
+        $qb->andWhere('m.status = :activeStatus')
+            ->setParameter('activeStatus', MemberStatus::ACTIVE);
 
         if ($search) {
             $searchTerm = '%' . $search . '%';

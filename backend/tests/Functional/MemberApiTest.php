@@ -2,6 +2,7 @@
 
 namespace App\Tests\Functional;
 
+use App\Entity\Enum\MemberStatus;
 use App\Entity\Member;
 use App\Tests\Support\ApiTestCase;
 
@@ -157,6 +158,25 @@ class MemberApiTest extends ApiTestCase
         $body = $this->assertJsonResponse(200);
         $this->assertSame(3, $body['total']);
         $this->assertCount(2, $body['data']);
+    }
+
+    public function testPaginatedMembersExcludesNonActiveMembers(): void
+    {
+        $active = $this->aMember()->named('Active', 'Membre')->persist();
+
+        $pending = $this->aMember()->named('Pending', 'Membre')->persist();
+        $pending->setStatus(MemberStatus::PENDING_VALIDATION);
+        $rejected = $this->aMember()->named('Rejected', 'Membre')->persist();
+        $rejected->setStatus(MemberStatus::REJECTED);
+        $this->em()->flush();
+
+        $this->actingAsSuperAdmin();
+        $this->getJson('/api/member/paginated?page=1&limit=50');
+
+        // Seuls les membres actifs apparaissent (pas les demandes en attente/refusées).
+        $body = $this->assertJsonResponse(200);
+        $this->assertSame(1, $body['total']);
+        $this->assertSame($active->getId(), $body['data'][0]['id']);
     }
 
     public function testPaginatedMembersFiltersBySearch(): void
