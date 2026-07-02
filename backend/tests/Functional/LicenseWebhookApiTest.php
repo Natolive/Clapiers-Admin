@@ -129,7 +129,7 @@ class LicenseWebhookApiTest extends ApiTestCase
     public function testWebhookMarksPaymentRefused(): void
     {
         $license = $this->makeEnPaiement('wh-refused');
-        $this->fake()->checkoutIntentResult['payment']['state'] = 'Refused';
+        $this->fake()->checkoutIntentResult['order']['payments'][0]['state'] = 'Refused';
 
         $this->postJson(self::URL, $this->paymentPayload($license->getId()));
 
@@ -143,7 +143,7 @@ class LicenseWebhookApiTest extends ApiTestCase
     public function testWebhookIgnoresPendingState(): void
     {
         $license = $this->makeEnPaiement('wh-waiting');
-        $this->fake()->checkoutIntentResult['payment']['state'] = 'Waiting';
+        $this->fake()->checkoutIntentResult['order']['payments'][0]['state'] = 'Waiting';
 
         $this->postJson(self::URL, $this->paymentPayload($license->getId()));
 

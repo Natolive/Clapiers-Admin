@@ -24,14 +24,18 @@ class FakeHelloAssoClient implements HelloAssoClientInterface
     /** @var array<string, mixed> */
     public array $checkoutIntentResult = [
         'id' => 999001,
-        'order' => ['id' => 888001],
-        'payment' => [
-            'id' => 777001,
-            'amount' => 12000,
-            'state' => 'Authorized',
-            'paymentReceiptUrl' => 'https://www.helloasso-sandbox.com/receipt/777001',
-        ],
         'metadata' => [],
+        'order' => [
+            'id' => 888001,
+            'payments' => [
+                [
+                    'id' => 777001,
+                    'amount' => 12000,
+                    'state' => 'Authorized',
+                    'paymentReceiptUrl' => 'https://www.helloasso-sandbox.com/receipt/777001',
+                ],
+            ],
+        ],
     ];
 
     /** @var array<string, mixed> */

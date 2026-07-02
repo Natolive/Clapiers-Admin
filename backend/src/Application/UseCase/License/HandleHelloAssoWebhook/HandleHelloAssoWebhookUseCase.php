@@ -88,12 +88,20 @@ class HandleHelloAssoWebhookUseCase extends AbstractUseCase
         }
 
         // Ne pas se fier au payload : reconfirmer l'état auprès de HelloAsso.
+        // Le paiement vit dans order.payments[] (il n'y a pas de clé "payment" racine).
         $intent = $this->helloAssoClient->getCheckoutIntent($payment->getHelloAssoCheckoutIntentId());
-        $intentPayment = $intent['payment'] ?? [];
+        $order = $intent['order'] ?? [];
+        $intentPayment = [];
+        foreach ($order['payments'] ?? [] as $candidate) {
+            if (($candidate['id'] ?? null) === $helloAssoPaymentId) {
+                $intentPayment = $candidate;
+                break;
+            }
+        }
         $state = $intentPayment['state'] ?? null;
 
         $payment->setHelloAssoPaymentId($helloAssoPaymentId);
-        $payment->setHelloAssoOrderId(isset($data['order']['id']) ? (int) $data['order']['id'] : null);
+        $payment->setHelloAssoOrderId(isset($order['id']) ? (int) $order['id'] : null);
         $payment->setRawPayload($payload);
 
         if ($state === 'Authorized') {

@@ -34,7 +34,9 @@ class HandleHelloAssoWebhookUseCaseTest extends TestCase
         $paymentRepository->method('findWaitingByLicense')->willReturn($payment);
 
         $client = $this->createStub(HelloAssoClientInterface::class);
-        $client->method('getCheckoutIntent')->willReturn(['payment' => ['state' => 'Authorized', 'paymentReceiptUrl' => 'https://receipt']]);
+        $client->method('getCheckoutIntent')->willReturn([
+            'order' => ['id' => 888001, 'payments' => [['id' => 777001, 'state' => 'Authorized', 'paymentReceiptUrl' => 'https://receipt']]],
+        ]);
 
         $mailer = $this->createStub(MailerInterface::class);
         $mailer->method('send')->willThrowException(new TransportException('SMTP down'));
