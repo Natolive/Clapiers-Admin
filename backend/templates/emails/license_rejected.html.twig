@@ -1,22 +1,33 @@
-<!DOCTYPE html>
-<html lang="fr">
-<body style="font-family: Arial, sans-serif; color: #222; line-height: 1.6;">
-    <h2>Bonjour {{ firstName }},</h2>
+{% extends 'emails/layout.html.twig' %}
 
-    <p>
-        Après examen, votre demande de licence n'a pas pu être validée en l'état
-        pour la raison suivante&nbsp;:
-    </p>
+{% block title %}Votre demande de licence{% endblock %}
 
-    <blockquote style="border-left: 3px solid #e63946; margin: 1em 0; padding: 0.5em 1em; color: #555;">
-        {{ reason }}
-    </blockquote>
+{% block hero_eyebrow %}Demande de licence{% endblock %}
 
-    <p>
-        N'hésitez pas à nous contacter pour régulariser votre situation ou
-        soumettre une nouvelle demande.
-    </p>
+{% block hero_title %}
+Demande<br><span style="color:#f4a261;">non validée</span>
+{% endblock %}
 
-    <p>Sportivement,<br>Le Clapiers Volley-Ball</p>
-</body>
-</html>
+{% block hero_meta %}{% endblock %}
+
+{% block body %}
+
+<div style="font-size:16px;line-height:1.7;color:#1a1a2e;">
+Bonjour <strong>{{ firstName }}</strong>,<br><br>
+Après examen, votre demande de licence n'a pas pu être validée en l'état, pour la raison suivante&nbsp;:
+</div>
+
+<div style="margin:24px 0;">
+{% embed 'emails/components/card.html.twig' %}
+{% block eyebrow %}Motif{% endblock %}
+{% block content %}
+<div style="font-size:15px;line-height:1.7;color:#1a1a2e;">{{ reason|nl2br }}</div>
+{% endblock %}
+{% endembed %}
+</div>
+
+<div style="font-size:15px;line-height:1.7;color:#1a1a2e;">
+N'hésitez pas à nous contacter pour régulariser votre situation ou soumettre une nouvelle demande.
+</div>
+
+{% endblock %}
