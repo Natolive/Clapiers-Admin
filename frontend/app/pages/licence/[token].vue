@@ -1,14 +1,31 @@
 <template>
   <main class="pay">
     <section class="card">
+      <div class="brand">
+        <span class="brand-dot"></span>
+        <span>Clapiers <span class="brand-accent">Volley-Ball</span></span>
+      </div>
+
       <div v-if="loading" class="centered">
-        <ProgressSpinner style="width: 44px; height: 44px" />
+        <ProgressSpinner style="width: 44px; height: 44px" stroke-width="4" />
       </div>
 
       <div v-else-if="notFound" class="centered">
-        <i class="pi pi-times-circle icon-error" />
+        <div class="badge badge-error"><i class="pi pi-times" /></div>
         <h1>Lien invalide</h1>
         <p class="muted">Ce lien de paiement n'est pas valide ou a expiré.</p>
+      </div>
+
+      <!-- 🎉 Licence payée -->
+      <div v-else-if="view.status === 'payee'" class="centered success">
+        <div class="badge badge-success"><i class="pi pi-check" /></div>
+        <p class="eyebrow">Licence {{ view.season }}</p>
+        <h1>Merci {{ view.firstName }}&nbsp;!</h1>
+        <p class="lead">Votre licence est <strong>réglée</strong>. Votre adhésion pour la saison
+          {{ view.season }} est à jour.</p>
+        <p v-if="view.amount !== null" class="paid-amount">{{ formattedAmount }} réglés</p>
+        <div class="ball">🏐</div>
+        <p class="muted small">Un e-mail de confirmation vous a été envoyé. À très vite sur les terrains&nbsp;!</p>
       </div>
 
       <template v-else>
@@ -29,7 +46,7 @@
           <Button
             label="Payer ma licence"
             icon="pi pi-credit-card"
-            class="w-full"
+            class="pay-btn w-full"
             :loading="paying"
             @click="pay"
           />
@@ -38,9 +55,6 @@
 
         <Message v-else-if="view.status === 'soumise'" severity="info" :closable="false">
           Votre demande est en attente de validation. Vous recevrez un e-mail dès qu'elle sera validée.
-        </Message>
-        <Message v-else-if="view.status === 'payee'" severity="success" :closable="false">
-          Votre licence est réglée. Merci&nbsp;! 🎉
         </Message>
         <Message v-else-if="view.status === 'refusee'" severity="warn" :closable="false">
           Votre demande n'a pas été validée. Contactez le club pour plus d'informations.
@@ -54,7 +68,7 @@
 import { LicenseRepository, type LicensePaymentView } from '~/repository/license-repository'
 
 definePageMeta({ layout: false })
-useSeoMeta({ title: 'Paiement de licence' })
+useSeoMeta({ title: 'Paiement de licence — Clapiers Volley-Ball' })
 
 const route = useRoute()
 const token = route.params.token as string
@@ -106,70 +120,142 @@ const pay = async () => {
   align-items: center;
   justify-content: center;
   padding: 1.5rem;
-  background: #f4f5f7;
+  background: #1e3a5f;
+  background-image: linear-gradient(135deg, #1e3a5f 0%, #2d5a87 100%);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
 }
 
 .card {
   width: 100%;
-  max-width: 420px;
+  max-width: 460px;
   background: #fff;
-  border-radius: 16px;
-  padding: 2rem;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+  border-radius: 22px;
+  padding: 2.5rem 2rem;
+  box-shadow: 0 24px 70px rgba(15, 26, 46, 0.35);
+  text-align: center;
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 800;
+  font-size: 0.95rem;
+  color: #1a1a2e;
+  letter-spacing: -0.01em;
+  margin-bottom: 1.75rem;
+}
+
+.brand-accent { color: #f4a261; }
+
+.brand-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #f4a261;
+  display: inline-block;
 }
 
 .centered {
-  text-align: center;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.5rem;
 }
 
-.icon-error {
-  font-size: 2.5rem;
-  color: #e11d48;
+.badge {
+  width: 84px;
+  height: 84px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2.4rem;
+  color: #fff;
+  margin-bottom: 0.5rem;
+}
+
+.badge-success {
+  background: #22c55e;
+  box-shadow: 0 12px 30px rgba(34, 197, 94, 0.4);
+}
+
+.badge-error {
+  background: #e11d48;
+  box-shadow: 0 12px 30px rgba(225, 29, 72, 0.35);
 }
 
 .eyebrow {
   margin: 0;
-  font-size: 0.8rem;
-  letter-spacing: 0.06em;
+  font-size: 0.78rem;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: #6b7280;
+  color: #f4a261;
+  font-weight: 700;
 }
 
 h1 {
-  margin: 0.25rem 0 1.25rem;
-  font-size: 1.5rem;
-  color: #111827;
+  margin: 0.25rem 0 0.75rem;
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: #1a1a2e;
+  letter-spacing: -0.02em;
 }
 
-.muted {
-  color: #6b7280;
+.lead {
   margin: 0;
-  font-size: 0.9rem;
+  font-size: 1rem;
+  line-height: 1.6;
+  color: #4b5563;
 }
 
-.pay-box {
-  text-align: center;
-  margin-top: 0.5rem;
+.paid-amount {
+  margin: 1rem 0 0;
+  display: inline-block;
+  background: #f0fdf4;
+  color: #15803d;
+  font-weight: 700;
+  font-size: 0.95rem;
+  padding: 8px 18px;
+  border-radius: 50px;
 }
+
+.ball {
+  font-size: 2rem;
+  margin: 1.25rem 0 0.5rem;
+  animation: bounce 1.6s ease-in-out infinite;
+}
+
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
+.muted { color: #6b7280; margin: 0; font-size: 0.9rem; }
+.small { font-size: 0.82rem; margin-top: 0.75rem; }
+
+.pay-box { margin-top: 0.5rem; }
 
 .amount {
-  font-size: 2.25rem;
-  font-weight: 700;
-  color: #111827;
+  font-size: 2.4rem;
+  font-weight: 800;
+  color: #1a1a2e;
   margin: 0.25rem 0 1.25rem;
+  letter-spacing: -0.01em;
 }
 
-.w-full {
-  width: 100%;
+.w-full { width: 100%; }
+
+.pay-btn {
+  background: #e63946;
+  border-color: #e63946;
+  box-shadow: 0 10px 26px rgba(230, 57, 70, 0.32);
 }
 
-.secure {
-  color: #9ca3af;
-  font-size: 0.8rem;
-  margin-top: 0.9rem;
+.pay-btn:hover {
+  background: #c5303c !important;
+  border-color: #c5303c !important;
 }
+
+.secure { color: #9ca3af; font-size: 0.8rem; margin-top: 0.9rem; }
 </style>
