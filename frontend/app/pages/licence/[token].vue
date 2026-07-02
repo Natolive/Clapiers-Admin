@@ -18,13 +18,11 @@
 
       <!-- 🎉 Licence payée -->
       <div v-else-if="view.status === 'payee'" class="centered success">
-        <div class="badge badge-success"><i class="pi pi-check" /></div>
         <p class="eyebrow">Licence {{ view.season }}</p>
         <h1>Merci {{ view.firstName }}&nbsp;!</h1>
         <p class="lead">Votre licence est <strong>réglée</strong>. Votre adhésion pour la saison
           {{ view.season }} est à jour.</p>
         <p v-if="view.amount !== null" class="paid-amount">{{ formattedAmount }} réglés</p>
-        <div class="ball">🏐</div>
         <p class="muted small">Un e-mail de confirmation vous a été envoyé. À très vite sur les terrains&nbsp;!</p>
       </div>
 
@@ -175,11 +173,6 @@ const pay = async () => {
   margin-bottom: 0.5rem;
 }
 
-.badge-success {
-  background: #22c55e;
-  box-shadow: 0 12px 30px rgba(34, 197, 94, 0.4);
-}
-
 .badge-error {
   background: #e11d48;
   box-shadow: 0 12px 30px rgba(225, 29, 72, 0.35);
@@ -218,17 +211,6 @@ h1 {
   font-size: 0.95rem;
   padding: 8px 18px;
   border-radius: 50px;
-}
-
-.ball {
-  font-size: 2rem;
-  margin: 1.25rem 0 0.5rem;
-  animation: bounce 1.6s ease-in-out infinite;
-}
-
-@keyframes bounce {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-8px); }
 }
 
 .muted { color: #6b7280; margin: 0; font-size: 0.9rem; }
