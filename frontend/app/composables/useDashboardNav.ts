@@ -48,6 +48,7 @@ export const useDashboardNav = (onNavigate?: () => void) => {
                 label: 'Paramètres',
                 icon: 'pi pi-cog',
                 items: [
+                    { label: 'Général', icon: 'pi pi-sliders-h', route: '/dashboard/settings/general', command: go('/dashboard/settings/general') },
                     { label: 'Utilisateurs', icon: 'pi pi-users', route: '/dashboard/settings/users', command: go('/dashboard/settings/users') },
                     { label: 'Équipes', icon: 'pi pi-sitemap', route: '/dashboard/settings/teams', command: go('/dashboard/settings/teams') },
                     { label: 'Licenciés', icon: 'pi pi-id-card', route: '/dashboard/settings/members', command: go('/dashboard/settings/members') },

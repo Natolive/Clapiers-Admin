@@ -5,7 +5,7 @@ namespace App\Application\UseCase\License\SubmitLicenseRequest;
 use App\Common\Command\CommandInterface;
 use App\Common\Exception\UseCaseException;
 use App\Common\Service\RecaptchaVerifier;
-use App\Common\Service\SeasonResolver;
+use App\Common\Service\SeasonProvider;
 use App\Common\UseCase\AbstractUseCase;
 use App\Entity\Enum\LicenseStatus;
 use App\Entity\Enum\MemberStatus;
@@ -22,7 +22,7 @@ class SubmitLicenseRequestUseCase extends AbstractUseCase
     public function __construct(
         private readonly EntityManagerInterface $entityManager,
         private readonly RecaptchaVerifier $recaptchaVerifier,
-        private readonly SeasonResolver $seasonResolver,
+        private readonly SeasonProvider $seasonProvider,
     ) {
     }
 
@@ -50,7 +50,7 @@ class SubmitLicenseRequestUseCase extends AbstractUseCase
 
         $license = new License();
         $license->setMember($member);
-        $license->setSeason($this->seasonResolver->current());
+        $license->setSeason($this->seasonProvider->current());
         $license->setStatus(LicenseStatus::SOUMISE);
         $license->setLicenseNumber($command->licenseNumber);
         $license->setAccessToken(bin2hex(random_bytes(32)));

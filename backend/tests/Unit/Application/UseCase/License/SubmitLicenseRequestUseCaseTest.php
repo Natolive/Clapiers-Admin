@@ -6,7 +6,9 @@ use App\Application\UseCase\License\SubmitLicenseRequest\SubmitLicenseRequestCom
 use App\Application\UseCase\License\SubmitLicenseRequest\SubmitLicenseRequestUseCase;
 use App\Common\Exception\UseCaseException;
 use App\Common\Service\RecaptchaVerifier;
+use App\Common\Service\SeasonProvider;
 use App\Common\Service\SeasonResolver;
+use App\Repository\SettingRepository;
 use App\Entity\Enum\MemberGender;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\TestCase;
@@ -47,7 +49,9 @@ class SubmitLicenseRequestUseCaseTest extends TestCase
 
     private function makeUseCase(RecaptchaVerifier $verifier, EntityManagerInterface $entityManager): SubmitLicenseRequestUseCase
     {
-        return new SubmitLicenseRequestUseCase($entityManager, $verifier, new SeasonResolver());
+        $seasonProvider = new SeasonProvider($this->createStub(SettingRepository::class), new SeasonResolver());
+
+        return new SubmitLicenseRequestUseCase($entityManager, $verifier, $seasonProvider);
     }
 
     private function command(string $birthDate = '2000-05-01'): SubmitLicenseRequestCommand
