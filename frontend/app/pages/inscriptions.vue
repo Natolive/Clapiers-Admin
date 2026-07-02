@@ -2,7 +2,7 @@
   <div class="inscription-page">
     <div class="container">
       <header class="page-head">
-        <span class="section-label">Adhésion</span>
+        <span class="section-label">Adhésion<template v-if="season"> · Saison {{ season }}</template></span>
         <h1>Demande de licence</h1>
         <p>
           Remplissez le formulaire ci-dessous. Votre demande sera vérifiée par un
@@ -137,6 +137,9 @@ const publicApi = usePublicApi()
 const config = useRuntimeConfig()
 const recaptchaEnabled = !!config.public.recaptchaSiteKey
 const licenseRepo = new LicenseRepository()
+
+const { season, fetchSeason } = useCurrentSeason()
+onMounted(fetchSeason)
 
 const genderOptions = MemberGenderOptions
 const { data: nationalities } = await useAsyncData(

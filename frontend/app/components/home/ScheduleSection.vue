@@ -1,4 +1,6 @@
 <script setup lang="ts">
+const { season, fetchSeason } = useCurrentSeason()
+onMounted(fetchSeason)
 </script>
 <template>
   <section id="horaires" class="schedule-section">
@@ -9,6 +11,11 @@
           Quand et où<br />
           <span class="text-accent">nous retrouver</span>
         </h2>
+      </div>
+
+      <div v-if="season" class="season-notice">
+        <i class="pi pi-calendar"></i>
+        <span>Saison en cours&nbsp;: <strong>{{ season }}</strong></span>
       </div>
 
       <div class="schedule-location-grid">

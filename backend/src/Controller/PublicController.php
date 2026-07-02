@@ -14,6 +14,7 @@ use App\Application\UseCase\License\SubmitLicenseRequest\SubmitLicenseRequestCom
 use App\Application\UseCase\License\SubmitLicenseRequest\SubmitLicenseRequestUseCase;
 use App\Application\UseCase\License\UploadMedicalCertificate\UploadMedicalCertificateCommand;
 use App\Application\UseCase\License\UploadMedicalCertificate\UploadMedicalCertificateUseCase;
+use App\Common\Service\SeasonProvider;
 use App\Entity\Enum\MemberNationality;
 use App\Repository\GameRepository;
 use App\Repository\SalleClosureRepository;
@@ -89,6 +90,12 @@ class PublicController extends AbstractController
         $games = $gameRepository->findUpcomingHomeGames(10);
 
         return $this->json(array_map(fn ($g) => $g->toArray(), $games));
+    }
+
+    #[Route('/season', name: 'season', methods: ['GET'])]
+    public function season(SeasonProvider $seasonProvider): Response
+    {
+        return $this->json(['season' => $seasonProvider->current()]);
     }
 
     #[Route('/nationalities', name: 'nationalities', methods: ['GET'])]

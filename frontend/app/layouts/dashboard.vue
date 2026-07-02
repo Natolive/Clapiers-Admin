@@ -22,6 +22,11 @@
         </div>
       </div>
 
+      <div v-if="season" class="sidebar__season" v-tooltip.right="isCollapsedOnly ? ('Saison ' + season) : undefined">
+        <i class="pi pi-calendar nav-icon"></i>
+        <span class="nav-text">Saison {{ season }}</span>
+      </div>
+
       <!-- Nav -->
       <nav class="sidebar__nav">
         <ul class="nav-list">
@@ -143,6 +148,8 @@ const {
 
 const { navigationItems, pageTitle } = useDashboardNav(closeSidebarOnMobile);
 const { currentTime } = useClock();
+const { season, fetchSeason } = useCurrentSeason();
+onMounted(fetchSeason);
 
 const userName = computed(() => authStore.user?.email?.split('@')[0] ?? 'Utilisateur');
 const userInitials = computed(() => userName.value.slice(0, 2).toUpperCase());
@@ -226,6 +233,20 @@ const handleLogout = () => authStore.logout();
   color: var(--p-text-muted-color);
   text-transform: uppercase;
   letter-spacing: 0.05em;
+}
+
+.sidebar__season {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 0.25rem 0.75rem 0.75rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--club-accent, #f4a261) 15%, transparent);
+  color: var(--club-accent, #f4a261);
+  font-size: 0.8rem;
+  font-weight: 600;
+  white-space: nowrap;
 }
 
 /* ── Nav ─────────────────────────────────────────── */
