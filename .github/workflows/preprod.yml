@@ -23,7 +23,7 @@ jobs:
             frontend:
               - 'frontend/**'
   build-backend:
-    if: needs.changes.outputs.backend == 'true'
+#    if: needs.changes.outputs.backend == 'true'
     name: Build Backend
     runs-on:  ubuntu-latest
     needs: changes
@@ -59,7 +59,7 @@ jobs:
           network: host
 
   build-frontend:
-    if: needs.changes.outputs.frontend == 'true'
+#    if: needs.changes.outputs.frontend == 'true'
     name: Build Frontend
     runs-on:  ubuntu-latest
     needs: changes
