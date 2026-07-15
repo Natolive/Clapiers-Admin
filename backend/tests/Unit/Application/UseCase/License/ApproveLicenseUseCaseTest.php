@@ -12,6 +12,7 @@ use App\Repository\LicenseRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
+use Symfony\Bridge\Twig\Mime\TemplatedEmail;
 use Symfony\Component\Mailer\Exception\TransportException;
 use Symfony\Component\Mailer\MailerInterface;
 
@@ -49,5 +50,41 @@ class ApproveLicenseUseCaseTest extends TestCase
         $this->assertSame(12000, $result->getAmount());
         $this->assertNotNull($result->getAccessToken());
         $this->assertSame(MemberStatus::ACTIVE, $result->getMember()->getStatus());
+    }
+
+    public function testPaymentUrlFallsBackToPreprodWhenFrontendUrlMissing(): void
+    {
+        $member = (new Member())
+            ->setFirstName('Marie')
+            ->setLastName('Curie')
+            ->setEmail('marie@test.fr');
+        $license = (new License())->setMember($member)->setSeason('2026-2027');
+
+        $repository = $this->createStub(LicenseRepository::class);
+        $repository->method('find')->willReturn($license);
+
+        $sent = null;
+        $mailer = $this->createMock(MailerInterface::class);
+        $mailer->expects($this->once())->method('send')->willReturnCallback(function ($email) use (&$sent) {
+            $sent = $email;
+        });
+
+        // APP_FRONTEND_URL non injecté → l'env processor `default::` fournit null.
+        $useCase = new ApproveLicenseUseCase(
+            $repository,
+            $this->createStub(EntityManagerInterface::class),
+            $mailer,
+            new NullLogger(),
+            'club@test.fr',
+            null,
+        );
+
+        $result = $useCase->run(new ApproveLicenseCommand(1, 102, 12000));
+
+        $this->assertInstanceOf(TemplatedEmail::class, $sent);
+        $this->assertSame(
+            'https://preprod.clapiersvb.fr/licence/'.$result->getAccessToken(),
+            $sent->getContext()['paymentUrl'],
+        );
     }
 }
