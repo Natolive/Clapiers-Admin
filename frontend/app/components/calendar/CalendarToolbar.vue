@@ -77,8 +77,8 @@
                     size="small"
                     @click="emit('openImport')"
                 />
-                <Button class="cal-add-btn" label="Nouveau match" icon="pi pi-plus" size="small" @click="emit('openCreate')" />
-                <Button class="cal-add-btn--icon" icon="pi pi-plus" rounded size="small" @click="emit('openCreate')" />
+                <Button v-if="isSuperAdmin" class="cal-add-btn" label="Nouveau match" icon="pi pi-plus" size="small" @click="emit('openCreate')" />
+                <Button v-if="isSuperAdmin" class="cal-add-btn--icon" icon="pi pi-plus" rounded size="small" @click="emit('openCreate')" />
             </template>
         </div>
     </div>

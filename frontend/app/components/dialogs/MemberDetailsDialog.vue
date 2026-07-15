@@ -15,9 +15,6 @@
           <MemberAvatar
             :member="currentMember"
             size="xlarge"
-            :editable="isAdmin"
-            @upload="onUpload"
-            @delete="onDelete"
           />
           <div>
             <h2 class="member-name">{{ currentMember.firstName }} {{ currentMember.lastName }}</h2>
@@ -31,8 +28,23 @@
         <Button icon="pi pi-times" text rounded size="small" class="member-close" @click="emit('update:visible', false)" />
       </div>
 
+      <!-- Onglets (médiathèque réservée au super admin) -->
+      <div v-if="isSuperAdmin" class="member-tabs">
+        <button type="button" class="member-tab" :class="{ 'member-tab--active': tab === 'fiche' }" @click="tab = 'fiche'">
+          <i class="pi pi-id-card" /> Fiche
+        </button>
+        <button type="button" class="member-tab" :class="{ 'member-tab--active': tab === 'media' }" @click="tab = 'media'">
+          <i class="pi pi-folder-open" /> Médiathèque
+        </button>
+      </div>
+
+      <!-- Médiathèque -->
+      <div v-if="isSuperAdmin && tab === 'media'" class="member-media-wrap">
+        <MemberMedia :member-id="currentMember.id" />
+      </div>
+
       <!-- Body -->
-      <div class="member-body">
+      <div v-show="tab === 'fiche'" class="member-body">
 
         <!-- Left: Admin edit panel -->
         <div class="member-panel member-panel--form">
@@ -98,36 +110,16 @@
               />
             </div>
 
-            <div class="license-actions mt-2">
-              <Button
-                :icon="uploading ? 'pi pi-spin pi-spinner' : 'pi pi-upload'"
-                label="Importer"
-                severity="info"
-                size="small"
-                outlined
-                :disabled="uploading"
-                @click="triggerLicenseUpload"
-              />
-              <Button
-                v-if="currentMember.licenseFileName"
-                icon="pi pi-download"
-                label="Télécharger"
-                severity="success"
-                size="small"
-                outlined
-                @click="downloadLicense"
-              />
-              <Button
-                v-if="currentMember.licenseFileName"
-                icon="pi pi-trash"
-                severity="danger"
-                size="small"
-                text
-                @click="deleteLicense"
-              />
-            </div>
-            <Tag v-if="currentMember.licenseFileName" value="Fichier présent" severity="success" class="mt-2" />
-            <span v-else class="text-sm text-color-secondary">Aucun fichier importé</span>
+            <Button
+              v-if="isSuperAdmin"
+              icon="pi pi-folder-open"
+              label="Gérer les documents"
+              severity="secondary"
+              size="small"
+              text
+              class="mt-2"
+              @click="tab = 'media'"
+            />
           </template>
 
           <Divider />
@@ -139,9 +131,6 @@
         </div>
       </div>
     </div>
-
-    <!-- Hidden file input -->
-    <input ref="licenseFileInput" type="file" class="hidden" accept=".pdf,.jpg,.jpeg,.png" @change="handleLicenseFile" />
   </Dialog>
 </template>
 
@@ -151,6 +140,7 @@ import type { Team } from '~/types/entity/Team';
 import { MemberGenderLabels } from '~/types/enum/MemberGender';
 import MemberAvatar from '~/components/common/MemberAvatar.vue';
 import MemberForm from '~/components/forms/member-form.vue';
+import MemberMedia from '~/components/members/MemberMedia.vue';
 import { MemberRepository } from '~/repository/member-repository';
 import { TeamRepository } from '~/repository/team-repository';
 
@@ -158,6 +148,7 @@ const props = defineProps<{
   visible?: boolean;
   member: Member;
   teams?: Team[];
+  initialTab?: 'fiche' | 'media';
 }>();
 
 const emit = defineEmits<{
@@ -166,7 +157,9 @@ const emit = defineEmits<{
   'saved': [member: Member];
 }>();
 
-const { isAdmin } = useUserRole();
+const { isAdmin, isSuperAdmin } = useUserRole();
+
+const tab = ref<'fiche' | 'media'>(isSuperAdmin.value ? (props.initialTab ?? 'fiche') : 'fiche');
 const memberRepository = new MemberRepository();
 const toast = usePVToastService();
 
@@ -186,25 +179,9 @@ onMounted(async () => {
 });
 
 const saving = ref(false);
-const uploading = ref(false);
-const licenseFileInput = ref<HTMLInputElement | null>(null);
 
 const formatDate = (dateStr: string) =>
     new Date(dateStr + 'T00:00:00').toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
-
-// ── Profile picture ───────────────────────────────────
-
-const onUpload = async (file: File) => {
-  const updated = await memberRepository.uploadProfilePicture(currentMember.value.id, file);
-  currentMember.value = updated;
-  emit('update:member', updated);
-};
-
-const onDelete = async () => {
-  const updated = await memberRepository.deleteProfilePicture(currentMember.value.id);
-  currentMember.value = updated;
-  emit('update:member', updated);
-};
 
 // ── Save form ─────────────────────────────────────────
 
@@ -221,46 +198,6 @@ const onSave = async (values: Record<string, any>) => {
   } finally {
     saving.value = false;
   }
-};
-
-
-// ── License file ──────────────────────────────────────
-
-const triggerLicenseUpload = () => licenseFileInput.value?.click();
-
-const handleLicenseFile = async (e: Event) => {
-  const file = (e.target as HTMLInputElement).files?.[0];
-  if (!file) return;
-  uploading.value = true;
-  try {
-    const updated = await memberRepository.uploadLicense(currentMember.value.id, file);
-    currentMember.value = updated;
-    emit('update:member', updated);
-    emit('saved', updated);
-  } finally {
-    uploading.value = false;
-    (e.target as HTMLInputElement).value = '';
-  }
-};
-
-const downloadLicense = async () => {
-  const config = useRuntimeConfig();
-  const url = `${config.public.apiBase}/member/${currentMember.value.id}/download-license`;
-  const token = useCookie('auth_token').value;
-  const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
-  const blob = await res.blob();
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = currentMember.value.licenseFileName || 'licence';
-  a.click();
-  URL.revokeObjectURL(a.href);
-};
-
-const deleteLicense = async () => {
-  const updated = await memberRepository.deleteLicense(currentMember.value.id);
-  currentMember.value = updated;
-  emit('update:member', updated);
-  emit('saved', updated);
 };
 </script>
 
@@ -290,6 +227,42 @@ export { InfoRow };
   min-height: 0;
   border-radius: inherit;
   overflow: hidden;
+}
+
+/* Onglets Fiche / Médiathèque */
+.member-tabs {
+  display: flex;
+  gap: 0.25rem;
+  padding: 0.75rem 1.75rem 0;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--p-content-border-color);
+}
+
+.member-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.55rem 1rem;
+  border: none;
+  background: transparent;
+  color: var(--p-text-muted-color);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+}
+.member-tab:hover { color: var(--p-primary-color); }
+.member-tab--active {
+  color: var(--p-primary-color);
+  border-bottom-color: var(--p-primary-color);
+}
+
+.member-media-wrap {
+  padding: 1.5rem 1.75rem;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
 }
 
 /* Header */

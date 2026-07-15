@@ -9,25 +9,17 @@ use App\Application\UseCase\Member\GetMembersByTeam\GetMembersByTeamCommand;
 use App\Application\UseCase\Member\GetMembersByTeam\GetMembersByTeamUseCase;
 use App\Application\UseCase\Member\GetPaginatedMembers\GetPaginatedMembersCommand;
 use App\Application\UseCase\Member\GetPaginatedMembers\GetPaginatedMembersUseCase;
-use App\Application\UseCase\Member\DeleteLicense\DeleteLicenseCommand;
-use App\Application\UseCase\Member\DeleteLicense\DeleteLicenseUseCase;
-use App\Application\UseCase\Member\DeleteProfilePicture\DeleteProfilePictureCommand;
-use App\Application\UseCase\Member\DeleteProfilePicture\DeleteProfilePictureUseCase;
-use App\Application\UseCase\Member\UploadLicense\UploadLicenseCommand;
-use App\Application\UseCase\Member\UploadLicense\UploadLicenseUseCase;
-use App\Application\UseCase\Member\UploadProfilePicture\UploadProfilePictureCommand;
-use App\Application\UseCase\Member\UploadProfilePicture\UploadProfilePictureUseCase;
+use App\Common\Service\MemberMediaStorage;
 use App\Entity\Enum\AppUserRole;
+use App\Repository\MemberDocumentRepository;
 use App\Repository\MemberRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
-use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Attribute\MapQueryString;
 use Symfony\Component\HttpKernel\Attribute\MapRequestPayload;
-use Symfony\Component\HttpKernel\Attribute\MapUploadedFile;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 
@@ -64,90 +56,28 @@ class MemberController extends AbstractController
         return $useCase->execute($command);
     }
 
-    #[Route('/{id}/upload-license', name: 'upload_license', methods: ['POST'])]
-    public function uploadLicense(
-        int $id,
-        #[MapUploadedFile] UploadedFile $file,
-        UploadLicenseUseCase $useCase
-    ): Response {
-        $command = new UploadLicenseCommand($id, $file);
-
-        return $useCase->execute($command);
-    }
-
-    #[Route('/{id}/delete-license', name: 'delete_license', methods: ['DELETE'])]
-    public function deleteLicense(
-        int $id,
-        DeleteLicenseUseCase $useCase
-    ): Response {
-        $command = new DeleteLicenseCommand($id);
-
-        return $useCase->execute($command);
-    }
-
-    #[Route('/{id}/download-license', name: 'download_license', methods: ['GET'])]
-    public function downloadLicense(
-        int $id,
-        MemberRepository $memberRepository,
-        #[Autowire('%upload_directory%')] string $uploadDirectory
-    ): Response {
-        $member = $memberRepository->find($id);
-
-        if (!$member || !$member->getLicenseFileName()) {
-            return $this->json(['error' => 'License file not found'], 404);
-        }
-
-        $filePath = $uploadDirectory . '/licenses/' . $member->getLicenseFileName();
-
-        if (!file_exists($filePath)) {
-            return $this->json(['error' => 'License file not found'], 404);
-        }
-
-        return new BinaryFileResponse($filePath);
-    }
-
-    #[Route('/{id}/upload-profile-picture', name: 'upload_profile_picture', methods: ['POST'])]
-    #[IsGranted(AppUserRole::ROLE_ADMIN)]
-    public function uploadProfilePicture(
-        int $id,
-        #[MapUploadedFile] UploadedFile $file,
-        UploadProfilePictureUseCase $useCase
-    ): Response {
-        $command = new UploadProfilePictureCommand($id, $file);
-
-        return $useCase->execute($command);
-    }
-
-    #[Route('/{id}/delete-profile-picture', name: 'delete_profile_picture', methods: ['DELETE'])]
-    #[IsGranted(AppUserRole::ROLE_ADMIN)]
-    public function deleteProfilePicture(
-        int $id,
-        DeleteProfilePictureUseCase $useCase
-    ): Response {
-        $command = new DeleteProfilePictureCommand($id);
-
-        return $useCase->execute($command);
-    }
-
     #[Route('/{id}/profile-picture', name: 'profile_picture', methods: ['GET'])]
     #[IsGranted(AppUserRole::ROLE_ADMIN)]
     public function profilePicture(
         int $id,
         MemberRepository $memberRepository,
-        #[Autowire('%upload_directory%')] string $uploadDirectory
+        MemberDocumentRepository $documentRepository,
+        MemberMediaStorage $mediaStorage
     ): Response {
         $member = $memberRepository->find($id);
-
-        if (!$member || !$member->getProfilePicture()) {
+        if (!$member) {
             return $this->json(['error' => 'Profile picture not found'], 404);
         }
 
-        $filePath = $uploadDirectory . '/profile-pictures/' . $member->getProfilePicture();
-
-        if (!file_exists($filePath)) {
-            return $this->json(['error' => 'Profile picture not found'], 404);
+        // La médiathèque est la source unique : slot « Photo de profil ».
+        $slot = $documentRepository->findRootDocumentSlot($member, 'profile_picture');
+        if ($slot && $slot->hasFile()) {
+            $path = $mediaStorage->path((string) $slot->getStoredName());
+            if (is_file($path)) {
+                return new BinaryFileResponse($path);
+            }
         }
 
-        return new BinaryFileResponse($filePath);
+        return $this->json(['error' => 'Profile picture not found'], 404);
     }
 }

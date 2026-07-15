@@ -12,6 +12,7 @@ use App\Entity\Enum\MemberStatus;
 use App\Entity\License;
 use App\Entity\Member;
 use App\Entity\ValueObject\Address;
+use App\Entity\ValueObject\LegalRepresentative;
 use Doctrine\ORM\EntityManagerInterface;
 
 /**
@@ -47,12 +48,19 @@ class SubmitLicenseRequestUseCase extends AbstractUseCase
         $member->setNationality($command->nationality);
         $member->setLicenseNumber($command->licenseNumber);
         $member->setStatus(MemberStatus::PENDING_VALIDATION);
+        $member->setLegalRepresentative(new LegalRepresentative(
+            $command->legalRepFirstName ?? '',
+            $command->legalRepLastName ?? '',
+            $command->legalRepEmail ?? '',
+            $command->legalRepPhone ?? '',
+        ));
 
         $license = new License();
         $license->setMember($member);
         $license->setSeason($this->seasonProvider->current());
         $license->setStatus(LicenseStatus::SOUMISE);
         $license->setLicenseNumber($command->licenseNumber);
+        $license->setHealthDeclaration($command->healthDeclaration);
         $license->setAccessToken(bin2hex(random_bytes(32)));
 
         $this->entityManager->persist($member);

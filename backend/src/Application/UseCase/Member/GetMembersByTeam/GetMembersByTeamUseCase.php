@@ -4,6 +4,7 @@ namespace App\Application\UseCase\Member\GetMembersByTeam;
 
 use App\Common\Command\CommandInterface;
 use App\Common\Exception\UseCaseException;
+use App\Common\Service\SeasonProvider;
 use App\Common\UseCase\AbstractUseCase;
 use App\Entity\Member;
 use App\Repository\MemberRepository;
@@ -17,12 +18,13 @@ class GetMembersByTeamUseCase extends AbstractUseCase
 {
     public function __construct(
         private readonly MemberRepository $memberRepository,
-        private readonly TeamRepository $teamRepository
+        private readonly TeamRepository $teamRepository,
+        private readonly SeasonProvider $seasonProvider,
     ) {
     }
 
     /**
-     * @return array<int, Member>
+     * @return array<int, array<string, mixed>>
      */
     public function run(?CommandInterface $command = null): array
     {
@@ -34,6 +36,12 @@ class GetMembersByTeamUseCase extends AbstractUseCase
             throw new UseCaseException('Team not found', Response::HTTP_NOT_FOUND);
         }
 
-        return $this->memberRepository->findByTeam($team);
+        // "Licence payée" alignée sur la saison courante (cohérence avec le reste).
+        $season = $this->seasonProvider->current();
+
+        return array_map(
+            fn (Member $m) => $m->toArray($season),
+            $this->memberRepository->findByTeam($team),
+        );
     }
 }

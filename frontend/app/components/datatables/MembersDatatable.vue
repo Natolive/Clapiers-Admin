@@ -22,10 +22,6 @@
         <ToggleSwitch v-model="licensePaidFilter" />
         <span class="white-space-nowrap">Licence payée</span>
       </div>
-      <div class="flex align-items-center gap-2">
-        <ToggleSwitch v-model="hasLicenseFilter" />
-        <span class="white-space-nowrap">Fichier licence</span>
-      </div>
     </div>
   </div>
 
@@ -61,9 +57,6 @@
           <MemberAvatar
             :member="slotProps.data"
             size="normal"
-            editable
-            @upload="(file: File) => onUploadProfilePicture(slotProps.data, file)"
-            @delete="onDeleteProfilePicture(slotProps.data)"
           />
           <span>{{ slotProps.data.firstName }} {{ slotProps.data.lastName }}</span>
         </div>
@@ -101,47 +94,16 @@
         />
       </template>
     </Column>
-    <Column header="Fichier licence" style="width: 17%">
+    <Column header="Licence" style="width: 10%">
       <template #body="slotProps">
-        <div class="flex align-items-center gap-2">
-          <Button
-            :icon="uploadingIds.has(slotProps.data.id) ? 'pi pi-spin pi-spinner' : 'pi pi-upload'"
-            severity="info"
-            text
-            rounded
-            size="small"
-            :disabled="uploadingIds.has(slotProps.data.id)"
-            @click="triggerUpload(slotProps.data)"
-            v-tooltip.top="'Importer licence'"
-          />
-          <Button
-            v-if="slotProps.data.licenseFileName"
-            icon="pi pi-download"
-            severity="success"
-            text
-            rounded
-            size="small"
-            @click="downloadLicense(slotProps.data)"
-            v-tooltip.top="'Télécharger licence'"
-          />
-          <Button
-            v-if="slotProps.data.licenseFileName"
-            icon="pi pi-trash"
-            severity="danger"
-            text
-            rounded
-            size="small"
-            @click="deleteLicense(slotProps.data)"
-            v-tooltip.top="'Supprimer licence'"
-          />
-          <Tag
-            v-if="slotProps.data.licenseFileName"
-            value="Fichier"
-            severity="success"
-            class="text-xs"
-          />
-          <span v-else class="text-color-secondary text-sm">-</span>
-        </div>
+        <Tag
+          v-if="slotProps.data.hasLicenseDocument"
+          icon="pi pi-check"
+          value="Présente"
+          severity="success"
+          class="text-xs"
+        />
+        <span v-else class="text-color-secondary text-sm">Aucune</span>
       </template>
     </Column>
     <Column field="createdAt" header="Créé le" sortable style="width: 8%">
@@ -149,15 +111,27 @@
         {{ new Date(slotProps.data.createdAt).toLocaleDateString('fr-FR') }}
       </template>
     </Column>
-    <Column header="Actions" style="width: 7%">
+    <Column header="Actions" style="width: 10%">
       <template #body="slotProps">
-        <Button
-          icon="pi pi-pencil"
-          severity="secondary"
-          text
-          rounded
-          @click="openDialog(slotProps.data)"
-        />
+        <div class="flex align-items-center">
+          <Button
+            icon="pi pi-pencil"
+            severity="secondary"
+            text
+            rounded
+            @click="openDialog(slotProps.data)"
+            v-tooltip.top="'Modifier'"
+          />
+          <Button
+            v-if="isSuperAdmin"
+            icon="pi pi-folder-open"
+            severity="secondary"
+            text
+            rounded
+            @click="openDialog(slotProps.data, 'media')"
+            v-tooltip.top="'Médiathèque'"
+          />
+        </div>
       </template>
     </Column>
   </DataTable>
@@ -175,12 +149,14 @@
     </template>
 
     <template v-else-if="members.length">
-      <button
+      <div
         v-for="member in members"
         :key="member.id"
-        type="button"
+        role="button"
+        tabindex="0"
         class="member-card member-card--clickable"
         @click="openDialog(member)"
+        @keydown.enter="openDialog(member)"
       >
         <MemberAvatar :member="member" size="large" />
         <div class="member-card__main">
@@ -192,11 +168,21 @@
               :severity="member.licensePaid ? 'success' : 'danger'"
               class="text-xs"
             />
-            <Tag v-if="member.licenseFileName" value="Fichier" severity="secondary" class="text-xs" />
+            <Tag v-if="member.hasLicenseDocument" value="Licence" severity="secondary" class="text-xs" />
           </div>
         </div>
+        <Button
+          v-if="isSuperAdmin"
+          icon="pi pi-folder-open"
+          severity="secondary"
+          text
+          rounded
+          class="member-card__media"
+          @click.stop="openDialog(member, 'media')"
+          v-tooltip.left="'Médiathèque'"
+        />
         <i class="pi pi-chevron-right member-card__chevron" />
-      </button>
+      </div>
     </template>
 
     <div v-else class="member-cards__empty">
@@ -215,20 +201,12 @@
     />
   </div>
 
-  <input
-    ref="fileInput"
-    type="file"
-    class="hidden"
-    accept=".pdf,.jpg,.jpeg,.png"
-    @change="handleFileSelected"
-  />
 </template>
 
 <script setup lang="ts">
 import type { DataTableSortEvent } from 'primevue/datatable';
 import CreateUpdateMemberDialog from '~/components/dialogs/CreateUpdateMemberDialog.vue';
 import MemberDetailsDialog from '~/components/dialogs/MemberDetailsDialog.vue';
-import ConfirmDeleteDialog from '~/components/dialogs/ConfirmDeleteDialog.vue';
 import MemberAvatar from '~/components/common/MemberAvatar.vue';
 import { MemberRepository } from '~/repository/member-repository';
 import type { Member } from '~/types/entity/Member';
@@ -239,18 +217,14 @@ const props = defineProps<{
 }>();
 
 const { show } = useDialogManager();
+const { isSuperAdmin } = useUserRole();
 const memberRepository = new MemberRepository();
 const members = ref<Member[]>([]);
 const totalRecords = ref(0);
 const loading = ref(false);
-const uploadingIds = ref(new Set<number>());
-const fileInput = ref<HTMLInputElement | null>(null);
-const uploadTargetMember = ref<Member | null>(null);
-
 const searchValue = ref('');
 const selectedTeamId = ref<number | null>(null);
 const licensePaidFilter = ref(false);
-const hasLicenseFilter = ref(false);
 let searchTimeout: ReturnType<typeof setTimeout> | null = null;
 
 const isMobile = useIsMobile();
@@ -277,7 +251,7 @@ watch(searchValue, () => {
   }, 300);
 });
 
-watch([selectedTeamId, licensePaidFilter, hasLicenseFilter], () => {
+watch([selectedTeamId, licensePaidFilter], () => {
   lazyParams.value.first = 0;
   fetchData();
 });
@@ -293,7 +267,6 @@ const fetchData = async () => {
       search: searchValue.value || undefined,
       teamId: selectedTeamId.value || undefined,
       licensePaid: licensePaidFilter.value ? true : undefined,
-      hasLicense: hasLicenseFilter.value ? true : undefined,
     });
     members.value = result.data;
     totalRecords.value = result.total;
@@ -322,91 +295,14 @@ const refresh = () => {
 
 defineExpose({ refresh });
 
-const triggerUpload = (member: Member) => {
-  if (member.licenseFileName) {
-    show({
-      component: ConfirmDeleteDialog,
-      props: {
-        header: 'Remplacer la licence',
-        message: `Une licence existe déjà pour ${member.firstName} ${member.lastName}. Voulez-vous la remplacer ?`,
-        confirmLabel: 'Remplacer',
-        onConfirm: async () => {
-          uploadTargetMember.value = member;
-          fileInput.value?.click();
-        }
-      }
-    });
-  } else {
-    uploadTargetMember.value = member;
-    fileInput.value?.click();
-  }
-};
-
-const handleFileSelected = async (event: Event) => {
-  const input = event.target as HTMLInputElement;
-  const file = input.files?.[0];
-  const member = uploadTargetMember.value;
-
-  if (!file || !member) return;
-
-  uploadingIds.value.add(member.id);
-  try {
-    await memberRepository.uploadLicense(member.id, file);
-    await fetchData();
-  } finally {
-    uploadingIds.value.delete(member.id);
-    uploadTargetMember.value = null;
-    input.value = '';
-  }
-};
-
-const onUploadProfilePicture = async (member: Member, file: File) => {
-  await memberRepository.uploadProfilePicture(member.id, file);
-  await fetchData();
-};
-
-const onDeleteProfilePicture = async (member: Member) => {
-  await memberRepository.deleteProfilePicture(member.id);
-  await fetchData();
-};
-
-const deleteLicense = (member: Member) => {
-  show({
-    component: ConfirmDeleteDialog,
-    props: {
-      message: `Êtes-vous sûr de vouloir supprimer la licence de ${member.firstName} ${member.lastName} ?`,
-      onConfirm: async () => {
-        await memberRepository.deleteLicense(member.id);
-        await fetchData();
-      }
-    }
-  });
-};
-
-const downloadLicense = async (member: Member) => {
-  const config = useRuntimeConfig();
-  const url = `${config.public.apiBase}/member/${member.id}/download-license`;
-  const token = useCookie('auth_token').value;
-
-  const res = await fetch(url, {
-    headers: { Authorization: `Bearer ${token}` }
-  });
-  const blob = await res.blob();
-  const blobUrl = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = blobUrl;
-  a.download = member.licenseFileName || 'licence';
-  a.click();
-  URL.revokeObjectURL(blobUrl);
-};
-
-const openDialog = (member?: Member) => {
+const openDialog = (member?: Member, initialTab: 'fiche' | 'media' = 'fiche') => {
   if (member) {
     show({
       component: MemberDetailsDialog,
       props: {
         member,
         teams: props.teams,
+        initialTab,
         onSaved: () => fetchData(),
       }
     });

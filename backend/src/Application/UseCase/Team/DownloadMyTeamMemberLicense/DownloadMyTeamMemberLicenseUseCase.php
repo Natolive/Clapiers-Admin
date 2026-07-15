@@ -4,20 +4,27 @@ namespace App\Application\UseCase\Team\DownloadMyTeamMemberLicense;
 
 use App\Common\Command\CommandInterface;
 use App\Common\Exception\UseCaseException;
+use App\Common\Service\MemberMediaStorage;
+use App\Common\Service\SeasonProvider;
 use App\Common\UseCase\AbstractUseCase;
+use App\Repository\MemberDocumentRepository;
 use App\Repository\MemberRepository;
-use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use Symfony\Component\HttpFoundation\HeaderUtils;
 
 /**
+ * Un coach télécharge la licence (saison courante) d'un membre de son équipe.
+ * La pièce vit dans la médiathèque ; l'accès reste gardé par appartenance d'équipe.
+ *
  * @extends AbstractUseCase<DownloadMyTeamMemberLicenseCommand>
  */
 class DownloadMyTeamMemberLicenseUseCase extends AbstractUseCase
 {
     public function __construct(
         private readonly MemberRepository $memberRepository,
-        #[Autowire('%upload_directory%')]
-        private readonly string $uploadDirectory
+        private readonly MemberDocumentRepository $documentRepository,
+        private readonly MemberMediaStorage $storage,
+        private readonly SeasonProvider $seasonProvider,
     ) {
     }
 
@@ -49,16 +56,28 @@ class DownloadMyTeamMemberLicenseUseCase extends AbstractUseCase
             throw new UseCaseException('This member is not in your team', 403);
         }
 
-        if (!$member->getLicenseFileName()) {
+        $slot = $this->documentRepository->findDefaultSlot(
+            $member,
+            $this->seasonProvider->current(),
+            'license',
+        );
+
+        if (!$slot || !$slot->hasFile()) {
             throw new UseCaseException('No license file for this member', 404);
         }
 
-        $filePath = $this->uploadDirectory . '/licenses/' . $member->getLicenseFileName();
+        $path = $this->storage->path((string) $slot->getStoredName());
 
-        if (!file_exists($filePath)) {
+        if (!is_file($path)) {
             throw new UseCaseException('License file not found on disk', 404);
         }
 
-        return new BinaryFileResponse($filePath);
+        $response = new BinaryFileResponse($path);
+        $response->setContentDisposition(
+            HeaderUtils::DISPOSITION_ATTACHMENT,
+            $slot->getOriginalName() ?? 'licence',
+        );
+
+        return $response;
     }
 }

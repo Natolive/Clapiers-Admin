@@ -21,8 +21,6 @@ final class MemberBuilder
     private string $nationality = 'Française';
     private Address $address;
     private ?string $licenseNumber = null;
-    private ?string $licenseFileName = null;
-    private ?string $profilePicture = null;
     /** @var list<Team> */
     private array $teams = [];
 
@@ -68,21 +66,6 @@ final class MemberBuilder
         return $this;
     }
 
-    /** Only sets the DB column — write the file yourself if the test reads it. */
-    public function withLicenseFileName(?string $fileName): self
-    {
-        $this->licenseFileName = $fileName;
-
-        return $this;
-    }
-
-    public function withProfilePicture(?string $fileName): self
-    {
-        $this->profilePicture = $fileName;
-
-        return $this;
-    }
-
     public function build(): Member
     {
         $n = ++self::$seq;
@@ -97,8 +80,6 @@ final class MemberBuilder
         $member->setNationality($this->nationality);
         $member->setAddress($this->address);
         $member->setLicenseNumber($this->licenseNumber);
-        $member->setLicenseFileName($this->licenseFileName);
-        $member->setProfilePicture($this->profilePicture);
         $member->setTeams($this->teams);
 
         return $member;

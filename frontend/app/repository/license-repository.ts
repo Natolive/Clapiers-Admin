@@ -22,7 +22,17 @@ export interface SubmitLicenseRequestBody {
     nationality: string;
     licenseNumber?: string | null;
     recaptchaToken: string;
+    /** true = a répondu NON à toutes les rubriques du questionnaire de santé. */
+    healthDeclaration: boolean;
+    // Représentant légal — uniquement si le membre est mineur.
+    legalRepFirstName?: string | null;
+    legalRepLastName?: string | null;
+    legalRepEmail?: string | null;
+    legalRepPhone?: string | null;
 }
+
+/** Slots médiathèque déposables à l'inscription. */
+export type LicenseDocumentKey = 'profile_picture' | 'id_card' | 'medical_certificate' | 'attestation';
 
 /**
  * Demande de licence publique. Utilise l'API publique (sans authentification) :
@@ -38,11 +48,11 @@ export class LicenseRepository {
         });
     }
 
-    async uploadMedicalCertificate(token: string, file: File): Promise<License> {
+    async uploadDocument(token: string, systemKey: LicenseDocumentKey, file: File): Promise<License> {
         const formData = new FormData();
         formData.append('file', file);
 
-        return await this.api<License>(`/public/license-request/${token}/medical-certificate`, {
+        return await this.api<License>(`/public/license-request/${token}/document/${systemKey}`, {
             method: 'POST',
             body: formData,
         });

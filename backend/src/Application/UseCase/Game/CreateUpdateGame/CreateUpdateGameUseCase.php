@@ -8,6 +8,7 @@ use App\Common\UseCase\AbstractUseCase;
 use App\Entity\Enum\AppUserRole;
 use App\Entity\Enum\GameVenue;
 use App\Entity\Game;
+use App\Entity\Team;
 use App\Repository\GameRepository;
 use App\Repository\TeamRepository;
 use DateTimeImmutable;
@@ -32,21 +33,16 @@ class CreateUpdateGameUseCase extends AbstractUseCase
             throw new UseCaseException('Invalid command');
         }
 
-        $team = $this->resolveTeam($command);
-        $this->assertTeamDailyLimit($team, $command);
-        $this->assertHomeGameLimit($command);
-
         if ($command->id === null) {
-            return $this->createGame($command, $team);
+            return $this->createGame($command);
         }
 
-        return $this->updateGame($command, $team);
+        return $this->updateGame($command);
     }
 
-    private function assertTeamDailyLimit(\App\Entity\Team $team, CreateUpdateGameCommand $command): void
+    private function assertTeamDailyLimit(Team $team, string $date, ?int $excludeId): void
     {
-        $date  = new DateTimeImmutable($command->date);
-        $count = $this->gameRepository->countGamesByTeamAndDate($team, $date, $command->id);
+        $count = $this->gameRepository->countGamesByTeamAndDate($team, new DateTimeImmutable($date), $excludeId);
 
         if ($count >= 1) {
             throw new UseCaseException(
@@ -56,14 +52,13 @@ class CreateUpdateGameUseCase extends AbstractUseCase
         }
     }
 
-    private function assertHomeGameLimit(CreateUpdateGameCommand $command): void
+    private function assertHomeGameLimit(string $date, GameVenue $venue, ?int $excludeId): void
     {
-        if ($command->venue !== GameVenue::HOME) {
+        if ($venue !== GameVenue::HOME) {
             return;
         }
 
-        $date  = new DateTimeImmutable($command->date);
-        $count = $this->gameRepository->countHomeGamesByDate($date, $command->id);
+        $count = $this->gameRepository->countHomeGamesByDate(new DateTimeImmutable($date), $excludeId);
 
         if ($count >= 3) {
             throw new UseCaseException(
@@ -73,16 +68,10 @@ class CreateUpdateGameUseCase extends AbstractUseCase
         }
     }
 
-    private function resolveTeam(CreateUpdateGameCommand $command): \App\Entity\Team
+    // Création/édition complète : super admin uniquement (garanti par le contrôleur).
+    private function resolveTeam(CreateUpdateGameCommand $command): Team
     {
-        $isSuperAdmin = in_array(AppUserRole::ROLE_SUPER_ADMIN, $command->user->getRoles(), true);
-
         if ($command->teamId === null) {
-            // Rétro-compat admin mono-équipe : si l'équipe n'est pas fournie et que
-            // l'utilisateur n'en gère qu'une, on la déduit
-            if (!$isSuperAdmin && $command->user->getTeams()->count() === 1) {
-                return $command->user->getTeams()->first();
-            }
             throw new UseCaseException('Team is required');
         }
 
@@ -91,28 +80,15 @@ class CreateUpdateGameUseCase extends AbstractUseCase
             throw new UseCaseException('Team not found', Response::HTTP_NOT_FOUND);
         }
 
-        // Admin : limité à ses propres équipes
-        if (!$isSuperAdmin && !$command->user->hasTeam($team)) {
-            throw new UseCaseException('You are not allowed to manage this team', Response::HTTP_FORBIDDEN);
-        }
-
         return $team;
     }
 
-    private function assertOwnership(Game $game, CreateUpdateGameCommand $command): void
+    private function createGame(CreateUpdateGameCommand $command): Game
     {
-        $isSuperAdmin = in_array(AppUserRole::ROLE_SUPER_ADMIN, $command->user->getRoles(), true);
-        if ($isSuperAdmin) {
-            return;
-        }
+        $team = $this->resolveTeam($command);
+        $this->assertTeamDailyLimit($team, $command->date, null);
+        $this->assertHomeGameLimit($command->date, $command->venue, null);
 
-        if (!$command->user->hasTeam($game->getTeam())) {
-            throw new UseCaseException('You are not allowed to modify this game', Response::HTTP_FORBIDDEN);
-        }
-    }
-
-    private function createGame(CreateUpdateGameCommand $command, \App\Entity\Team $team): Game
-    {
         $game = new Game();
         $this->hydrate($game, $command, $team);
 
@@ -122,15 +98,29 @@ class CreateUpdateGameUseCase extends AbstractUseCase
         return $game;
     }
 
-    private function updateGame(CreateUpdateGameCommand $command, \App\Entity\Team $team): Game
+    private function updateGame(CreateUpdateGameCommand $command): Game
     {
         $game = $this->gameRepository->find($command->id);
         if (!$game) {
             throw new UseCaseException('Game not found', Response::HTTP_NOT_FOUND);
         }
 
-        $this->assertOwnership($game, $command);
-        $this->hydrate($game, $command, $team);
+        $isSuperAdmin = in_array(AppUserRole::ROLE_SUPER_ADMIN, $command->user->getRoles(), true);
+
+        if ($isSuperAdmin) {
+            $team = $this->resolveTeam($command);
+            $this->assertTeamDailyLimit($team, $command->date, $command->id);
+            $this->assertHomeGameLimit($command->date, $command->venue, $command->id);
+            $this->hydrate($game, $command, $team);
+        } else {
+            // Admin : replanification uniquement — seule la date change, sur ses propres équipes
+            if (!$command->user->hasTeam($game->getTeam())) {
+                throw new UseCaseException('You are not allowed to modify this game', Response::HTTP_FORBIDDEN);
+            }
+            $this->assertTeamDailyLimit($game->getTeam(), $command->date, $command->id);
+            $this->assertHomeGameLimit($command->date, $game->getVenue(), $command->id);
+            $game->setDate(new DateTimeImmutable($command->date));
+        }
 
         $this->entityManager->flush();
 

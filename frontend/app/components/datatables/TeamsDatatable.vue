@@ -16,8 +16,22 @@
       </div>
     </template>
     <Column expander style="width: 5%" />
-    <Column field="name" header="Nom" sortable style="width: 60%"></Column>
-    <Column field="createdAt" header="Date de création" sortable style="width: 25%">
+    <Column field="name" header="Nom" sortable style="width: 35%"></Column>
+    <Column header="Coachs" style="width: 35%">
+      <template #body="slotProps">
+        <div v-if="slotProps.data.coaches?.length" class="flex gap-1 flex-wrap">
+          <Tag
+            v-for="coach in slotProps.data.coaches"
+            :key="coach.id"
+            :value="coach.email"
+            severity="secondary"
+            class="text-xs"
+          />
+        </div>
+        <span v-else class="text-color-secondary text-sm">Aucun coach</span>
+      </template>
+    </Column>
+    <Column field="createdAt" header="Date de création" sortable style="width: 15%">
       <template #body="slotProps">
         {{ new Date(slotProps.data.createdAt).toLocaleDateString('fr-FR') }}
       </template>
@@ -49,15 +63,7 @@
             <Column header="Licencié" sortable field="firstName">
               <template #body="memberProps">
                 <div class="flex align-items-center gap-3">
-                  <div @click.stop>
-                    <MemberAvatar
-                      :member="memberProps.data"
-                      size="normal"
-                      editable
-                      @upload="(file: File) => onUploadProfilePicture(memberProps.data, file)"
-                      @delete="onDeleteProfilePicture(memberProps.data)"
-                    />
-                  </div>
+                  <MemberAvatar :member="memberProps.data" size="normal" />
                   <span>{{ memberProps.data.firstName }} {{ memberProps.data.lastName }}</span>
                 </div>
               </template>
@@ -87,7 +93,9 @@
           />
           <div class="team-card__main">
             <span class="team-card__name">{{ team.name }}</span>
-            <span class="team-card__meta">Créée le {{ new Date(team.createdAt).toLocaleDateString('fr-FR') }}</span>
+            <span class="team-card__meta">
+              {{ team.coaches?.length ? team.coaches.map(c => c.email).join(', ') : 'Aucun coach' }}
+            </span>
           </div>
           <Button
             icon="pi pi-pencil"
@@ -131,8 +139,10 @@ import CreateUpdateTeamDialog from '~/components/dialogs/CreateUpdateTeamDialog.
 import MemberDetailsDialog from '~/components/dialogs/MemberDetailsDialog.vue';
 import MemberAvatar from '~/components/common/MemberAvatar.vue';
 import { MemberRepository } from '~/repository/member-repository';
+import { UserRepository } from '~/repository/user-repository';
 import type { Team } from '~/types/entity/Team';
 import type { Member } from '~/types/entity/Member';
+import type { AppUser } from '~/types/entity/AppUser';
 
 const props = defineProps<{
   teams: Team[]
@@ -150,22 +160,6 @@ const expandedRows = ref<Team[]>([]);
 const expandedTeamIds = ref(new Set<number>());
 const teamMembers = ref<Record<number, Member[]>>({});
 const loadingMembers = ref<Record<number, boolean>>({});
-
-// Un licencié peut être dans plusieurs équipes dépliées : on met à jour tous les caches
-const replaceMemberInCaches = (updated: Member) => {
-  for (const members of Object.values(teamMembers.value)) {
-    const idx = members.findIndex(m => m.id === updated.id);
-    if (idx !== -1) members[idx] = updated;
-  }
-};
-
-const onUploadProfilePicture = async (member: Member, file: File) => {
-  replaceMemberInCaches(await memberRepository.uploadProfilePicture(member.id, file));
-};
-
-const onDeleteProfilePicture = async (member: Member) => {
-  replaceMemberInCaches(await memberRepository.deleteProfilePicture(member.id));
-};
 
 // Chargement partagé entre l'expansion du DataTable (desktop) et les cartes (mobile)
 const loadTeamMembers = async (teamId: number) => {
@@ -216,18 +210,28 @@ const openMemberDialog = (member: Member, teamId: number) => {
   });
 };
 
+// Liste des users (coachs potentiels) chargée à la demande pour le sélecteur.
+const userRepository = new UserRepository();
+const users = ref<AppUser[]>([]);
+
 // Open dialog for create or edit
-const openDialog = (team?: Team) => {
+const openDialog = async (team?: Team) => {
+  if (!users.value.length) {
+    users.value = await userRepository.getAll();
+  }
+
   show({
     component: CreateUpdateTeamDialog,
     props: {
       team: team || null,
-      onSubmit: async (values: { name: string }) => {
+      users: users.value,
+      onSubmit: async (values: { name: string; userIds: number[] }) => {
         const { TeamRepository } = await import('~/repository/team-repository');
         const teamRepository = new TeamRepository();
         const savedTeam = await teamRepository.createUpdate(
           values.name,
-          team?.id || null
+          team?.id || null,
+          values.userIds
         );
 
         if (team) {

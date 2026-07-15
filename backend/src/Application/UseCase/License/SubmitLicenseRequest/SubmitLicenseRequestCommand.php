@@ -50,6 +50,22 @@ class SubmitLicenseRequestCommand implements CommandInterface
 
         #[Assert\Length(max: 50)]
         public readonly ?string $licenseNumber = null,
+
+        /** true = a répondu NON à toutes les rubriques du questionnaire de santé. */
+        public readonly bool $healthDeclaration = false,
+
+        // Représentant légal — requis côté formulaire uniquement si le membre est mineur.
+        #[Assert\Length(max: 255)]
+        public readonly ?string $legalRepFirstName = null,
+
+        #[Assert\Length(max: 255)]
+        public readonly ?string $legalRepLastName = null,
+
+        #[Assert\Length(max: 255)]
+        public readonly ?string $legalRepEmail = null,
+
+        #[Assert\Length(max: 30)]
+        public readonly ?string $legalRepPhone = null,
     ) {
     }
 }

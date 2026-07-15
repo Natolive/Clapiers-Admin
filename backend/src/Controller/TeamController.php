@@ -7,6 +7,8 @@ use App\Application\UseCase\Team\CreateUpdateTeam\CreateUpdateTeamUseCase;
 use App\Application\UseCase\Team\GetAllTeamsUseCase;
 use App\Application\UseCase\Team\DownloadMyTeamMemberLicense\DownloadMyTeamMemberLicenseCommand;
 use App\Application\UseCase\Team\DownloadMyTeamMemberLicense\DownloadMyTeamMemberLicenseUseCase;
+use App\Application\UseCase\Team\DownloadMyTeamMemberPhoto\DownloadMyTeamMemberPhotoCommand;
+use App\Application\UseCase\Team\DownloadMyTeamMemberPhoto\DownloadMyTeamMemberPhotoUseCase;
 use App\Application\UseCase\Team\GetMyTeam\GetMyTeamCommand;
 use App\Application\UseCase\Team\GetMyTeam\GetMyTeamUseCase;
 use App\Common\Exception\UseCaseException;
@@ -67,6 +69,25 @@ class TeamController extends AbstractController
         } catch (\Throwable) {
             // e.g. file removed between the use case's file_exists check and
             // BinaryFileResponse construction: keep the JSON error shape
+            return $this->json(['message' => 'Unknown Error'], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    #[Route('/my-team/member/{memberId}/profile-picture', name: 'download_my_team_photo', methods: ['GET'])]
+    #[IsGranted(AppUserRole::ROLE_ADMIN)]
+    public function downloadMyTeamMemberPhoto(
+        int $memberId,
+        DownloadMyTeamMemberPhotoUseCase $useCase
+    ): Response {
+        /** @var AppUser $user */
+        $user = $this->getUser();
+        $command = new DownloadMyTeamMemberPhotoCommand($user, $memberId);
+
+        try {
+            return $useCase->run($command);
+        } catch (UseCaseException $e) {
+            return $this->json(['message' => $e->getMessage()], $e->getCode());
+        } catch (\Throwable) {
             return $this->json(['message' => 'Unknown Error'], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }

@@ -12,8 +12,8 @@ use App\Application\UseCase\License\HandleHelloAssoWebhook\HandleHelloAssoWebhoo
 use App\Application\UseCase\License\HandleHelloAssoWebhook\HandleHelloAssoWebhookUseCase;
 use App\Application\UseCase\License\SubmitLicenseRequest\SubmitLicenseRequestCommand;
 use App\Application\UseCase\License\SubmitLicenseRequest\SubmitLicenseRequestUseCase;
-use App\Application\UseCase\License\UploadMedicalCertificate\UploadMedicalCertificateCommand;
-use App\Application\UseCase\License\UploadMedicalCertificate\UploadMedicalCertificateUseCase;
+use App\Application\UseCase\License\UploadLicenseRequestDocument\UploadLicenseRequestDocumentCommand;
+use App\Application\UseCase\License\UploadLicenseRequestDocument\UploadLicenseRequestDocumentUseCase;
 use App\Common\Service\SeasonProvider;
 use App\Entity\Enum\MemberNationality;
 use App\Repository\GameRepository;
@@ -48,14 +48,15 @@ class PublicController extends AbstractController
         return $useCase->execute($command);
     }
 
-    #[Route('/license-request/{token}/medical-certificate', name: 'license_medical_certificate', methods: ['POST'])]
-    public function uploadMedicalCertificate(
+    #[Route('/license-request/{token}/document/{systemKey}', name: 'license_document', methods: ['POST'], requirements: ['systemKey' => 'profile_picture|id_card|medical_certificate|attestation'])]
+    public function uploadLicenseRequestDocument(
         string $token,
+        string $systemKey,
         #[MapUploadedFile([new Assert\File(maxSize: '5M', mimeTypes: ['application/pdf', 'image/png', 'image/jpeg'])])]
         UploadedFile $file,
-        UploadMedicalCertificateUseCase $useCase
+        UploadLicenseRequestDocumentUseCase $useCase
     ): Response {
-        return $useCase->execute(new UploadMedicalCertificateCommand($token, $file));
+        return $useCase->execute(new UploadLicenseRequestDocumentCommand($token, $systemKey, $file));
     }
 
     #[Route('/license/{token}', name: 'license_for_payment', methods: ['GET'])]

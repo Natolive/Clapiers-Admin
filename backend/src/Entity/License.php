@@ -43,6 +43,10 @@ class License
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $medicalCertificateFileName = null;
 
+    /** Attestation santé : true = a répondu NON à toutes les rubriques (pas de certificat requis). */
+    #[ORM\Column(nullable: true)]
+    private ?bool $healthDeclaration = null;
+
     #[ORM\Column(length: 50, nullable: true)]
     private ?string $licenseNumber = null;
 
@@ -148,6 +152,18 @@ class License
         return $this;
     }
 
+    public function getHealthDeclaration(): ?bool
+    {
+        return $this->healthDeclaration;
+    }
+
+    public function setHealthDeclaration(?bool $healthDeclaration): static
+    {
+        $this->healthDeclaration = $healthDeclaration;
+
+        return $this;
+    }
+
     public function getLicenseNumber(): ?string
     {
         return $this->licenseNumber;
@@ -196,6 +212,7 @@ class License
             'accessToken' => $this->getAccessToken(),
             'tokenExpiresAt' => $this->getTokenExpiresAt()?->format(DATE_ATOM),
             'medicalCertificateFileName' => $this->getMedicalCertificateFileName(),
+            'healthDeclaration' => $this->getHealthDeclaration(),
             'licenseNumber' => $this->getLicenseNumber(),
             'approvedAt' => $this->getApprovedAt()?->format(DATE_ATOM),
             'rejectionReason' => $this->getRejectionReason(),

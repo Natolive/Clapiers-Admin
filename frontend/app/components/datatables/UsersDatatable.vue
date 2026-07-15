@@ -225,13 +225,12 @@ const openDialog = (user?: AppUser) => {
     component: CreateUpdateUserDialog,
     props: {
       user: user || null,
-      onSubmit: async (values: { email: string; role: AppUserRole; password: string | null; teamIds: number[] }) => {
+      onSubmit: async (values: { email: string; role: AppUserRole; password: string | null }) => {
         await userRepository.createUpdate(
           values.email,
           values.role,
           values.password,
           user?.id || null,
-          values.teamIds,
         );
         await fetchData();
       }

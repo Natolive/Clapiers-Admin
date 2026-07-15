@@ -11,6 +11,7 @@ export type License = {
     accessToken: string | null;
     tokenExpiresAt: string | null;
     medicalCertificateFileName: string | null;
+    healthDeclaration: boolean | null;
     licenseNumber: string | null;
     approvedAt: string | null;
     rejectionReason: string | null;

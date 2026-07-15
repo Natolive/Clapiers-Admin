@@ -44,6 +44,13 @@ final class LicenseBuilder
         return $this;
     }
 
+    public function inSeason(string $season): self
+    {
+        $this->season = $season;
+
+        return $this;
+    }
+
     public function withMedicalCertificate(string $fileName): self
     {
         $this->medicalCertificateFileName = $fileName;

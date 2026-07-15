@@ -32,7 +32,7 @@ class MemberRepository extends ServiceEntityRepository
         ?string $search = null,
         ?int $teamId = null,
         ?bool $licensePaid = null,
-        ?bool $hasLicense = null,
+        ?string $season = null,
     ): array {
         $allowedFields = [
             'firstName' => 'm.firstName',
@@ -66,17 +66,14 @@ class MemberRepository extends ServiceEntityRepository
         }
 
         if ($licensePaid !== null) {
-            // "Payé" est dérivé : le membre a (ou non) une licence au statut PAYEE.
-            $exists = 'EXISTS (SELECT lp.id FROM '.License::class.' lp WHERE lp.member = m AND lp.status = :paidStatus)';
+            // "Payé" est dérivé : le membre a (ou non) une licence PAYEE. Si une
+            // saison est fournie, on la restreint à cette saison (cohérence UI).
+            $seasonClause = $season !== null ? ' AND lp.season = :season' : '';
+            $exists = 'EXISTS (SELECT lp.id FROM '.License::class.' lp WHERE lp.member = m AND lp.status = :paidStatus'.$seasonClause.')';
             $qb->andWhere($licensePaid ? $exists : 'NOT '.$exists)
                 ->setParameter('paidStatus', LicenseStatus::PAYEE);
-        }
-
-        if ($hasLicense !== null) {
-            if ($hasLicense) {
-                $qb->andWhere('m.licenseFileName IS NOT NULL');
-            } else {
-                $qb->andWhere('m.licenseFileName IS NULL');
+            if ($season !== null) {
+                $qb->setParameter('season', $season);
             }
         }
 
