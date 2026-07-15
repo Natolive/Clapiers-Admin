@@ -535,7 +535,6 @@ const handleLogout = () => authStore.logout();
   /* hide text elements */
   .sidebar--collapsed:not(.sidebar--hovered) .brand-text,
   .sidebar--collapsed:not(.sidebar--hovered) .nav-text,
-  .sidebar--collapsed:not(.sidebar--hovered) .nav-chevron,
   .sidebar--collapsed:not(.sidebar--hovered) .user-info,
   .sidebar--collapsed:not(.sidebar--hovered) .logout-btn {
     opacity: 0;
@@ -569,6 +568,11 @@ const handleLogout = () => authStore.logout();
   /* rail réduit : les sous-menus restent visibles (icônes), repli ignoré */
   .sidebar--collapsed:not(.sidebar--hovered) .nav-collapse {
     grid-template-rows: 1fr;
+  }
+
+  /* chevron retiré du flux (sinon son margin-left:auto décentre l'icône) */
+  .sidebar--collapsed:not(.sidebar--hovered) .nav-chevron {
+    display: none;
   }
 
   /* footer: remove horizontal padding + center user-card */
