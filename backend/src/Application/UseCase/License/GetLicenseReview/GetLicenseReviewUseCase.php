@@ -8,6 +8,7 @@ use App\Common\UseCase\AbstractUseCase;
 use App\Entity\Member;
 use App\Repository\LicenseRepository;
 use App\Repository\MemberDocumentRepository;
+use App\Repository\MemberRepository;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -34,6 +35,7 @@ class GetLicenseReviewUseCase extends AbstractUseCase
     public function __construct(
         private readonly LicenseRepository $licenseRepository,
         private readonly MemberDocumentRepository $documentRepository,
+        private readonly MemberRepository $memberRepository,
     ) {
     }
 
@@ -57,6 +59,30 @@ class GetLicenseReviewUseCase extends AbstractUseCase
                 fn (array $slot) => $this->describeDocument($member, $license->getSeason(), $slot),
                 self::DOCUMENTS,
             ),
+            'existingMember' => $this->describeExistingMember($member, $license->getSeason()),
+        ];
+    }
+
+    /**
+     * Autre membre partageant l'email de la demande (réinscription probable) :
+     * l'admin choisira, à l'approbation, de fusionner ou de créer un nouveau.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function describeExistingMember(Member $member, string $season): ?array
+    {
+        $existing = $this->memberRepository->findOneByEmailExcluding($member->getEmail(), (int) $member->getId());
+        if ($existing === null) {
+            return null;
+        }
+
+        return [
+            'id' => $existing->getId(),
+            'firstName' => $existing->getFirstName(),
+            'lastName' => $existing->getLastName(),
+            'email' => $existing->getEmail(),
+            'status' => $existing->getStatus()->value,
+            'hasLicenseThisSeason' => $this->licenseRepository->findOneByMemberAndSeason($existing, $season) !== null,
         ];
     }
 

@@ -15,6 +15,10 @@ class ApproveLicensePayload
         public readonly int $helloAssoTierId,
         #[Assert\Positive]
         public readonly int $amount,
+        // Fusion d'une réinscription : id du membre existant à réutiliser
+        // (null = créer/garder un nouveau membre).
+        #[Assert\Positive]
+        public readonly ?int $replaceMemberId = null,
     ) {
     }
 }

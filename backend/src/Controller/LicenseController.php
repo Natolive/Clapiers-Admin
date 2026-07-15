@@ -53,7 +53,7 @@ class LicenseController extends AbstractController
         #[MapRequestPayload] ApproveLicensePayload $payload,
         ApproveLicenseUseCase $useCase
     ): Response {
-        return $useCase->execute(new ApproveLicenseCommand($id, $payload->helloAssoTierId, $payload->amount));
+        return $useCase->execute(new ApproveLicenseCommand($id, $payload->helloAssoTierId, $payload->amount, $payload->replaceMemberId));
     }
 
     #[Route('/{id}/reject', name: 'reject', methods: ['POST'])]

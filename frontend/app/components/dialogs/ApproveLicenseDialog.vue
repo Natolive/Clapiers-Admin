@@ -13,6 +13,25 @@
 
     <Message v-if="error" severity="error" :closable="false" class="mb-3">{{ error }}</Message>
 
+    <div v-if="existingMember" class="mb-4">
+      <Message severity="warn" :closable="false" class="mb-2">
+        Un licencié avec cet email existe déjà : {{ existingMember.firstName }} {{ existingMember.lastName }}.
+      </Message>
+      <label class="block mb-2 font-medium">Que faire de cette réinscription&nbsp;?</label>
+      <Select
+        v-model="duplicateChoice"
+        :options="duplicateOptions"
+        option-label="label"
+        option-value="value"
+        option-disabled="disabled"
+        placeholder="Choisir…"
+        class="w-full"
+      />
+      <small v-if="existingMember.hasLicenseThisSeason" class="text-500">
+        Ce membre a déjà une licence pour la saison {{ license.season }} : le rattachement est indisponible.
+      </small>
+    </div>
+
     <div class="mb-4">
       <label class="block mb-2 font-medium">Tarif (formulaire HelloAsso)</label>
       <Select
@@ -41,7 +60,7 @@
         icon="pi pi-check"
         severity="success"
         :loading="loading"
-        :disabled="!selectedTier"
+        :disabled="!selectedTier || (!!existingMember && !duplicateChoice)"
         @click="confirm"
       />
     </div>
@@ -49,7 +68,7 @@
 </template>
 
 <script setup lang="ts">
-import { LicenseAdminRepository, type LicenseTier } from '~/repository/license-admin-repository'
+import { LicenseAdminRepository, type LicenseTier, type LicenseReviewExistingMember } from '~/repository/license-admin-repository'
 import type { License } from '~/types/entity/License'
 
 const props = withDefaults(defineProps<{
@@ -69,11 +88,25 @@ const loading = ref(false)
 const loadingTiers = ref(true)
 const error = ref('')
 
+const existingMember = ref<LicenseReviewExistingMember | null>(null)
+const duplicateChoice = ref<'replace' | 'new' | null>(null)
+
+const duplicateOptions = computed(() => existingMember.value ? [
+  {
+    label: `Rattacher à la fiche existante (${existingMember.value.firstName} ${existingMember.value.lastName})`,
+    value: 'replace',
+    disabled: existingMember.value.hasLicenseThisSeason,
+  },
+  { label: 'Créer un nouveau membre', value: 'new' },
+] : [])
+
 const formatAmount = (cents: number) => (cents / 100).toFixed(2).replace('.', ',') + ' €'
 
 onMounted(async () => {
   try {
-    tiers.value = await repo.getTiers()
+    const [tierList, review] = await Promise.all([repo.getTiers(), repo.getReview(props.license.id)])
+    tiers.value = tierList
+    existingMember.value = review.existingMember
   } catch {
     error.value = 'Impossible de charger les tarifs HelloAsso.'
   } finally {
@@ -88,7 +121,8 @@ const confirm = async () => {
   loading.value = true
   error.value = ''
   try {
-    await repo.approve(props.license.id, selectedTier.value.id, selectedTier.value.amount)
+    const replaceMemberId = duplicateChoice.value === 'replace' ? existingMember.value?.id ?? null : null
+    await repo.approve(props.license.id, selectedTier.value.id, selectedTier.value.amount, replaceMemberId)
     toast.add({ severity: 'success', summary: 'Licence validée', detail: 'Le lien de paiement a été envoyé par e-mail.', life: 3000 })
     props.onSaved?.()
     emit('update:visible', false)

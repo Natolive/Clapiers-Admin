@@ -24,10 +24,20 @@ export interface LicenseReviewDocument {
     size: number | null;
 }
 
+export interface LicenseReviewExistingMember {
+    id: number;
+    firstName: string;
+    lastName: string;
+    email: string;
+    status: string;
+    hasLicenseThisSeason: boolean;
+}
+
 export interface LicenseReview {
     license: License;
     memberId: number;
     documents: LicenseReviewDocument[];
+    existingMember: LicenseReviewExistingMember | null;
 }
 
 /**
@@ -59,10 +69,10 @@ export class LicenseAdminRepository {
         return response.data ?? [];
     }
 
-    async approve(id: number, helloAssoTierId: number, amount: number): Promise<License> {
+    async approve(id: number, helloAssoTierId: number, amount: number, replaceMemberId?: number | null): Promise<License> {
         return await this.api<License>(`/license/${id}/approve`, {
             method: 'POST',
-            body: { helloAssoTierId, amount },
+            body: { helloAssoTierId, amount, ...(replaceMemberId ? { replaceMemberId } : {}) },
         });
     }
 

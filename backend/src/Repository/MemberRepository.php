@@ -194,6 +194,23 @@ class MemberRepository extends ServiceEntityRepository
     }
 
     /**
+     * Membre distinct partageant le même email (hors membre exclu), le plus
+     * ancien d'abord. Sert à détecter un doublon lors d'une réinscription.
+     */
+    public function findOneByEmailExcluding(string $email, int $excludeId): ?Member
+    {
+        return $this->createQueryBuilder('m')
+            ->andWhere('LOWER(m.email) = LOWER(:email)')
+            ->andWhere('m.id != :excludeId')
+            ->setParameter('email', $email)
+            ->setParameter('excludeId', $excludeId)
+            ->orderBy('m.createdAt', 'ASC')
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
+
+    /**
      * @return Member[]
      */
     public function findByTeam(Team $team): array
