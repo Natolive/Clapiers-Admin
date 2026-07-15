@@ -52,7 +52,7 @@ export const useDashboardNav = (onNavigate?: () => void) => {
             ]),
             group('Licences', 'pi pi-id-card', [
                 su && link('Licenciés', 'pi pi-id-card', '/dashboard/settings/members'),
-                su && link('Demande', 'pi pi-inbox', '/dashboard/settings/license-requests'),
+                su && link('Demandes', 'pi pi-inbox', '/dashboard/settings/license-requests'),
             ]),
             group('Organisation', 'pi pi-sitemap', [
                 su && link('Utilisateurs', 'pi pi-user', '/dashboard/settings/users'),
