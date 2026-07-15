@@ -2,7 +2,12 @@
 
 namespace App\Tests\Functional;
 
+use App\Common\Service\MemberMediaSeeder;
+use App\Common\Service\SeasonProvider;
+use App\Entity\Enum\LicenseStatus;
+use App\Entity\Enum\MemberStatus;
 use App\Entity\Member;
+use App\Repository\MemberDocumentRepository;
 use App\Tests\Support\ApiTestCase;
 
 /**
@@ -159,6 +164,25 @@ class MemberApiTest extends ApiTestCase
         $this->assertCount(2, $body['data']);
     }
 
+    public function testPaginatedMembersExcludesNonActiveMembers(): void
+    {
+        $active = $this->aMember()->named('Active', 'Membre')->persist();
+
+        $pending = $this->aMember()->named('Pending', 'Membre')->persist();
+        $pending->setStatus(MemberStatus::PENDING_VALIDATION);
+        $rejected = $this->aMember()->named('Rejected', 'Membre')->persist();
+        $rejected->setStatus(MemberStatus::REJECTED);
+        $this->em()->flush();
+
+        $this->actingAsSuperAdmin();
+        $this->getJson('/api/member/paginated?page=1&limit=50');
+
+        // Seuls les membres actifs apparaissent (pas les demandes en attente/refusées).
+        $body = $this->assertJsonResponse(200);
+        $this->assertSame(1, $body['total']);
+        $this->assertSame($active->getId(), $body['data'][0]['id']);
+    }
+
     public function testPaginatedMembersFiltersBySearch(): void
     {
         $team = $this->aTeam()->persist();
@@ -190,35 +214,58 @@ class MemberApiTest extends ApiTestCase
 
     public function testPaginatedMembersFiltersByLicensePaid(): void
     {
+        $season = $this->currentSeason();
         $team = $this->aTeam()->persist();
-        $paid = $this->aMember()->inTeams($team)->licensePaid()->persist();
-        $this->aMember()->inTeams($team)->licensePaid(false)->persist();
+        $paid = $this->aMember()->inTeams($team)->persist();
+        $this->aLicense()->forMember($paid)->inSeason($season)->withStatus(LicenseStatus::PAYEE)->persist();
+        $paid->setStatus(MemberStatus::ACTIVE); // le builder de licence l'avait passé en attente
+        $this->aMember()->inTeams($team)->persist(); // actif, sans licence payée
+        $this->em()->flush();
 
+        $paidId = $paid->getId();
         $this->actingAsSuperAdmin();
         $this->getJson('/api/member/paginated?licensePaid=true');
-
         $body = $this->assertJsonResponse(200);
         $this->assertSame(1, $body['total']);
-        $this->assertSame($paid->getId(), $body['data'][0]['id']);
+        $this->assertSame($paidId, $body['data'][0]['id']);
+
+        // Le filtre inverse ne renvoie que le membre actif sans licence payée.
+        $this->getJson('/api/member/paginated?licensePaid=false');
+        $body = $this->assertJsonResponse(200);
+        $this->assertSame(1, $body['total']);
+        $this->assertNotSame($paidId, $body['data'][0]['id']);
     }
 
-    public function testPaginatedMembersFiltersByHasLicense(): void
+    public function testLicensePaidFlagIsScopedToCurrentSeason(): void
     {
+        $season = $this->currentSeason();
         $team = $this->aTeam()->persist();
-        $withFile = $this->aMember()->inTeams($team)->withLicenseFileName('doc.pdf')->persist();
-        $without = $this->aMember()->inTeams($team)->persist();
+
+        $current = $this->aMember()->named('Àjour', 'Saison')->inTeams($team)->persist();
+        $this->aLicense()->forMember($current)->inSeason($season)->withStatus(LicenseStatus::PAYEE)->persist();
+        $current->setStatus(MemberStatus::ACTIVE);
+
+        $past = $this->aMember()->named('Payé', 'Avant')->inTeams($team)->persist();
+        $this->aLicense()->forMember($past)->inSeason('2000-2001')->withStatus(LicenseStatus::PAYEE)->persist();
+        $past->setStatus(MemberStatus::ACTIVE);
+        $this->em()->flush();
+
+        $currentId = $current->getId();
+        $pastId = $past->getId();
+
+        // Collections rechargées depuis la base : le flag reflète bien la BDD.
+        $this->em()->clear();
 
         $this->actingAsSuperAdmin();
-
-        $this->getJson('/api/member/paginated?hasLicense=true');
+        $this->getJson('/api/member/paginated?limit=50');
         $body = $this->assertJsonResponse(200);
-        $this->assertSame(1, $body['total']);
-        $this->assertSame($withFile->getId(), $body['data'][0]['id']);
 
-        $this->getJson('/api/member/paginated?hasLicense=false');
-        $body = $this->assertJsonResponse(200);
-        $this->assertSame(1, $body['total']);
-        $this->assertSame($without->getId(), $body['data'][0]['id']);
+        $paidById = [];
+        foreach ($body['data'] as $row) {
+            $paidById[$row['id']] = $row['licensePaid'];
+        }
+        $this->assertTrue($paidById[$currentId], 'Licence payée saison courante → à jour');
+        $this->assertFalse($paidById[$pastId], 'Licence payée d’une saison passée → pas à jour');
     }
 
     public function testPaginatedMembersSortsByLastNameDesc(): void
@@ -232,6 +279,33 @@ class MemberApiTest extends ApiTestCase
 
         $body = $this->assertJsonResponse(200);
         $this->assertSame('Zzz', $body['data'][0]['lastName']);
+    }
+
+    public function testPaginatedExposesLicenseDocumentFlagFromMedia(): void
+    {
+        $season = static::getContainer()->get(SeasonProvider::class)->current();
+        $withLicense = $this->aMember()->named('Avec', 'Licence')->persist();
+        $without = $this->aMember()->named('Sans', 'Licence')->persist();
+
+        // Remplit le slot Licence de la saison courante d'un seul membre.
+        static::getContainer()->get(MemberMediaSeeder::class)->ensureSeason($withLicense, $season);
+        $this->em()->flush();
+        $slot = static::getContainer()->get(MemberDocumentRepository::class)
+            ->findDefaultSlot($withLicense, $season, 'license');
+        $this->assertNotNull($slot);
+        $slot->setFile('x.pdf', 'x.pdf', 'application/pdf', 10);
+        $this->em()->flush();
+
+        $this->actingAsSuperAdmin();
+        $this->getJson('/api/member/paginated?limit=50');
+
+        $body = $this->assertJsonResponse(200);
+        $flags = [];
+        foreach ($body['data'] as $row) {
+            $flags[$row['id']] = $row['hasLicenseDocument'];
+        }
+        $this->assertTrue($flags[$withLicense->getId()], 'Slot Licence rempli → drapeau vrai');
+        $this->assertFalse($flags[$without->getId()], 'Aucun document → drapeau faux');
     }
 
     // ── GET /api/member/team/{teamId} ───────────────────────────────────────
@@ -264,146 +338,35 @@ class MemberApiTest extends ApiTestCase
         $this->assertSame('Team not found', $body['message']);
     }
 
-    // ── PATCH /api/member/{id}/toggle-license ───────────────────────────────
+    // ── Photo de profil : lecture depuis la médiathèque ─────────────────────
 
-    public function testToggleLicenseFlipsThePaidFlag(): void
+    public function testProfilePictureIsServedFromMediatheque(): void
     {
-        $team = $this->aTeam()->persist();
-        $member = $this->aMember()->inTeams($team)->licensePaid(false)->persist();
+        $member = $this->aMember()->persist();
+
+        static::getContainer()->get(MemberMediaSeeder::class)->ensureRootFolders($member);
+        $this->em()->flush();
+        $slot = static::getContainer()->get(MemberDocumentRepository::class)
+            ->findRootDocumentSlot($member, 'profile_picture');
+        $this->assertNotNull($slot);
+
+        $dir = static::getContainer()->getParameter('upload_directory').'/member-media';
+        if (!is_dir($dir)) {
+            mkdir($dir, 0775, true);
+        }
+        file_put_contents($dir.'/pp.png', 'PNGDATA');
+        $slot->setFile('pp.png', 'photo.png', 'image/png', 7);
+        $this->em()->flush();
 
         $this->actingAsSuperAdmin();
+        $this->getJson('/api/member/'.$member->getId().'/profile-picture');
 
-        $this->patchJson('/api/member/'.$member->getId().'/toggle-license');
-        $body = $this->assertJsonResponse(200);
-        $this->assertTrue($body['licensePaid']);
-
-        $this->patchJson('/api/member/'.$member->getId().'/toggle-license');
-        $body = $this->assertJsonResponse(200);
-        $this->assertFalse($body['licensePaid']);
-    }
-
-    public function testToggleLicenseOnUnknownMemberReturns404(): void
-    {
-        $this->actingAsSuperAdmin();
-        $this->patchJson('/api/member/999999/toggle-license');
-
-        $this->assertJsonResponse(404);
-    }
-
-    // ── Licence : upload / download / delete ────────────────────────────────
-
-    public function testLicenseUploadDownloadDeleteLifecycle(): void
-    {
-        $team = $this->aTeam()->persist();
-        $member = $this->aMember()->inTeams($team)->persist();
-        $this->actingAsSuperAdmin();
-
-        // Upload
-        $this->uploadFile('/api/member/'.$member->getId().'/upload-license', $this->fakePdf());
-        $body = $this->assertJsonResponse(200);
-        $this->assertNotNull($body['licenseFileName']);
-
-        // Download
-        $this->getJson('/api/member/'.$member->getId().'/download-license');
         $this->assertSame(200, $this->response()->getStatusCode());
-
-        // Delete
-        $this->deleteJson('/api/member/'.$member->getId().'/delete-license');
-        $body = $this->assertJsonResponse(200);
-        $this->assertNull($body['licenseFileName']);
-
-        // Download after delete
-        $this->getJson('/api/member/'.$member->getId().'/download-license');
-        $this->assertJsonResponse(404);
     }
 
-    public function testReuploadingLicenseReplacesTheOldFile(): void
+    public function testProfilePictureWithoutMediathequeFileReturns404(): void
     {
-        $team = $this->aTeam()->persist();
-        $member = $this->aMember()->inTeams($team)->persist();
-        $this->actingAsSuperAdmin();
-
-        $this->uploadFile('/api/member/'.$member->getId().'/upload-license', $this->fakePdf());
-        $firstFileName = $this->assertJsonResponse(200)['licenseFileName'];
-
-        $this->uploadFile('/api/member/'.$member->getId().'/upload-license', $this->fakePdf('new.pdf'));
-        $secondFileName = $this->assertJsonResponse(200)['licenseFileName'];
-
-        $this->assertNotSame($firstFileName, $secondFileName);
-
-        $licensesDir = static::getContainer()->getParameter('upload_directory').'/licenses';
-        $this->assertFileDoesNotExist($licensesDir.'/'.$firstFileName, 'The replaced file must be deleted from disk');
-        $this->assertFileExists($licensesDir.'/'.$secondFileName);
-    }
-
-    public function testReuploadingProfilePictureReplacesTheOldFile(): void
-    {
-        $team = $this->aTeam()->persist();
-        $member = $this->aMember()->inTeams($team)->persist();
-        $this->actingAsSuperAdmin();
-
-        $this->uploadFile('/api/member/'.$member->getId().'/upload-profile-picture', $this->fakePng());
-        $firstFileName = $this->assertJsonResponse(200)['profilePicture'];
-
-        $this->uploadFile('/api/member/'.$member->getId().'/upload-profile-picture', $this->fakePng('new.png'));
-        $secondFileName = $this->assertJsonResponse(200)['profilePicture'];
-
-        $this->assertNotSame($firstFileName, $secondFileName);
-
-        $picturesDir = static::getContainer()->getParameter('upload_directory').'/profile-pictures';
-        $this->assertFileDoesNotExist($picturesDir.'/'.$firstFileName, 'The replaced file must be deleted from disk');
-        $this->assertFileExists($picturesDir.'/'.$secondFileName);
-    }
-
-    public function testUploadLicenseOnUnknownMemberFails(): void
-    {
-        $this->actingAsSuperAdmin();
-        $this->uploadFile('/api/member/999999/upload-license', $this->fakePdf());
-
-        $this->assertJsonResponse(400);
-    }
-
-    public function testFileRoutesOnUnknownMemberFail(): void
-    {
-        $this->actingAsSuperAdmin();
-
-        $this->uploadFile('/api/member/999999/upload-profile-picture', $this->fakePng());
-        $this->assertJsonResponse(400);
-
-        $this->deleteJson('/api/member/999999/delete-license');
-        $this->assertJsonResponse(400);
-
-        $this->deleteJson('/api/member/999999/delete-profile-picture');
-        $this->assertJsonResponse(400);
-    }
-
-    public function testDownloadLicenseWithoutFileReturns404(): void
-    {
-        $team = $this->aTeam()->persist();
-        $member = $this->aMember()->inTeams($team)->persist();
-
-        $this->actingAsSuperAdmin();
-        $this->getJson('/api/member/'.$member->getId().'/download-license');
-
-        $this->assertJsonResponse(404);
-    }
-
-    public function testDownloadLicenseMissingOnDiskReturns404(): void
-    {
-        $team = $this->aTeam()->persist();
-        // DB row references a file that does not exist on disk
-        $member = $this->aMember()->inTeams($team)->withLicenseFileName('ghost.pdf')->persist();
-
-        $this->actingAsSuperAdmin();
-        $this->getJson('/api/member/'.$member->getId().'/download-license');
-
-        $this->assertJsonResponse(404);
-    }
-
-    public function testProfilePictureMissingOnDiskReturns404(): void
-    {
-        $team = $this->aTeam()->persist();
-        $member = $this->aMember()->inTeams($team)->withProfilePicture('ghost.png')->persist();
+        $member = $this->aMember()->persist();
 
         $this->actingAsSuperAdmin();
         $this->getJson('/api/member/'.$member->getId().'/profile-picture');
@@ -411,73 +374,20 @@ class MemberApiTest extends ApiTestCase
         $this->assertJsonResponse(404);
     }
 
-    public function testDeletingAbsentLicenseAndPictureIsANoOp(): void
+    public function testProfilePictureOnUnknownMemberReturns404(): void
     {
-        $team = $this->aTeam()->persist();
-        $member = $this->aMember()->inTeams($team)->persist();
-
         $this->actingAsSuperAdmin();
+        $this->getJson('/api/member/999999/profile-picture');
 
-        $this->deleteJson('/api/member/'.$member->getId().'/delete-license');
-        $this->assertJsonResponse(200);
-
-        $this->deleteJson('/api/member/'.$member->getId().'/delete-profile-picture');
-        $this->assertJsonResponse(200);
-    }
-
-    public function testDeletingFilesMissingOnDiskStillClearsTheDatabase(): void
-    {
-        $team = $this->aTeam()->persist();
-        $member = $this->aMember()->inTeams($team)
-            ->withLicenseFileName('ghost.pdf')
-            ->withProfilePicture('ghost.png')
-            ->persist();
-
-        $this->actingAsSuperAdmin();
-
-        $this->deleteJson('/api/member/'.$member->getId().'/delete-license');
-        $this->assertNull($this->assertJsonResponse(200)['licenseFileName']);
-
-        $this->deleteJson('/api/member/'.$member->getId().'/delete-profile-picture');
-        $this->assertNull($this->assertJsonResponse(200)['profilePicture']);
-    }
-
-    public function testUploadingOverAFileMissingOnDiskStillWorks(): void
-    {
-        $team = $this->aTeam()->persist();
-        $member = $this->aMember()->inTeams($team)->withProfilePicture('ghost.png')->persist();
-
-        $this->actingAsSuperAdmin();
-        $this->uploadFile('/api/member/'.$member->getId().'/upload-profile-picture', $this->fakePng());
-
-        $body = $this->assertJsonResponse(200);
-        $this->assertNotSame('ghost.png', $body['profilePicture']);
-    }
-
-    // ── Photo de profil : upload / get / delete ─────────────────────────────
-
-    public function testProfilePictureUploadGetDeleteLifecycle(): void
-    {
-        $team = $this->aTeam()->persist();
-        $member = $this->aMember()->inTeams($team)->persist();
-        $this->actingAsSuperAdmin();
-
-        $this->uploadFile('/api/member/'.$member->getId().'/upload-profile-picture', $this->fakePng());
-        $body = $this->assertJsonResponse(200);
-        $this->assertNotNull($body['profilePicture']);
-
-        $this->getJson('/api/member/'.$member->getId().'/profile-picture');
-        $this->assertSame(200, $this->response()->getStatusCode());
-
-        $this->deleteJson('/api/member/'.$member->getId().'/delete-profile-picture');
-        $body = $this->assertJsonResponse(200);
-        $this->assertNull($body['profilePicture']);
-
-        $this->getJson('/api/member/'.$member->getId().'/profile-picture');
         $this->assertJsonResponse(404);
     }
 
     // ── Helpers ─────────────────────────────────────────────────────────────
+
+    private function currentSeason(): string
+    {
+        return static::getContainer()->get(SeasonProvider::class)->current();
+    }
 
     /**
      * Valid creation payload; override any field via $overrides.

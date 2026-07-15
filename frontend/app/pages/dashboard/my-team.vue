@@ -45,9 +45,7 @@
                   <MemberAvatar
                     :member="member"
                     size="xlarge"
-                    editable
-                    @upload="(file: File) => onUploadProfilePicture(member, file)"
-                    @delete="onDeleteProfilePicture(member)"
+                    :src="photoUrl(member)"
                   />
                   <div class="text-center">
                     <p class="text-xl font-semibold m-0">{{ member.firstName }} {{ member.lastName }}</p>
@@ -77,7 +75,7 @@
                           class="text-xs"
                         />
                         <Button
-                          v-if="member.licenseFileName"
+                          v-if="member.hasLicenseDocument"
                           icon="pi pi-download"
                           label="Fichier"
                           severity="info"
@@ -110,7 +108,6 @@ import SkeletonLoader from '~/components/common/skeleton/SkeletonLoader.vue';
 import MemberAvatar from '~/components/common/MemberAvatar.vue';
 import { TeamRepository } from '~/repository/team-repository';
 import type { MyTeamGroup } from '~/repository/team-repository';
-import { MemberRepository } from '~/repository/member-repository';
 import type { Member } from '~/types/entity/Member';
 import {AppUserRole} from "~/types/entity/AppUser";
 definePageMeta({
@@ -122,27 +119,13 @@ definePageMeta({
 
 useHead({ title: 'Mon équipe' });
 
-const memberRepository = new MemberRepository();
 const groups = ref<MyTeamGroup[]>([]);
 const loading = ref(true);
 
-// Un licencié multi-équipes a une carte par section : mettre à jour toutes
-// ses occurrences, pas seulement celle du groupe cliqué
-const replaceMember = (updated: Member) => {
-  for (const group of groups.value) {
-    const idx = group.members.findIndex(m => m.id === updated.id);
-    if (idx !== -1) group.members[idx] = updated;
-  }
-};
-
-const onUploadProfilePicture = async (member: Member, file: File) => {
-  const updated = await memberRepository.uploadProfilePicture(member.id, file);
-  replaceMember(updated);
-};
-
-const onDeleteProfilePicture = async (member: Member) => {
-  const updated = await memberRepository.deleteProfilePicture(member.id);
-  replaceMember(updated);
+// URL de la photo (endpoint coach protégé par équipe) : l'avatar s'y branche.
+const photoUrl = (member: Member) => {
+  const config = useRuntimeConfig();
+  return `${config.public.apiBase}/team/my-team/member/${member.id}/profile-picture`;
 };
 
 const downloadLicense = async (member: Member) => {
@@ -157,7 +140,7 @@ const downloadLicense = async (member: Member) => {
   const blobUrl = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = blobUrl;
-  a.download = member.licenseFileName || 'licence';
+  a.download = `licence-${member.lastName}-${member.firstName}`;
   a.click();
   URL.revokeObjectURL(blobUrl);
 };

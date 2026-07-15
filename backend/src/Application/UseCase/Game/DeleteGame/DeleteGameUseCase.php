@@ -5,7 +5,6 @@ namespace App\Application\UseCase\Game\DeleteGame;
 use App\Common\Command\CommandInterface;
 use App\Common\Exception\UseCaseException;
 use App\Common\UseCase\AbstractUseCase;
-use App\Entity\Enum\AppUserRole;
 use App\Repository\GameRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\HttpFoundation\Response;
@@ -30,11 +29,6 @@ class DeleteGameUseCase extends AbstractUseCase
         $game = $this->gameRepository->find($command->id);
         if (!$game) {
             throw new UseCaseException('Game not found', Response::HTTP_NOT_FOUND);
-        }
-
-        $isSuperAdmin = in_array(AppUserRole::ROLE_SUPER_ADMIN, $command->user->getRoles(), true);
-        if (!$isSuperAdmin && !$command->user->hasTeam($game->getTeam())) {
-            throw new UseCaseException('You are not allowed to delete this game', Response::HTTP_FORBIDDEN);
         }
 
         $this->entityManager->remove($game);

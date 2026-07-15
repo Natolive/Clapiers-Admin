@@ -2,6 +2,9 @@
 
 namespace App\Repository;
 
+use App\Entity\Enum\LicenseStatus;
+use App\Entity\Enum\MemberStatus;
+use App\Entity\License;
 use App\Entity\Member;
 use App\Entity\Team;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
@@ -29,7 +32,7 @@ class MemberRepository extends ServiceEntityRepository
         ?string $search = null,
         ?int $teamId = null,
         ?bool $licensePaid = null,
-        ?bool $hasLicense = null,
+        ?string $season = null,
     ): array {
         $allowedFields = [
             'firstName' => 'm.firstName',
@@ -37,13 +40,17 @@ class MemberRepository extends ServiceEntityRepository
             'email' => 'm.email',
             'phoneNumber' => 'm.phoneNumber',
             'createdAt' => 'm.createdAt',
-            'licensePaid' => 'm.licensePaid',
         ];
 
         $orderColumn = $allowedFields[$sortField] ?? 'm.firstName';
         $orderDir = strtolower($sortOrder) === 'desc' ? 'DESC' : 'ASC';
 
         $qb = $this->createQueryBuilder('m');
+
+        // La liste des licenciés n'affiche que les membres actifs : les demandes
+        // en attente de validation ou refusées restent dans "Demandes de licence".
+        $qb->andWhere('m.status = :activeStatus')
+            ->setParameter('activeStatus', MemberStatus::ACTIVE);
 
         if ($search) {
             $searchTerm = '%' . $search . '%';
@@ -59,15 +66,14 @@ class MemberRepository extends ServiceEntityRepository
         }
 
         if ($licensePaid !== null) {
-            $qb->andWhere('m.licensePaid = :licensePaid')
-                ->setParameter('licensePaid', $licensePaid);
-        }
-
-        if ($hasLicense !== null) {
-            if ($hasLicense) {
-                $qb->andWhere('m.licenseFileName IS NOT NULL');
-            } else {
-                $qb->andWhere('m.licenseFileName IS NULL');
+            // "Payé" est dérivé : le membre a (ou non) une licence PAYEE. Si une
+            // saison est fournie, on la restreint à cette saison (cohérence UI).
+            $seasonClause = $season !== null ? ' AND lp.season = :season' : '';
+            $exists = 'EXISTS (SELECT lp.id FROM '.License::class.' lp WHERE lp.member = m AND lp.status = :paidStatus'.$seasonClause.')';
+            $qb->andWhere($licensePaid ? $exists : 'NOT '.$exists)
+                ->setParameter('paidStatus', LicenseStatus::PAYEE);
+            if ($season !== null) {
+                $qb->setParameter('season', $season);
             }
         }
 
@@ -106,7 +112,8 @@ class MemberRepository extends ServiceEntityRepository
 
         $withLicense = (int) $this->createQueryBuilder('m')
             ->select('COUNT(m.id)')
-            ->andWhere('m.licensePaid = true')
+            ->andWhere('EXISTS (SELECT lp.id FROM '.License::class.' lp WHERE lp.member = m AND lp.status = :paidStatus)')
+            ->setParameter('paidStatus', LicenseStatus::PAYEE)
             ->getQuery()->getSingleScalarResult();
 
         $conn = $this->getEntityManager()->getConnection();

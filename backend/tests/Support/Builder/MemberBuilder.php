@@ -20,10 +20,7 @@ final class MemberBuilder
     private \DateTimeImmutable $birthDate;
     private string $nationality = 'Française';
     private Address $address;
-    private bool $licensePaid = false;
     private ?string $licenseNumber = null;
-    private ?string $licenseFileName = null;
-    private ?string $profilePicture = null;
     /** @var list<Team> */
     private array $teams = [];
 
@@ -62,31 +59,9 @@ final class MemberBuilder
         return $this;
     }
 
-    public function licensePaid(bool $paid = true): self
-    {
-        $this->licensePaid = $paid;
-
-        return $this;
-    }
-
     public function withLicenseNumber(?string $number): self
     {
         $this->licenseNumber = $number;
-
-        return $this;
-    }
-
-    /** Only sets the DB column — write the file yourself if the test reads it. */
-    public function withLicenseFileName(?string $fileName): self
-    {
-        $this->licenseFileName = $fileName;
-
-        return $this;
-    }
-
-    public function withProfilePicture(?string $fileName): self
-    {
-        $this->profilePicture = $fileName;
 
         return $this;
     }
@@ -104,10 +79,7 @@ final class MemberBuilder
         $member->setBirthDate($this->birthDate);
         $member->setNationality($this->nationality);
         $member->setAddress($this->address);
-        $member->setLicensePaid($this->licensePaid);
         $member->setLicenseNumber($this->licenseNumber);
-        $member->setLicenseFileName($this->licenseFileName);
-        $member->setProfilePicture($this->profilePicture);
         $member->setTeams($this->teams);
 
         return $member;

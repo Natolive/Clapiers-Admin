@@ -8,6 +8,7 @@ use App\Tests\Support\Builder\AppUserBuilder;
 use App\Tests\Support\Builder\ContactMessageBuilder;
 use App\Tests\Support\Builder\GameBuilder;
 use App\Tests\Support\Builder\GameHistoryBuilder;
+use App\Tests\Support\Builder\LicenseBuilder;
 use App\Tests\Support\Builder\MemberBuilder;
 use App\Tests\Support\Builder\SalleClosureBuilder;
 use App\Tests\Support\Builder\TeamBuilder;
@@ -95,6 +96,11 @@ abstract class ApiTestCase extends WebTestCase
     protected function aMember(): MemberBuilder
     {
         return new MemberBuilder($this->em());
+    }
+
+    protected function aLicense(): LicenseBuilder
+    {
+        return new LicenseBuilder($this->em());
     }
 
     protected function aGame(): GameBuilder

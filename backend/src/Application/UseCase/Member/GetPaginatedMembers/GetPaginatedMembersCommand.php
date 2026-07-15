@@ -14,7 +14,6 @@ class GetPaginatedMembersCommand implements CommandInterface
         public readonly ?string $search = null,
         public readonly ?int $teamId = null,
         public readonly ?bool $licensePaid = null,
-        public readonly ?bool $hasLicense = null,
     ) {
     }
 }

@@ -285,7 +285,8 @@ const calendarOptions = computed<CalendarOptions>(() => ({
         detailDialog.game = game;
         detailDialog.visible = true;
     },
-    select: props.readonly ? undefined : (info: DateSelectArg) => {
+    // Création réservée au super admin ; l'admin déplace les matchs (eventDrop) sans en créer
+    select: (props.readonly || !isSuperAdmin.value) ? undefined : (info: DateSelectArg) => {
         openCreateDialog(info.start);
         calendarApi.value?.unselect();
     },

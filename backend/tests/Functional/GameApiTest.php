@@ -6,7 +6,8 @@ use App\Entity\Game;
 use App\Tests\Support\ApiTestCase;
 
 /**
- * /api/game — lecture/écriture admin (limitée à ses équipes) et import CSV (super admin).
+ * /api/game — création/suppression super admin, replanification (date seule) par l'admin
+ * sur ses propres équipes, import CSV (super admin).
  */
 class GameApiTest extends ApiTestCase
 {
@@ -103,8 +104,9 @@ class GameApiTest extends ApiTestCase
         $this->assertNotNull($this->em()->getRepository(Game::class)->find($body['id']));
     }
 
-    public function testCoachCreatesGameForHisOwnTeam(): void
+    public function testAdminCannotCreateGame(): void
     {
+        // La création est réservée au super admin, même pour ses propres équipes
         $team = $this->aTeam()->persist();
         $coach = $this->aUser()->admin()->managing($team)->persist();
 
@@ -112,42 +114,10 @@ class GameApiTest extends ApiTestCase
         $this->postJson('/api/game', [
             'opponent' => 'Nîmes',
             'date' => '2026-09-13',
-            'venue' => 'away',
             'teamId' => $team->getId(),
         ]);
 
-        $this->assertJsonResponse(200);
-    }
-
-    public function testCoachCannotCreateGameForAnotherTeam(): void
-    {
-        $myTeam = $this->aTeam()->persist();
-        $otherTeam = $this->aTeam()->persist();
-        $coach = $this->aUser()->admin()->managing($myTeam)->persist();
-
-        $this->actingAs($coach);
-        $this->postJson('/api/game', [
-            'opponent' => 'Nîmes',
-            'date' => '2026-09-13',
-            'teamId' => $otherTeam->getId(),
-        ]);
-
         $this->assertJsonResponse(403);
-    }
-
-    public function testSingleTeamCoachCanOmitTeamId(): void
-    {
-        $team = $this->aTeam()->persist();
-        $coach = $this->aUser()->admin()->managing($team)->persist();
-
-        $this->actingAs($coach);
-        $this->postJson('/api/game', [
-            'opponent' => 'Sète',
-            'date' => '2026-09-14',
-        ]);
-
-        $body = $this->assertJsonResponse(200);
-        $this->assertSame($team->getId(), $body['team']['id']);
     }
 
     public function testCreateGameWithUnknownTeamReturns404(): void
@@ -253,6 +223,46 @@ class GameApiTest extends ApiTestCase
         $this->assertSame('away', $body['venue']);
     }
 
+    public function testAdminCanRescheduleOwnGameButOnlyDate(): void
+    {
+        $team = $this->aTeam()->persist();
+        $game = $this->aGame()->forTeam($team)->home()->onDate('2026-09-18')->persist();
+        $coach = $this->aUser()->admin()->managing($team)->persist();
+
+        // L'admin déplace le match : seule la date doit être prise en compte,
+        // les autres champs envoyés (adversaire, lieu de réception…) sont ignorés
+        $this->actingAs($coach);
+        $this->putJson('/api/game/'.$game->getId(), [
+            'opponent' => 'Adversaire falsifié',
+            'date' => '2026-09-25',
+            'venue' => 'away',
+            'location' => 'Ailleurs',
+            'teamId' => $team->getId(),
+        ]);
+
+        $body = $this->assertJsonResponse(200);
+        $this->assertSame('2026-09-25', $body['date']);
+        $this->assertSame($game->getOpponent(), $body['opponent']);
+        $this->assertSame('home', $body['venue']);
+    }
+
+    public function testAdminCannotRescheduleGameOntoAnExistingGameDay(): void
+    {
+        $team = $this->aTeam()->persist();
+        $this->aGame()->forTeam($team)->onDate('2026-09-28')->persist();
+        $game = $this->aGame()->forTeam($team)->onDate('2026-09-18')->persist();
+        $coach = $this->aUser()->admin()->managing($team)->persist();
+
+        $this->actingAs($coach);
+        $this->putJson('/api/game/'.$game->getId(), [
+            'opponent' => $game->getOpponent(),
+            'date' => '2026-09-28',
+            'teamId' => $team->getId(),
+        ]);
+
+        $this->assertJsonResponse(422);
+    }
+
     public function testCoachCannotHijackAnotherTeamsGameViaUpdate(): void
     {
         $myTeam = $this->aTeam()->persist();
@@ -287,32 +297,31 @@ class GameApiTest extends ApiTestCase
 
     // ── DELETE /api/game/{id} ───────────────────────────────────────────────
 
-    public function testCoachDeletesGameOfHisTeam(): void
+    public function testAdminCannotDeleteGame(): void
     {
+        // La suppression est réservée au super admin, même sur ses propres équipes
         $team = $this->aTeam()->persist();
         $game = $this->aGame()->forTeam($team)->persist();
         $coach = $this->aUser()->admin()->managing($team)->persist();
-        // Doctrine nulls the id of the in-memory instance on deletion: keep a copy
-        $gameId = $game->getId();
-
-        $this->actingAs($coach);
-        $this->deleteJson('/api/game/'.$gameId);
-
-        $this->assertJsonResponse(200);
-        $this->assertNull($this->em()->getRepository(Game::class)->find($gameId));
-    }
-
-    public function testCoachCannotDeleteGameOfAnotherTeam(): void
-    {
-        $otherTeam = $this->aTeam()->persist();
-        $game = $this->aGame()->forTeam($otherTeam)->persist();
-        $coach = $this->aUser()->admin()->managing($this->aTeam()->persist())->persist();
 
         $this->actingAs($coach);
         $this->deleteJson('/api/game/'.$game->getId());
 
         $this->assertJsonResponse(403);
         $this->assertNotNull($this->em()->getRepository(Game::class)->find($game->getId()));
+    }
+
+    public function testSuperAdminDeletesGame(): void
+    {
+        $game = $this->aGame()->forTeam($this->aTeam()->persist())->persist();
+        // Doctrine nulls the id of the in-memory instance on deletion: keep a copy
+        $gameId = $game->getId();
+
+        $this->actingAsSuperAdmin();
+        $this->deleteJson('/api/game/'.$gameId);
+
+        $this->assertJsonResponse(200);
+        $this->assertNull($this->em()->getRepository(Game::class)->find($gameId));
     }
 
     public function testDeleteUnknownGameReturns404(): void

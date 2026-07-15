@@ -2,10 +2,13 @@
 
 namespace App\Entity;
 
+use App\Entity\Enum\LicenseStatus;
 use App\Entity\Enum\MemberGender;
+use App\Entity\Enum\MemberStatus;
 use App\Entity\Trait\IdTrait;
 use App\Entity\Trait\TimestampableTrait;
 use App\Entity\ValueObject\Address;
+use App\Entity\ValueObject\LegalRepresentative;
 use App\Repository\MemberRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
@@ -40,14 +43,11 @@ class Member
     #[ORM\Column(length: 255)]
     private string $email;
 
-    #[ORM\Column(type: 'boolean', options: ['default' => false])]
-    private bool $licensePaid = false;
-
-    #[ORM\Column(length: 255, nullable: true)]
-    private ?string $licenseFileName = null;
-
-    #[ORM\Column(length: 255, nullable: true)]
-    private ?string $profilePicture = null;
+    /**
+     * @var Collection<int, License>
+     */
+    #[ORM\OneToMany(mappedBy: 'member', targetEntity: License::class)]
+    private Collection $licenses;
 
     #[ORM\Column(length: 50, nullable: true)]
     private ?string $licenseNumber = null;
@@ -64,11 +64,20 @@ class Member
     #[ORM\Column(length: 100)]
     private string $nationality;
 
+    #[ORM\Column(length: 20, enumType: MemberStatus::class, options: ['default' => 'active'])]
+    private MemberStatus $status = MemberStatus::ACTIVE;
+
+    /** Représentant légal (mineur) — champs vides quand le membre est majeur. */
+    #[ORM\Embedded(class: LegalRepresentative::class, columnPrefix: 'legal_rep_')]
+    private LegalRepresentative $legalRepresentative;
+
     public function __construct()
     {
         $this->color   = $this->generateRandomHexColor();
         $this->address = new Address();
+        $this->legalRepresentative = new LegalRepresentative();
         $this->teams   = new ArrayCollection();
+        $this->licenses = new ArrayCollection();
     }
 
     private function generateRandomHexColor(): string
@@ -175,40 +184,25 @@ class Member
         return $this;
     }
 
-    public function isLicensePaid(): bool
+    /**
+     * Dérivé (plus de colonne stockée) : le membre est "à jour" dès qu'il a
+     * une licence payée. La vérité est portée par License.status.
+     *
+     * @param string|null $season limite le calcul à cette saison ; null = toutes
+     *                            saisons confondues (défaut, contextes non datés).
+     */
+    public function isLicensePaid(?string $season = null): bool
     {
-        return $this->licensePaid;
-    }
+        foreach ($this->licenses as $license) {
+            if ($license->getStatus() !== LicenseStatus::PAYEE) {
+                continue;
+            }
+            if ($season === null || $license->getSeason() === $season) {
+                return true;
+            }
+        }
 
-    public function setLicensePaid(bool $licensePaid): static
-    {
-        $this->licensePaid = $licensePaid;
-
-        return $this;
-    }
-
-    public function getLicenseFileName(): ?string
-    {
-        return $this->licenseFileName;
-    }
-
-    public function setLicenseFileName(?string $licenseFileName): static
-    {
-        $this->licenseFileName = $licenseFileName;
-
-        return $this;
-    }
-
-    public function getProfilePicture(): ?string
-    {
-        return $this->profilePicture;
-    }
-
-    public function setProfilePicture(?string $profilePicture): static
-    {
-        $this->profilePicture = $profilePicture;
-
-        return $this;
+        return false;
     }
 
     public function getLicenseNumber(): ?string { return $this->licenseNumber; }
@@ -253,7 +247,26 @@ class Member
         return $this;
     }
 
-    public function toArray(): array
+    public function getStatus(): MemberStatus
+    {
+        return $this->status;
+    }
+
+    public function setStatus(MemberStatus $status): static
+    {
+        $this->status = $status;
+
+        return $this;
+    }
+
+    public function getLegalRepresentative(): LegalRepresentative { return $this->legalRepresentative; }
+    public function setLegalRepresentative(LegalRepresentative $legalRepresentative): static { $this->legalRepresentative = $legalRepresentative; return $this; }
+
+    /**
+     * @param string|null $season saison de référence pour "licence payée"
+     *                            (null = toutes saisons).
+     */
+    public function toArray(?string $season = null): array
     {
         return [
             'id' => $this->getId(),
@@ -262,14 +275,14 @@ class Member
             'color' => $this->getColor(),
             'phoneNumber' => $this->getPhoneNumber(),
             'email' => $this->getEmail(),
-            'licensePaid' => $this->isLicensePaid(),
-            'licenseFileName' => $this->getLicenseFileName(),
-            'profilePicture' => $this->getProfilePicture(),
+            'licensePaid' => $this->isLicensePaid($season),
             'licenseNumber' => $this->getLicenseNumber(),
             'address'       => $this->getAddress()->toArray(),
             'gender' => $this->getGender()->value,
             'birthDate' => $this->getBirthDate()->format('Y-m-d'),
             'nationality' => $this->getNationality(),
+            'legalRepresentative' => $this->getLegalRepresentative()->toArray(),
+            'status' => $this->getStatus()->value,
             'teams' => array_map(fn (Team $t) => $t->toArray(), $this->getTeams()->toArray()),
             'createdAt' => $this->getCreatedAt()?->format(DATE_ATOM),
             'updatedAt' => $this->getUpdatedAt()?->format(DATE_ATOM),

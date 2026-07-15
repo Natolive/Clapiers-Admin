@@ -13,7 +13,6 @@ export interface PaginationParams {
     search?: string;
     teamId?: number;
     licensePaid?: boolean;
-    hasLicense?: boolean;
 }
 
 export class MemberRepository {
@@ -36,7 +35,6 @@ export class MemberRepository {
                 ...(params.search ? { search: params.search } : {}),
                 ...(params.teamId ? { teamId: params.teamId } : {}),
                 ...(params.licensePaid !== undefined ? { licensePaid: params.licensePaid } : {}),
-                ...(params.hasLicense !== undefined ? { hasLicense: params.hasLicense } : {}),
             }
         });
     }
@@ -45,42 +43,6 @@ export class MemberRepository {
 return await this.api<Member>('/member', {
             method: 'POST',
             body,
-        });
-    }
-
-    async toggleLicense(id: number): Promise<Member> {
-        return await this.api<Member>(`/member/${id}/toggle-license`, {
-            method: 'PATCH'
-        });
-    }
-
-    async uploadLicense(id: number, file: File): Promise<Member> {
-        const formData = new FormData();
-        formData.append('file', file);
-        return await this.api<Member>(`/member/${id}/upload-license`, {
-            method: 'POST',
-            body: formData
-        });
-    }
-
-    async deleteLicense(id: number): Promise<Member> {
-        return await this.api<Member>(`/member/${id}/delete-license`, {
-            method: 'DELETE'
-        });
-    }
-
-    async uploadProfilePicture(id: number, file: File): Promise<Member> {
-        const formData = new FormData();
-        formData.append('file', file);
-        return await this.api<Member>(`/member/${id}/upload-profile-picture`, {
-            method: 'POST',
-            body: formData
-        });
-    }
-
-    async deleteProfilePicture(id: number): Promise<Member> {
-        return await this.api<Member>(`/member/${id}/delete-profile-picture`, {
-            method: 'DELETE'
         });
     }
 

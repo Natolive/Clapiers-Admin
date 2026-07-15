@@ -9,8 +9,10 @@ export type Member = {
     phoneNumber: string;
     email: string;
     licensePaid: boolean;
-    licenseFileName: string | null;
-    profilePicture: string | null;
+    /** Présent dans la liste paginée / mon-équipe : licence déposée dans la médiathèque (saison courante). */
+    hasLicenseDocument?: boolean;
+    /** Présent dans « mon équipe » : photo de profil déposée dans la médiathèque. */
+    hasProfilePicture?: boolean;
     licenseNumber: string | null;
     address: {
         street: string;
@@ -20,6 +22,13 @@ export type Member = {
     gender: MemberGender;
     birthDate: string;
     nationality: string;
+    /** Représentant légal (mineur) — champs vides si majeur. */
+    legalRepresentative?: {
+        firstName: string;
+        lastName: string;
+        email: string;
+        phone: string;
+    };
     /** Optionnel : données persistées avant la migration multi-équipes */
     teams?: Team[];
     createdAt: string;
