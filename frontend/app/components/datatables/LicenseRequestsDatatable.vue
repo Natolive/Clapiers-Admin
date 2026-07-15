@@ -46,30 +46,19 @@
           </div>
         </template>
       </Column>
-      <Column field="member.phoneNumber" header="Téléphone" style="width: 13%">
+      <Column field="member.phoneNumber" header="Téléphone" style="width: 16%">
         <template #body="{ data }">{{ data.member.phoneNumber }}</template>
       </Column>
-      <Column field="season" header="Saison" style="width: 10%" />
-      <Column header="Certificat" style="width: 9%">
-        <template #body="{ data }">
-          <i
-            :class="data.medicalCertificateFileName ? 'pi pi-check-circle text-green-500' : 'pi pi-minus-circle text-color-secondary'"
-            v-tooltip.top="data.medicalCertificateFileName ? 'Certificat déposé' : 'Aucun certificat'"
-          />
-        </template>
-      </Column>
-      <Column header="Montant" style="width: 9%">
-        <template #body="{ data }">{{ data.amount !== null ? formatAmount(data.amount) : '—' }}</template>
-      </Column>
-      <Column header="Statut" style="width: 11%">
+      <Column field="season" header="Saison" style="width: 12%" />
+      <Column header="Statut" style="width: 13%">
         <template #body="{ data }">
           <Tag :value="statusLabel(data.status)" :severity="statusSeverity(data.status)" />
         </template>
       </Column>
-      <Column field="createdAt" header="Reçue le" style="width: 9%">
+      <Column field="createdAt" header="Reçue le" style="width: 12%">
         <template #body="{ data }">{{ formatDate(data.createdAt) }}</template>
       </Column>
-      <Column header="Actions" style="width: 20%">
+      <Column header="Actions" style="width: 22%">
         <template #body="{ data }">
           <div class="flex gap-2">
             <Button icon="pi pi-folder-open" size="small" severity="secondary" outlined v-tooltip.top="'Voir le dossier'" @click="openReview(data)" />
@@ -107,13 +96,7 @@
             <Tag :value="statusLabel(license.status)" :severity="statusSeverity(license.status)" class="text-xs" />
           </div>
           <span class="license-card__meta">{{ license.member.email }}</span>
-          <span class="license-card__meta">
-            Saison {{ license.season }} ·
-            {{ license.amount !== null ? formatAmount(license.amount) : 'montant à définir' }} ·
-            <span :class="license.medicalCertificateFileName ? 'text-green-600' : 'text-color-secondary'">
-              {{ license.medicalCertificateFileName ? 'certificat ✓' : 'sans certificat' }}
-            </span>
-          </span>
+          <span class="license-card__meta">Saison {{ license.season }} · reçue le {{ formatDate(license.createdAt) }}</span>
           <div class="license-card__actions">
             <Button label="Dossier" icon="pi pi-folder-open" size="small" severity="secondary" outlined class="flex-1" @click="openReview(license)" />
             <template v-if="license.status === 'soumise'">
@@ -188,7 +171,6 @@ const statusLabel = (status: LicenseStatus) => LicenseStatusLabels[status] ?? st
 const statusSeverity = (status: string): string => ({
   soumise: 'info', validee: 'warn', en_paiement: 'warn', payee: 'success', refusee: 'danger', remboursee: 'secondary',
 }[status] ?? 'secondary')
-const formatAmount = (cents: number) => (cents / 100).toFixed(2).replace('.', ',') + ' €'
 const formatDate = (iso: string) => new Date(iso).toLocaleDateString('fr-FR')
 
 const fetchData = async () => {
