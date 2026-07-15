@@ -477,10 +477,12 @@ const handleLogout = () => authStore.logout();
   .sidebar--collapsed:not(.sidebar--hovered) .logout-btn {
     opacity: 0;
     width: 0;
-    height: 0; /* sinon leur hauteur rend la carte plus haute que l'avatar */
+    min-width: 0;  /* sinon min-width:1.75rem du bouton floore la largeur */
+    height: 0;     /* sinon leur hauteur rend la carte plus haute que l'avatar */
+    padding: 0;    /* border-box : le padding UA du <button> laissait 12px */
     overflow: hidden;
     flex-shrink: 1;
-    flex-grow: 0; /* sinon .user-info (flex:1) s'étire et décentre l'avatar */
+    flex-grow: 0;  /* sinon .user-info (flex:1) s'étire et décentre l'avatar */
   }
 
   /* nav: remove horizontal padding so icons hit true center */
