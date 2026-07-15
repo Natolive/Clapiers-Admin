@@ -559,6 +559,11 @@ const handleLogout = () => authStore.logout();
     gap: 0;
   }
 
+  /* rail en icônes : on montre toujours tout (le repli ne vaut qu'en large) */
+  .sidebar--collapsed:not(.sidebar--hovered) .nav-collapse {
+    grid-template-rows: 1fr;
+  }
+
   /* en icônes, l'en-tête devient un séparateur discret (pas une icône) */
   .sidebar--collapsed:not(.sidebar--hovered) .nav-group-label {
     height: 1px;
