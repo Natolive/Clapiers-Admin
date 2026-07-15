@@ -410,6 +410,7 @@ const handleLogout = () => authStore.logout();
   justify-content: center;
   font-size: 0.6875rem;
   font-weight: 700;
+  line-height: 1;
   letter-spacing: 0.05em;
   flex-shrink: 0;
   box-shadow: 0 2px 8px rgba(244, 162, 97, 0.3);
@@ -476,6 +477,7 @@ const handleLogout = () => authStore.logout();
   .sidebar--collapsed:not(.sidebar--hovered) .logout-btn {
     opacity: 0;
     width: 0;
+    height: 0; /* sinon leur hauteur rend la carte plus haute que l'avatar */
     overflow: hidden;
     flex-shrink: 1;
     flex-grow: 0; /* sinon .user-info (flex:1) s'étire et décentre l'avatar */
