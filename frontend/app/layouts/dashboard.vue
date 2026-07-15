@@ -478,6 +478,7 @@ const handleLogout = () => authStore.logout();
     width: 0;
     overflow: hidden;
     flex-shrink: 1;
+    flex-grow: 0; /* sinon .user-info (flex:1) s'étire et décentre l'avatar */
   }
 
   /* nav: remove horizontal padding so icons hit true center */
