@@ -84,7 +84,7 @@ class AbstractUseCaseTest extends TestCase
 
     public function testUnexpectedExceptionExposesDetailsInDev(): void
     {
-        $previousEnv = $_ENV['APP_ENV'] ?? null;
+        $previousEnv = getenv('APP_ENV') ?? null;
         $_ENV['APP_ENV'] = 'dev';
 
         try {

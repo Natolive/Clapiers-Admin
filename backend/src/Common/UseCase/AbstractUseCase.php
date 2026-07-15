@@ -37,7 +37,7 @@ abstract class AbstractUseCase
                 $e->getCode() ?? Response::HTTP_BAD_REQUEST
             );
         } catch (\Throwable $e) {
-            $isDev = ($_ENV['APP_ENV'] ?? 'prod') === 'dev';
+            $isDev = (getenv('APP_ENV') ?? 'prod') === 'dev';
 
             return new JsonResponse(
                 [

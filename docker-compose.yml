@@ -53,6 +53,8 @@ services:
       dockerfile: Dockerfile.dev
     volumes:
       - ./backend:/var/www/html
+    env_file:
+      - backend/.env.local
     healthcheck:
       test: ["CMD-SHELL", "php-fpm -t 2>/dev/null && echo ok"]
       interval: 5s
