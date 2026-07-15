@@ -51,17 +51,6 @@ class LogRepository extends ServiceEntityRepository
             ->execute();
     }
 
-    /** Supprime les logs antérieurs au seuil (rétention). Renvoie le nombre supprimé. */
-    public function deleteOlderThan(\DateTimeImmutable $threshold): int
-    {
-        return (int) $this->createQueryBuilder('l')
-            ->delete()
-            ->where('l.createdAt < :threshold')
-            ->setParameter('threshold', $threshold)
-            ->getQuery()
-            ->execute();
-    }
-
     private function createFilteredQueryBuilder(?string $level, ?string $search): QueryBuilder
     {
         $qb = $this->createQueryBuilder('l');
