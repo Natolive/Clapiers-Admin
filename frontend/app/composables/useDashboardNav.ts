@@ -53,6 +53,7 @@ export const useDashboardNav = (onNavigate?: () => void) => {
                     { label: 'Équipes', icon: 'pi pi-sitemap', route: '/dashboard/settings/teams', command: go('/dashboard/settings/teams') },
                     { label: 'Licenciés', icon: 'pi pi-id-card', route: '/dashboard/settings/members', command: go('/dashboard/settings/members') },
                     { label: 'Demandes de licence', icon: 'pi pi-inbox', route: '/dashboard/settings/license-requests', command: go('/dashboard/settings/license-requests') },
+                    { label: 'Logs', icon: 'pi pi-list', route: '/dashboard/settings/logs', command: go('/dashboard/settings/logs') },
                 ]
             });
         }
