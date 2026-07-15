@@ -9,7 +9,6 @@
         sidebarCollapsed && isDesktop ? 'sidebar--collapsed' : '',
         sidebarHovered ? 'sidebar--hovered' : ''
       ]"
-      :style="!isDesktop ? { background: 'var(--p-surface-card, #ffffff)', backdropFilter: 'none' } : {}"
       @mouseenter="handleSidebarMouseEnter"
       @mouseleave="handleSidebarMouseLeave"
     >
@@ -175,11 +174,23 @@ const handleLogout = () => authStore.logout();
 
 /* ── Sidebar ─────────────────────────────────────── */
 .sidebar {
+  /* Rail sombre immersif — palette club */
+  --rail-navy: #1e3a5f;
+  --rail-navy-deep: #142942;
+  --rail-accent: #f4a261;
+  --rail-text: rgba(255, 255, 255, 0.72);
+  --rail-text-dim: rgba(255, 255, 255, 0.42);
+  --rail-hover: rgba(255, 255, 255, 0.07);
+  --rail-active: rgba(255, 255, 255, 0.12);
+  --rail-border: rgba(255, 255, 255, 0.09);
+
   position: fixed;
   left: 0; top: 0; bottom: 0;
   width: 15rem;
-  background: var(--p-surface-card);
-  border-right: 1px solid var(--p-surface-border);
+  background:
+    radial-gradient(120% 60% at 0% 0%, rgba(244, 162, 97, 0.14) 0%, transparent 55%),
+    linear-gradient(180deg, var(--rail-navy) 0%, var(--rail-navy-deep) 100%);
+  border-right: 1px solid var(--rail-border);
   display: flex;
   flex-direction: column;
   z-index: 100;
@@ -194,7 +205,7 @@ const handleLogout = () => authStore.logout();
   align-items: center;
   gap: 0.75rem;
   padding: 1.125rem 1rem;
-  border-bottom: 1px solid var(--p-surface-border);
+  border-bottom: 1px solid var(--rail-border);
   flex-shrink: 0;
   overflow: hidden;
 }
@@ -203,12 +214,14 @@ const handleLogout = () => authStore.logout();
   width: 2.25rem;
   height: 2.25rem;
   min-width: 2.25rem;
-  background: var(--p-primary-color);
-  border-radius: 10px;
+  background: linear-gradient(135deg, var(--rail-accent) 0%, #e63946 100%);
+  border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 1.1rem;
+  box-shadow: 0 4px 14px rgba(244, 162, 97, 0.35),
+              inset 0 1px 0 rgba(255, 255, 255, 0.25);
 }
 
 .brand-text {
@@ -223,14 +236,14 @@ const handleLogout = () => authStore.logout();
 .brand-name {
   font-size: 0.9375rem;
   font-weight: 700;
-  color: var(--p-text-color);
+  color: #fff;
   letter-spacing: -0.01em;
 }
 
 .brand-sub {
   font-size: 0.6875rem;
   font-weight: 400;
-  color: var(--p-text-muted-color);
+  color: var(--rail-text-dim);
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
@@ -274,8 +287,8 @@ const handleLogout = () => authStore.logout();
   align-items: center;
   gap: 0.75rem;
   padding: 0.5625rem 0.75rem;
-  border-radius: 8px;
-  color: var(--p-text-muted-color);
+  border-radius: 10px;
+  color: var(--rail-text);
   cursor: pointer;
   transition: background 0.15s ease, color 0.15s ease;
   white-space: nowrap;
@@ -284,13 +297,22 @@ const handleLogout = () => authStore.logout();
 }
 
 .nav-link:hover {
-  background: var(--p-surface-hover);
-  color: var(--p-text-color);
+  background: var(--rail-hover);
+  color: #fff;
+}
+
+.nav-link:hover .nav-icon {
+  color: var(--rail-accent);
 }
 
 .nav-link--active {
-  background: var(--p-primary-50, #eff6ff);
-  color: var(--p-primary-color);
+  background: var(--rail-active);
+  color: #fff;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+.nav-link--active .nav-icon {
+  color: var(--rail-accent);
 }
 
 .nav-link--active .nav-indicator {
@@ -305,8 +327,9 @@ const handleLogout = () => authStore.logout();
   transform: translateY(-50%) scaleY(0);
   width: 3px;
   height: 1.25rem;
-  background: var(--p-primary-color);
+  background: var(--rail-accent);
   border-radius: 0 3px 3px 0;
+  box-shadow: 0 0 10px rgba(244, 162, 97, 0.6);
   opacity: 0;
   transition: opacity 0.15s ease, transform 0.15s ease;
 }
@@ -334,7 +357,7 @@ const handleLogout = () => authStore.logout();
   padding: 0.875rem 0.75rem 0.375rem;
   font-size: 0.6875rem;
   font-weight: 600;
-  color: var(--p-text-muted-color);
+  color: var(--rail-text-dim);
   text-transform: uppercase;
   letter-spacing: 0.07em;
   overflow: hidden;
@@ -357,7 +380,7 @@ const handleLogout = () => authStore.logout();
 /* ── Footer ──────────────────────────────────────── */
 .sidebar__footer {
   padding: 0.75rem 0.5rem;
-  border-top: 1px solid var(--p-surface-border);
+  border-top: 1px solid var(--rail-border);
   flex-shrink: 0;
 }
 
@@ -366,21 +389,21 @@ const handleLogout = () => authStore.logout();
   align-items: center;
   gap: 0.625rem;
   padding: 0.5rem 0.5rem;
-  border-radius: 8px;
+  border-radius: 10px;
   overflow: hidden;
   transition: background 0.15s ease;
 }
 
 .user-card:hover {
-  background: var(--p-surface-hover);
+  background: var(--rail-hover);
 }
 
 .user-avatar {
   width: 2rem;
   height: 2rem;
   min-width: 2rem;
-  border-radius: 8px;
-  background: var(--p-primary-color);
+  border-radius: 9px;
+  background: linear-gradient(135deg, var(--rail-accent) 0%, #e63946 100%);
   color: white;
   display: flex;
   align-items: center;
@@ -389,6 +412,7 @@ const handleLogout = () => authStore.logout();
   font-weight: 700;
   letter-spacing: 0.05em;
   flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(244, 162, 97, 0.3);
 }
 
 .user-info {
@@ -405,14 +429,14 @@ const handleLogout = () => authStore.logout();
 .user-name {
   font-size: 0.8125rem;
   font-weight: 600;
-  color: var(--p-text-color);
+  color: #fff;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .user-role {
   font-size: 0.6875rem;
-  color: var(--p-text-muted-color);
+  color: var(--rail-text-dim);
 }
 
 .logout-btn {
@@ -425,7 +449,7 @@ const handleLogout = () => authStore.logout();
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--p-text-muted-color);
+  color: var(--rail-text-dim);
   cursor: pointer;
   transition: all 0.15s ease;
   font-size: 0.875rem;
@@ -435,8 +459,8 @@ const handleLogout = () => authStore.logout();
 }
 
 .logout-btn:hover {
-  background: #fee2e2;
-  color: #ef4444;
+  background: rgba(230, 57, 70, 0.18);
+  color: #ff6b78;
 }
 
 /* ── Collapsed ───────────────────────────────────── */
