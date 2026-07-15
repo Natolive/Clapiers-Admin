@@ -177,7 +177,7 @@
                 <span v-if="doc.required" class="req">*</span>
                 <span v-else class="optional">facultatif</span>
               </div>
-              <input type="file" :accept="doc.accept" @change="onFile(doc.key, $event)" />
+              <FileDropField v-model="files[doc.key]" :accept="doc.accept" :max-size="MAX_FILE_SIZE" />
             </li>
           </ul>
         </section>
@@ -224,6 +224,7 @@ import { z } from 'zod'
 import { isValidPhoneNumber } from 'libphonenumber-js'
 import PhoneInput from '~/components/form/input/PhoneInput.vue'
 import SelectInput from '~/components/form/input/SelectInput.vue'
+import FileDropField from '~/components/form/input/FileDropField.vue'
 import { LicenseRepository, type LicenseDocumentKey } from '~/repository/license-repository'
 import { MemberGender, MemberGenderOptions } from '~/types/enum/MemberGender'
 
@@ -354,6 +355,7 @@ const steps = computed(() => {
 const stepIndex = ref(0)
 const currentStep = computed(() => steps.value[stepIndex.value] as string)
 
+const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5 Mo, aligné sur la contrainte backend
 const IMG = 'image/png,image/jpeg'
 const PDF_IMG = 'application/pdf,image/png,image/jpeg'
 const docItems = computed<{ key: LicenseDocumentKey; label: string; accept: string; required: boolean }[]>(() => [
@@ -385,11 +387,6 @@ const stepDocs = computed<{ label: string; url: string }[]>(() => {
     default: return []
   }
 })
-
-const onFile = (key: LicenseDocumentKey, event: Event) => {
-  const input = event.target as HTMLInputElement
-  files.value[key] = input.files?.[0] ?? null
-}
 
 const next = async () => {
   const fields = stepFields[currentStep.value] ?? []
