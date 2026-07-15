@@ -50,7 +50,7 @@ export const useDashboardNav = (onNavigate?: () => void) => {
                 su && link('Historique des matchs', 'pi pi-history', '/dashboard/game-history'),
                 admin && link('Mon équipe', 'pi pi-users', '/dashboard/my-team'),
             ]),
-            group('Membres', 'pi pi-id-card', [
+            group('Licences', 'pi pi-id-card', [
                 su && link('Licenciés', 'pi pi-id-card', '/dashboard/settings/members'),
                 su && link('Demandes de licence', 'pi pi-inbox', '/dashboard/settings/license-requests'),
             ]),
