@@ -69,22 +69,24 @@
       <Column field="createdAt" header="Reçue le" style="width: 9%">
         <template #body="{ data }">{{ formatDate(data.createdAt) }}</template>
       </Column>
-      <Column header="Actions" style="width: 16%">
+      <Column header="Actions" style="width: 20%">
         <template #body="{ data }">
-          <div v-if="data.status === 'soumise'" class="flex gap-2">
-            <Button label="Valider" icon="pi pi-check" size="small" severity="success" @click="openApprove(data)" />
-            <Button icon="pi pi-times" size="small" severity="danger" outlined v-tooltip.top="'Refuser'" @click="openReject(data)" />
+          <div class="flex gap-2">
+            <Button icon="pi pi-folder-open" size="small" severity="secondary" outlined v-tooltip.top="'Voir le dossier'" @click="openReview(data)" />
+            <template v-if="data.status === 'soumise'">
+              <Button label="Valider" icon="pi pi-check" size="small" severity="success" @click="openApprove(data)" />
+              <Button icon="pi pi-times" size="small" severity="danger" outlined v-tooltip.top="'Refuser'" @click="openReject(data)" />
+            </template>
+            <Button
+              v-else-if="canCopyLink(data)"
+              label="Copier le lien"
+              icon="pi pi-copy"
+              size="small"
+              severity="secondary"
+              outlined
+              @click="copyPaymentLink(data)"
+            />
           </div>
-          <Button
-            v-else-if="canCopyLink(data)"
-            label="Copier le lien"
-            icon="pi pi-copy"
-            size="small"
-            severity="secondary"
-            outlined
-            @click="copyPaymentLink(data)"
-          />
-          <span v-else class="text-color-secondary">—</span>
         </template>
       </Column>
     </DataTable>
@@ -112,12 +114,13 @@
               {{ license.medicalCertificateFileName ? 'certificat ✓' : 'sans certificat' }}
             </span>
           </span>
-          <div v-if="license.status === 'soumise'" class="license-card__actions">
-            <Button label="Valider" icon="pi pi-check" size="small" severity="success" class="flex-1" @click="openApprove(license)" />
-            <Button label="Refuser" icon="pi pi-times" size="small" severity="danger" outlined class="flex-1" @click="openReject(license)" />
-          </div>
-          <div v-else-if="canCopyLink(license)" class="license-card__actions">
-            <Button label="Copier le lien de paiement" icon="pi pi-copy" size="small" severity="secondary" outlined class="flex-1" @click="copyPaymentLink(license)" />
+          <div class="license-card__actions">
+            <Button label="Dossier" icon="pi pi-folder-open" size="small" severity="secondary" outlined class="flex-1" @click="openReview(license)" />
+            <template v-if="license.status === 'soumise'">
+              <Button label="Valider" icon="pi pi-check" size="small" severity="success" class="flex-1" @click="openApprove(license)" />
+              <Button label="Refuser" icon="pi pi-times" size="small" severity="danger" outlined class="flex-1" @click="openReject(license)" />
+            </template>
+            <Button v-else-if="canCopyLink(license)" label="Copier le lien" icon="pi pi-copy" size="small" severity="secondary" outlined class="flex-1" @click="copyPaymentLink(license)" />
           </div>
         </div>
       </template>
@@ -140,6 +143,7 @@
 <script setup lang="ts">
 import ApproveLicenseDialog from '~/components/dialogs/ApproveLicenseDialog.vue'
 import RejectLicenseDialog from '~/components/dialogs/RejectLicenseDialog.vue'
+import LicenseReviewDialog from '~/components/dialogs/LicenseReviewDialog.vue'
 import { LicenseAdminRepository } from '~/repository/license-admin-repository'
 import type { License } from '~/types/entity/License'
 import { LicenseStatus, LicenseStatusLabels } from '~/types/enum/LicenseStatus'
@@ -215,6 +219,7 @@ watch(search, () => {
   searchTimeout = setTimeout(() => { lazyParams.value.first = 0; fetchData() }, 300)
 })
 
+const openReview = (license: License) => show({ component: LicenseReviewDialog, props: { license, onSaved: fetchData } })
 const openApprove = (license: License) => show({ component: ApproveLicenseDialog, props: { license, onSaved: fetchData } })
 const openReject = (license: License) => show({ component: RejectLicenseDialog, props: { license, onSaved: fetchData } })
 

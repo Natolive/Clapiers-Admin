@@ -14,6 +14,22 @@ export interface LicensePaginationParams {
     search?: string;
 }
 
+export interface LicenseReviewDocument {
+    key: string;
+    label: string;
+    uploaded: boolean;
+    nodeId: string | null;
+    originalName: string | null;
+    mimeType: string | null;
+    size: number | null;
+}
+
+export interface LicenseReview {
+    license: License;
+    memberId: number;
+    documents: LicenseReviewDocument[];
+}
+
 /**
  * Endpoints back-office des licences (SUPER_ADMIN, API authentifiée).
  * Distinct de LicenseRepository qui gère le parcours public (usePublicApi).
@@ -31,6 +47,11 @@ export class LicenseAdminRepository {
                 ...(params.search ? { search: params.search } : {}),
             },
         });
+    }
+
+    /** Dossier complet d'une demande : infos + état des pièces déposées. */
+    async getReview(id: number): Promise<LicenseReview> {
+        return await this.api<LicenseReview>(`/license/${id}`, { method: 'GET' });
     }
 
     async getTiers(): Promise<LicenseTier[]> {
