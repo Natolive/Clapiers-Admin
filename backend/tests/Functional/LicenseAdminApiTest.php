@@ -5,6 +5,9 @@ namespace App\Tests\Functional;
 use App\Entity\Enum\LicenseStatus;
 use App\Entity\Enum\MemberStatus;
 use App\Entity\License;
+use App\Entity\Member;
+use App\Entity\MemberDocument;
+use App\Repository\MemberDocumentRepository;
 use App\Tests\Support\ApiTestCase;
 
 /**
@@ -49,6 +52,69 @@ class LicenseAdminApiTest extends ApiTestCase
         $body = $this->assertJsonResponse(200);
         $this->assertSame(101, $body['data'][0]['id']);
         $this->assertSame('Licence Compétition', $body['data'][1]['label']);
+    }
+
+    public function testGetReviewReturnsRequestInfoAndDocuments(): void
+    {
+        $license = $this->aLicense()->withToken('tok-review')->inSeason('2030-2031')->persist();
+
+        // Dépôt public de deux pièces sur quatre attendues.
+        $this->uploadFile('/api/public/license-request/tok-review/document/identity_photo', $this->fakePng());
+        $this->uploadFile('/api/public/license-request/tok-review/document/medical_certificate', $this->fakePdf());
+
+        $this->actingAsSuperAdmin();
+        $this->getJson("/api/license/{$license->getId()}");
+
+        $body = $this->assertJsonResponse(200);
+
+        // Toutes les infos de la demande.
+        $this->assertSame($license->getId(), $body['license']['id']);
+        $this->assertArrayHasKey('member', $body['license']);
+        $this->assertSame($license->getMember()->getId(), $body['memberId']);
+
+        // État des pièces, dans l'ordre attendu.
+        $this->assertCount(4, $body['documents']);
+        $byKey = [];
+        foreach ($body['documents'] as $document) {
+            $byKey[$document['key']] = $document;
+        }
+
+        $this->assertTrue($byKey['identity_photo']['uploaded']);
+        $this->assertNotNull($byKey['identity_photo']['nodeId']);
+        $this->assertSame('image/png', $byKey['identity_photo']['mimeType']);
+
+        $this->assertTrue($byKey['medical_certificate']['uploaded']);
+        $this->assertNotNull($byKey['medical_certificate']['nodeId']);
+
+        $this->assertFalse($byKey['id_card']['uploaded']);
+        $this->assertNull($byKey['id_card']['nodeId']);
+        $this->assertFalse($byKey['attestation']['uploaded']);
+
+        // Le nodeId renvoyé est réellement téléchargeable via la médiathèque du membre.
+        $this->client->request('GET', "/api/member/{$body['memberId']}/media/node/{$byKey['identity_photo']['nodeId']}/download");
+        $this->assertSame(200, $this->client->getResponse()->getStatusCode());
+    }
+
+    public function testGetReviewRequiresAuthentication(): void
+    {
+        $license = $this->aLicense()->persist();
+        $this->getJson("/api/license/{$license->getId()}");
+        $this->assertJsonResponse(401);
+    }
+
+    public function testGetReviewIsForbiddenForAdmin(): void
+    {
+        $license = $this->aLicense()->persist();
+        $this->actingAsAdmin();
+        $this->getJson("/api/license/{$license->getId()}");
+        $this->assertJsonResponse(403);
+    }
+
+    public function testGetReviewUnknownReturns404(): void
+    {
+        $this->actingAsSuperAdmin();
+        $this->getJson('/api/license/999999');
+        $this->assertJsonResponse(404);
     }
 
     public function testApproveFreezesAmountAndEmailsThePaymentLink(): void
@@ -110,6 +176,104 @@ class LicenseAdminApiTest extends ApiTestCase
         $this->actingAsAdmin();
         $this->postJson("/api/license/{$license->getId()}/approve", ['helloAssoTierId' => 1, 'amount' => 100]);
         $this->assertJsonResponse(403);
+    }
+
+    public function testGetReviewSurfacesExistingMemberSameEmail(): void
+    {
+        $requestMember = $this->aMember()->withEmail('dup@test.fr')->persist();
+        $license = $this->aLicense()->forMember($requestMember)->persist();
+        $existing = $this->aMember()->named('Zinedine', 'Zidane')->withEmail('dup@test.fr')->persist();
+        $this->actingAsSuperAdmin();
+
+        $this->getJson("/api/license/{$license->getId()}");
+
+        $body = $this->assertJsonResponse(200);
+        $this->assertNotNull($body['existingMember']);
+        $this->assertSame($existing->getId(), $body['existingMember']['id']);
+        $this->assertSame('Zidane', $body['existingMember']['lastName']);
+        $this->assertFalse($body['existingMember']['hasLicenseThisSeason']);
+    }
+
+    public function testGetReviewHasNoExistingMemberWhenEmailUnique(): void
+    {
+        $license = $this->aLicense()->persist();
+        $this->actingAsSuperAdmin();
+
+        $this->getJson("/api/license/{$license->getId()}");
+
+        $body = $this->assertJsonResponse(200);
+        $this->assertNull($body['existingMember']);
+    }
+
+    public function testApproveWithReplaceMergesIntoExistingMember(): void
+    {
+        $requestMember = $this->aMember()->named('Jean', 'Dupont')->withEmail('jean@test.fr')->persist();
+        $license = $this->aLicense()->forMember($requestMember)->withToken('tok-merge')->inSeason('2030-2031')->persist();
+        $requestMemberId = $requestMember->getId();
+
+        // Pièces déposées via le magic link (sur la fiche de la demande).
+        $this->uploadFile('/api/public/license-request/tok-merge/document/identity_photo', $this->fakePng());
+        $this->uploadFile('/api/public/license-request/tok-merge/document/medical_certificate', $this->fakePdf());
+
+        $existing = $this->aMember()->named('Jean', 'Dupont')->withEmail('jean@test.fr')->persist();
+        $existingId = $existing->getId();
+
+        $this->actingAsSuperAdmin();
+        $this->postJson("/api/license/{$license->getId()}/approve", [
+            'helloAssoTierId' => 102,
+            'amount' => 12000,
+            'replaceMemberId' => $existingId,
+        ]);
+
+        $body = $this->assertJsonResponse(200);
+        $this->assertSame('validee', $body['status']);
+        $this->assertSame($existingId, $body['member']['id']);
+        $this->assertSame('active', $body['member']['status']);
+
+        // La fiche en double est supprimée.
+        $this->em()->clear();
+        $this->assertNull($this->em()->getRepository(Member::class)->find($requestMemberId));
+
+        // Les pièces déposées ont été déplacées vers le membre existant.
+        $reloaded = $this->em()->getRepository(Member::class)->find($existingId);
+        $docRepo = $this->em()->getRepository(MemberDocument::class);
+        $this->assertTrue($docRepo->findRootDocumentSlot($reloaded, 'identity_photo')->hasFile());
+        $this->assertTrue($docRepo->findDefaultSlot($reloaded, '2030-2031', 'medical_certificate')->hasFile());
+
+        $this->assertEmailCount(1);
+    }
+
+    public function testApproveWithReplaceBlocksWhenExistingHasLicenseSameSeason(): void
+    {
+        $requestMember = $this->aMember()->withEmail('busy@test.fr')->persist();
+        $license = $this->aLicense()->forMember($requestMember)->inSeason('2030-2031')->persist();
+        $existing = $this->aMember()->withEmail('busy@test.fr')->persist();
+        $this->aLicense()->forMember($existing)->inSeason('2030-2031')->withStatus(LicenseStatus::VALIDEE)->persist();
+        $this->actingAsSuperAdmin();
+
+        $this->postJson("/api/license/{$license->getId()}/approve", [
+            'helloAssoTierId' => 1,
+            'amount' => 100,
+            'replaceMemberId' => $existing->getId(),
+        ]);
+
+        $this->assertJsonResponse(409);
+    }
+
+    public function testApproveWithReplaceRejectsEmailMismatch(): void
+    {
+        $requestMember = $this->aMember()->withEmail('a@test.fr')->persist();
+        $license = $this->aLicense()->forMember($requestMember)->persist();
+        $other = $this->aMember()->withEmail('b@test.fr')->persist();
+        $this->actingAsSuperAdmin();
+
+        $this->postJson("/api/license/{$license->getId()}/approve", [
+            'helloAssoTierId' => 1,
+            'amount' => 100,
+            'replaceMemberId' => $other->getId(),
+        ]);
+
+        $this->assertJsonResponse(422);
     }
 
     public function testRejectSetsStatusAndEmails(): void

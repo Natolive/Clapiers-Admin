@@ -46,45 +46,36 @@
           </div>
         </template>
       </Column>
-      <Column field="member.phoneNumber" header="Téléphone" style="width: 13%">
+      <Column field="member.phoneNumber" header="Téléphone" style="width: 16%">
         <template #body="{ data }">{{ data.member.phoneNumber }}</template>
       </Column>
-      <Column field="season" header="Saison" style="width: 10%" />
-      <Column header="Certificat" style="width: 9%">
-        <template #body="{ data }">
-          <i
-            :class="data.medicalCertificateFileName ? 'pi pi-check-circle text-green-500' : 'pi pi-minus-circle text-color-secondary'"
-            v-tooltip.top="data.medicalCertificateFileName ? 'Certificat déposé' : 'Aucun certificat'"
-          />
-        </template>
-      </Column>
-      <Column header="Montant" style="width: 9%">
-        <template #body="{ data }">{{ data.amount !== null ? formatAmount(data.amount) : '—' }}</template>
-      </Column>
-      <Column header="Statut" style="width: 11%">
+      <Column field="season" header="Saison" style="width: 12%" />
+      <Column header="Statut" style="width: 13%">
         <template #body="{ data }">
           <Tag :value="statusLabel(data.status)" :severity="statusSeverity(data.status)" />
         </template>
       </Column>
-      <Column field="createdAt" header="Reçue le" style="width: 9%">
+      <Column field="createdAt" header="Reçue le" style="width: 12%">
         <template #body="{ data }">{{ formatDate(data.createdAt) }}</template>
       </Column>
-      <Column header="Actions" style="width: 16%">
+      <Column header="Actions" style="width: 22%">
         <template #body="{ data }">
-          <div v-if="data.status === 'soumise'" class="flex gap-2">
-            <Button label="Valider" icon="pi pi-check" size="small" severity="success" @click="openApprove(data)" />
-            <Button icon="pi pi-times" size="small" severity="danger" outlined v-tooltip.top="'Refuser'" @click="openReject(data)" />
+          <div class="flex gap-2">
+            <Button icon="pi pi-folder-open" size="small" severity="secondary" outlined v-tooltip.top="'Voir le dossier'" @click="openReview(data)" />
+            <template v-if="data.status === 'soumise'">
+              <Button label="Valider" icon="pi pi-check" size="small" severity="success" @click="openApprove(data)" />
+              <Button icon="pi pi-times" size="small" severity="danger" outlined v-tooltip.top="'Refuser'" @click="openReject(data)" />
+            </template>
+            <Button
+              v-else-if="canCopyLink(data)"
+              label="Copier le lien"
+              icon="pi pi-copy"
+              size="small"
+              severity="secondary"
+              outlined
+              @click="copyPaymentLink(data)"
+            />
           </div>
-          <Button
-            v-else-if="canCopyLink(data)"
-            label="Copier le lien"
-            icon="pi pi-copy"
-            size="small"
-            severity="secondary"
-            outlined
-            @click="copyPaymentLink(data)"
-          />
-          <span v-else class="text-color-secondary">—</span>
         </template>
       </Column>
     </DataTable>
@@ -105,19 +96,14 @@
             <Tag :value="statusLabel(license.status)" :severity="statusSeverity(license.status)" class="text-xs" />
           </div>
           <span class="license-card__meta">{{ license.member.email }}</span>
-          <span class="license-card__meta">
-            Saison {{ license.season }} ·
-            {{ license.amount !== null ? formatAmount(license.amount) : 'montant à définir' }} ·
-            <span :class="license.medicalCertificateFileName ? 'text-green-600' : 'text-color-secondary'">
-              {{ license.medicalCertificateFileName ? 'certificat ✓' : 'sans certificat' }}
-            </span>
-          </span>
-          <div v-if="license.status === 'soumise'" class="license-card__actions">
-            <Button label="Valider" icon="pi pi-check" size="small" severity="success" class="flex-1" @click="openApprove(license)" />
-            <Button label="Refuser" icon="pi pi-times" size="small" severity="danger" outlined class="flex-1" @click="openReject(license)" />
-          </div>
-          <div v-else-if="canCopyLink(license)" class="license-card__actions">
-            <Button label="Copier le lien de paiement" icon="pi pi-copy" size="small" severity="secondary" outlined class="flex-1" @click="copyPaymentLink(license)" />
+          <span class="license-card__meta">Saison {{ license.season }} · reçue le {{ formatDate(license.createdAt) }}</span>
+          <div class="license-card__actions">
+            <Button label="Dossier" icon="pi pi-folder-open" size="small" severity="secondary" outlined class="flex-1" @click="openReview(license)" />
+            <template v-if="license.status === 'soumise'">
+              <Button label="Valider" icon="pi pi-check" size="small" severity="success" class="flex-1" @click="openApprove(license)" />
+              <Button label="Refuser" icon="pi pi-times" size="small" severity="danger" outlined class="flex-1" @click="openReject(license)" />
+            </template>
+            <Button v-else-if="canCopyLink(license)" label="Copier le lien" icon="pi pi-copy" size="small" severity="secondary" outlined class="flex-1" @click="copyPaymentLink(license)" />
           </div>
         </div>
       </template>
@@ -140,6 +126,7 @@
 <script setup lang="ts">
 import ApproveLicenseDialog from '~/components/dialogs/ApproveLicenseDialog.vue'
 import RejectLicenseDialog from '~/components/dialogs/RejectLicenseDialog.vue'
+import LicenseReviewDialog from '~/components/dialogs/LicenseReviewDialog.vue'
 import { LicenseAdminRepository } from '~/repository/license-admin-repository'
 import type { License } from '~/types/entity/License'
 import { LicenseStatus, LicenseStatusLabels } from '~/types/enum/LicenseStatus'
@@ -184,7 +171,6 @@ const statusLabel = (status: LicenseStatus) => LicenseStatusLabels[status] ?? st
 const statusSeverity = (status: string): string => ({
   soumise: 'info', validee: 'warn', en_paiement: 'warn', payee: 'success', refusee: 'danger', remboursee: 'secondary',
 }[status] ?? 'secondary')
-const formatAmount = (cents: number) => (cents / 100).toFixed(2).replace('.', ',') + ' €'
 const formatDate = (iso: string) => new Date(iso).toLocaleDateString('fr-FR')
 
 const fetchData = async () => {
@@ -215,6 +201,7 @@ watch(search, () => {
   searchTimeout = setTimeout(() => { lazyParams.value.first = 0; fetchData() }, 300)
 })
 
+const openReview = (license: License) => show({ component: LicenseReviewDialog, props: { license, onSaved: fetchData } })
 const openApprove = (license: License) => show({ component: ApproveLicenseDialog, props: { license, onSaved: fetchData } })
 const openReject = (license: License) => show({ component: RejectLicenseDialog, props: { license, onSaved: fetchData } })
 

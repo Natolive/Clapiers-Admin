@@ -48,7 +48,7 @@ class PublicController extends AbstractController
         return $useCase->execute($command);
     }
 
-    #[Route('/license-request/{token}/document/{systemKey}', name: 'license_document', methods: ['POST'], requirements: ['systemKey' => 'profile_picture|id_card|medical_certificate|attestation'])]
+    #[Route('/license-request/{token}/document/{systemKey}', name: 'license_document', methods: ['POST'], requirements: ['systemKey' => 'identity_photo|id_card|medical_certificate|attestation'])]
     public function uploadLicenseRequestDocument(
         string $token,
         string $systemKey,

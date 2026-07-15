@@ -58,7 +58,7 @@ class MemberMediaApiTest extends ApiTestCase
         $this->assertNull($identity['season'], 'Le dossier Identité est indépendant de la saison');
         $identityKeys = array_column($identity['children'], 'systemKey');
         sort($identityKeys);
-        $this->assertSame(['id_card', 'profile_picture'], $identityKeys);
+        $this->assertSame(['id_card', 'identity_photo'], $identityKeys);
 
         // Tous les slots par défaut sont protégés et vides au départ.
         foreach ([...$season['children'], ...$identity['children']] as $slot) {

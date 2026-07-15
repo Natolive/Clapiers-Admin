@@ -14,6 +14,32 @@ export interface LicensePaginationParams {
     search?: string;
 }
 
+export interface LicenseReviewDocument {
+    key: string;
+    label: string;
+    uploaded: boolean;
+    nodeId: string | null;
+    originalName: string | null;
+    mimeType: string | null;
+    size: number | null;
+}
+
+export interface LicenseReviewExistingMember {
+    id: number;
+    firstName: string;
+    lastName: string;
+    email: string;
+    status: string;
+    hasLicenseThisSeason: boolean;
+}
+
+export interface LicenseReview {
+    license: License;
+    memberId: number;
+    documents: LicenseReviewDocument[];
+    existingMember: LicenseReviewExistingMember | null;
+}
+
 /**
  * Endpoints back-office des licences (SUPER_ADMIN, API authentifiée).
  * Distinct de LicenseRepository qui gère le parcours public (usePublicApi).
@@ -33,15 +59,20 @@ export class LicenseAdminRepository {
         });
     }
 
+    /** Dossier complet d'une demande : infos + état des pièces déposées. */
+    async getReview(id: number): Promise<LicenseReview> {
+        return await this.api<LicenseReview>(`/license/${id}`, { method: 'GET' });
+    }
+
     async getTiers(): Promise<LicenseTier[]> {
         const response = await this.api<{ data?: LicenseTier[] }>('/license/tiers', { method: 'GET' });
         return response.data ?? [];
     }
 
-    async approve(id: number, helloAssoTierId: number, amount: number): Promise<License> {
+    async approve(id: number, helloAssoTierId: number, amount: number, replaceMemberId?: number | null): Promise<License> {
         return await this.api<License>(`/license/${id}/approve`, {
             method: 'POST',
-            body: { helloAssoTierId, amount },
+            body: { helloAssoTierId, amount, ...(replaceMemberId ? { replaceMemberId } : {}) },
         });
     }
 

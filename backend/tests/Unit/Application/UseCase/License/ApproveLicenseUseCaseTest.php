@@ -6,9 +6,13 @@ use App\Application\UseCase\License\ApproveLicense\ApproveLicenseCommand;
 use App\Application\UseCase\License\ApproveLicense\ApproveLicenseUseCase;
 use App\Entity\Enum\LicenseStatus;
 use App\Entity\Enum\MemberStatus;
+use App\Common\Service\MemberMediaSeeder;
+use App\Common\Service\MemberMediaStorage;
 use App\Entity\License;
 use App\Entity\Member;
 use App\Repository\LicenseRepository;
+use App\Repository\MemberDocumentRepository;
+use App\Repository\MemberRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
@@ -37,6 +41,10 @@ class ApproveLicenseUseCaseTest extends TestCase
 
         $useCase = new ApproveLicenseUseCase(
             $repository,
+            $this->createStub(MemberRepository::class),
+            $this->createStub(MemberDocumentRepository::class),
+            $this->createStub(MemberMediaSeeder::class),
+            $this->createStub(MemberMediaStorage::class),
             $this->createStub(EntityManagerInterface::class),
             $mailer,
             new NullLogger(),

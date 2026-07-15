@@ -47,7 +47,11 @@ const emit = defineEmits<{ 'update:visible': [value: boolean] }>()
 const repo = new LicenseAdminRepository()
 const toast = usePVToastService()
 
-const reason = ref('')
+const DEFAULT_REASON = 'Bonjour, après examen votre demande de licence ne peut être validée en l\'état. '
+  + 'Merci de vérifier les pièces transmises (photo, pièce d\'identité, certificat médical) '
+  + 'et de renouveler votre demande. L\'équipe du Clapiers Volley-Ball.'
+
+const reason = ref(DEFAULT_REASON)
 const loading = ref(false)
 const error = ref('')
 

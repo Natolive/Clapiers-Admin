@@ -10,6 +10,7 @@ class ApproveLicenseCommand implements CommandInterface
         public readonly int $id,
         public readonly int $helloAssoTierId,
         public readonly int $amount,
+        public readonly ?int $replaceMemberId = null,
     ) {
     }
 }

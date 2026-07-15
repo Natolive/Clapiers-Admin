@@ -5,6 +5,8 @@ namespace App\Controller;
 use App\Application\UseCase\License\ApproveLicense\ApproveLicenseCommand;
 use App\Application\UseCase\License\ApproveLicense\ApproveLicensePayload;
 use App\Application\UseCase\License\ApproveLicense\ApproveLicenseUseCase;
+use App\Application\UseCase\License\GetLicenseReview\GetLicenseReviewCommand;
+use App\Application\UseCase\License\GetLicenseReview\GetLicenseReviewUseCase;
 use App\Application\UseCase\License\GetLicenseTiers\GetLicenseTiersUseCase;
 use App\Application\UseCase\License\GetPaginatedLicenses\GetPaginatedLicensesCommand;
 use App\Application\UseCase\License\GetPaginatedLicenses\GetPaginatedLicensesUseCase;
@@ -37,13 +39,21 @@ class LicenseController extends AbstractController
         return $useCase->execute();
     }
 
+    #[Route('/{id}', name: 'get_review', methods: ['GET'], requirements: ['id' => '\d+'])]
+    public function getReview(
+        int $id,
+        GetLicenseReviewUseCase $useCase
+    ): Response {
+        return $useCase->execute(new GetLicenseReviewCommand($id));
+    }
+
     #[Route('/{id}/approve', name: 'approve', methods: ['POST'])]
     public function approve(
         int $id,
         #[MapRequestPayload] ApproveLicensePayload $payload,
         ApproveLicenseUseCase $useCase
     ): Response {
-        return $useCase->execute(new ApproveLicenseCommand($id, $payload->helloAssoTierId, $payload->amount));
+        return $useCase->execute(new ApproveLicenseCommand($id, $payload->helloAssoTierId, $payload->amount, $payload->replaceMemberId));
     }
 
     #[Route('/{id}/reject', name: 'reject', methods: ['POST'])]

@@ -53,7 +53,7 @@ class DownloadMyTeamMemberPhotoUseCase extends AbstractUseCase
             throw new UseCaseException('This member is not in your team', 403);
         }
 
-        $slot = $this->documentRepository->findRootDocumentSlot($member, 'profile_picture');
+        $slot = $this->documentRepository->findRootDocumentSlot($member, 'identity_photo');
 
         if (!$slot || !$slot->hasFile()) {
             throw new UseCaseException('No profile picture for this member', 404);

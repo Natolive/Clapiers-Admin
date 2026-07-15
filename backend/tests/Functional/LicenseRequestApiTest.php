@@ -118,13 +118,13 @@ class LicenseRequestApiTest extends ApiTestCase
     {
         $license = $this->aLicense()->withToken('tok-id')->persist();
 
-        $this->uploadFile('/api/public/license-request/tok-id/document/profile_picture', $this->fakePng());
+        $this->uploadFile('/api/public/license-request/tok-id/document/identity_photo', $this->fakePng());
         $this->assertJsonResponse(200);
         $this->uploadFile('/api/public/license-request/tok-id/document/id_card', $this->fakePdf());
         $this->assertJsonResponse(200);
 
         $member = $license->getMember();
-        $this->assertTrue($this->documentRepo()->findRootDocumentSlot($member, 'profile_picture')->hasFile());
+        $this->assertTrue($this->documentRepo()->findRootDocumentSlot($member, 'identity_photo')->hasFile());
         $this->assertTrue($this->documentRepo()->findRootDocumentSlot($member, 'id_card')->hasFile());
     }
 
@@ -132,7 +132,7 @@ class LicenseRequestApiTest extends ApiTestCase
     {
         $this->aLicense()->withToken('tok-pp-pdf')->persist();
 
-        $this->uploadFile('/api/public/license-request/tok-pp-pdf/document/profile_picture', $this->fakePdf());
+        $this->uploadFile('/api/public/license-request/tok-pp-pdf/document/identity_photo', $this->fakePdf());
 
         $this->assertJsonResponse(422);
     }

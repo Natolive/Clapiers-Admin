@@ -22,7 +22,7 @@ final class MemberMediaDefaults
         'identity' => [
             'label' => 'Identité',
             'documents' => [
-                'profile_picture' => 'Photo de profil',
+                'identity_photo' => "Photo d'identité",
                 'id_card' => "Pièce d'identité",
             ],
         ],

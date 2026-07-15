@@ -426,7 +426,7 @@ class TeamApiTest extends ApiTestCase
         static::getContainer()->get(MemberMediaSeeder::class)->ensureRootFolders($member);
         $this->em()->flush();
         $slot = static::getContainer()->get(MemberDocumentRepository::class)
-            ->findRootDocumentSlot($member, 'profile_picture');
+            ->findRootDocumentSlot($member, 'identity_photo');
         $this->attachFile($slot, 'pp.png', 'photo.png');
     }
 

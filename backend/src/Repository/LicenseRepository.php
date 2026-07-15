@@ -4,6 +4,7 @@ namespace App\Repository;
 
 use App\Entity\Enum\LicenseStatus;
 use App\Entity\License;
+use App\Entity\Member;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\ORM\QueryBuilder;
 use Doctrine\Persistence\ManagerRegistry;
@@ -21,6 +22,11 @@ class LicenseRepository extends ServiceEntityRepository
     public function findOneByAccessToken(string $token): ?License
     {
         return $this->findOneBy(['accessToken' => $token]);
+    }
+
+    public function findOneByMemberAndSeason(Member $member, string $season): ?License
+    {
+        return $this->findOneBy(['member' => $member, 'season' => $season]);
     }
 
     /**
