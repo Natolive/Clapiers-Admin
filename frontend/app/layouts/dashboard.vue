@@ -565,11 +565,6 @@ const handleLogout = () => authStore.logout();
     gap: 0;
   }
 
-  /* rail réduit : les sous-menus restent visibles (icônes), repli ignoré */
-  .sidebar--collapsed:not(.sidebar--hovered) .nav-collapse {
-    grid-template-rows: 1fr;
-  }
-
   /* chevron retiré du flux (sinon son margin-left:auto décentre l'icône) */
   .sidebar--collapsed:not(.sidebar--hovered) .nav-chevron {
     display: none;
