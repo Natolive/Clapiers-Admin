@@ -14,7 +14,7 @@
     >
       <!-- Brand -->
       <div class="sidebar__brand">
-        <div class="brand-orb">🏐</div>
+        <img src="/logo.png" alt="Clapiers Volley-Ball" class="brand-logo" />
         <div class="brand-text">
           <span class="brand-name">Clapiers</span>
           <span class="brand-sub">Volley-Ball Club</span>
@@ -232,18 +232,12 @@ const handleLogout = () => authStore.logout();
   overflow: hidden;
 }
 
-.brand-orb {
+.brand-logo {
   width: 2.25rem;
   height: 2.25rem;
   min-width: 2.25rem;
-  background: linear-gradient(135deg, var(--rail-accent) 0%, #e63946 100%);
-  border-radius: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.1rem;
-  box-shadow: 0 4px 14px rgba(244, 162, 97, 0.35),
-              inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  object-fit: contain;
+  border-radius: 8px;
 }
 
 .brand-text {
