@@ -33,11 +33,10 @@ when@test:
         upload_directory: '%kernel.project_dir%/var/test-uploads'
 
     services:
-        # Without monolog, the kernel logger writes every uncaught exception to
-        # stderr — negative tests (403/422 assertions) would flood the PHPUnit
-        # output. Tests assert on responses, not logs, so drop them entirely.
-        logger:
-            class: Psr\Log\NullLogger
+        # Logging is silenced in tests via a "null" Monolog handler
+        # (config/packages/monolog.yaml, when@test) — negative tests
+        # (403/422 assertions) must not flood the PHPUnit output, and the
+        # Doctrine handler must never write log rows during tests.
 
         # Never hit the real HelloAsso API in tests: swap in a controllable fake.
         App\Tests\Support\Fake\FakeHelloAssoClient:
