@@ -51,6 +51,69 @@ class LicenseAdminApiTest extends ApiTestCase
         $this->assertSame('Licence Compétition', $body['data'][1]['label']);
     }
 
+    public function testGetReviewReturnsRequestInfoAndDocuments(): void
+    {
+        $license = $this->aLicense()->withToken('tok-review')->inSeason('2030-2031')->persist();
+
+        // Dépôt public de deux pièces sur quatre attendues.
+        $this->uploadFile('/api/public/license-request/tok-review/document/profile_picture', $this->fakePng());
+        $this->uploadFile('/api/public/license-request/tok-review/document/medical_certificate', $this->fakePdf());
+
+        $this->actingAsSuperAdmin();
+        $this->getJson("/api/license/{$license->getId()}");
+
+        $body = $this->assertJsonResponse(200);
+
+        // Toutes les infos de la demande.
+        $this->assertSame($license->getId(), $body['license']['id']);
+        $this->assertArrayHasKey('member', $body['license']);
+        $this->assertSame($license->getMember()->getId(), $body['memberId']);
+
+        // État des pièces, dans l'ordre attendu.
+        $this->assertCount(4, $body['documents']);
+        $byKey = [];
+        foreach ($body['documents'] as $document) {
+            $byKey[$document['key']] = $document;
+        }
+
+        $this->assertTrue($byKey['profile_picture']['uploaded']);
+        $this->assertNotNull($byKey['profile_picture']['nodeId']);
+        $this->assertSame('image/png', $byKey['profile_picture']['mimeType']);
+
+        $this->assertTrue($byKey['medical_certificate']['uploaded']);
+        $this->assertNotNull($byKey['medical_certificate']['nodeId']);
+
+        $this->assertFalse($byKey['id_card']['uploaded']);
+        $this->assertNull($byKey['id_card']['nodeId']);
+        $this->assertFalse($byKey['attestation']['uploaded']);
+
+        // Le nodeId renvoyé est réellement téléchargeable via la médiathèque du membre.
+        $this->client->request('GET', "/api/member/{$body['memberId']}/media/node/{$byKey['profile_picture']['nodeId']}/download");
+        $this->assertSame(200, $this->client->getResponse()->getStatusCode());
+    }
+
+    public function testGetReviewRequiresAuthentication(): void
+    {
+        $license = $this->aLicense()->persist();
+        $this->getJson("/api/license/{$license->getId()}");
+        $this->assertJsonResponse(401);
+    }
+
+    public function testGetReviewIsForbiddenForAdmin(): void
+    {
+        $license = $this->aLicense()->persist();
+        $this->actingAsAdmin();
+        $this->getJson("/api/license/{$license->getId()}");
+        $this->assertJsonResponse(403);
+    }
+
+    public function testGetReviewUnknownReturns404(): void
+    {
+        $this->actingAsSuperAdmin();
+        $this->getJson('/api/license/999999');
+        $this->assertJsonResponse(404);
+    }
+
     public function testApproveFreezesAmountAndEmailsThePaymentLink(): void
     {
         $license = $this->aLicense()->withToken('tok-approve')->persist();
