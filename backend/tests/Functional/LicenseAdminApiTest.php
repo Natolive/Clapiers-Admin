@@ -56,7 +56,7 @@ class LicenseAdminApiTest extends ApiTestCase
         $license = $this->aLicense()->withToken('tok-review')->inSeason('2030-2031')->persist();
 
         // Dépôt public de deux pièces sur quatre attendues.
-        $this->uploadFile('/api/public/license-request/tok-review/document/profile_picture', $this->fakePng());
+        $this->uploadFile('/api/public/license-request/tok-review/document/identity_photo', $this->fakePng());
         $this->uploadFile('/api/public/license-request/tok-review/document/medical_certificate', $this->fakePdf());
 
         $this->actingAsSuperAdmin();
@@ -76,9 +76,9 @@ class LicenseAdminApiTest extends ApiTestCase
             $byKey[$document['key']] = $document;
         }
 
-        $this->assertTrue($byKey['profile_picture']['uploaded']);
-        $this->assertNotNull($byKey['profile_picture']['nodeId']);
-        $this->assertSame('image/png', $byKey['profile_picture']['mimeType']);
+        $this->assertTrue($byKey['identity_photo']['uploaded']);
+        $this->assertNotNull($byKey['identity_photo']['nodeId']);
+        $this->assertSame('image/png', $byKey['identity_photo']['mimeType']);
 
         $this->assertTrue($byKey['medical_certificate']['uploaded']);
         $this->assertNotNull($byKey['medical_certificate']['nodeId']);
@@ -88,7 +88,7 @@ class LicenseAdminApiTest extends ApiTestCase
         $this->assertFalse($byKey['attestation']['uploaded']);
 
         // Le nodeId renvoyé est réellement téléchargeable via la médiathèque du membre.
-        $this->client->request('GET', "/api/member/{$body['memberId']}/media/node/{$byKey['profile_picture']['nodeId']}/download");
+        $this->client->request('GET', "/api/member/{$body['memberId']}/media/node/{$byKey['identity_photo']['nodeId']}/download");
         $this->assertSame(200, $this->client->getResponse()->getStatusCode());
     }
 

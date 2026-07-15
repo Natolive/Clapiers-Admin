@@ -357,17 +357,17 @@ const currentStep = computed(() => steps.value[stepIndex.value] as string)
 const IMG = 'image/png,image/jpeg'
 const PDF_IMG = 'application/pdf,image/png,image/jpeg'
 const docItems = computed<{ key: LicenseDocumentKey; label: string; accept: string; required: boolean }[]>(() => [
-  { key: 'profile_picture', label: 'Photo de profil', accept: IMG, required: true },
+  { key: 'identity_photo', label: "Photo d'identité", accept: IMG, required: true },
   { key: 'id_card', label: "Pièce d'identité", accept: PDF_IMG, required: true },
   { key: 'medical_certificate', label: 'Certificat médical', accept: PDF_IMG, required: certRequired.value },
   { key: 'attestation', label: "Attestation sur l'honneur", accept: PDF_IMG, required: !certRequired.value },
 ])
 
 const files = ref<Record<LicenseDocumentKey, File | null>>({
-  profile_picture: null, id_card: null, medical_certificate: null, attestation: null,
+  identity_photo: null, id_card: null, medical_certificate: null, attestation: null,
 })
 const docLabels: Record<LicenseDocumentKey, string> = {
-  profile_picture: 'photo', id_card: "pièce d'identité", medical_certificate: 'certificat', attestation: 'attestation',
+  identity_photo: 'photo', id_card: "pièce d'identité", medical_certificate: 'certificat', attestation: 'attestation',
 }
 const joinedDocLabels = computed(() => {
   const present = (Object.keys(files.value) as LicenseDocumentKey[]).filter((k) => files.value[k]).map((k) => docLabels[k])

@@ -25,7 +25,7 @@ class GetLicenseReviewUseCase extends AbstractUseCase
      * (dossier de la saison de la licence).
      */
     private const DOCUMENTS = [
-        ['key' => 'profile_picture', 'label' => 'Photo de profil', 'scope' => 'root'],
+        ['key' => 'identity_photo', 'label' => "Photo d'identité", 'scope' => 'root'],
         ['key' => 'id_card', 'label' => "Pièce d'identité", 'scope' => 'root'],
         ['key' => 'medical_certificate', 'label' => 'Certificat médical', 'scope' => 'season'],
         ['key' => 'attestation', 'label' => 'Attestation santé', 'scope' => 'season'],

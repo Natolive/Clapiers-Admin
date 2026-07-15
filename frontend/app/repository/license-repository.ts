@@ -32,7 +32,7 @@ export interface SubmitLicenseRequestBody {
 }
 
 /** Slots médiathèque déposables à l'inscription. */
-export type LicenseDocumentKey = 'profile_picture' | 'id_card' | 'medical_certificate' | 'attestation';
+export type LicenseDocumentKey = 'identity_photo' | 'id_card' | 'medical_certificate' | 'attestation';
 
 /**
  * Demande de licence publique. Utilise l'API publique (sans authentification) :

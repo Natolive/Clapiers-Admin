@@ -338,7 +338,7 @@ class MemberApiTest extends ApiTestCase
         $this->assertSame('Team not found', $body['message']);
     }
 
-    // ── Photo de profil : lecture depuis la médiathèque ─────────────────────
+    // ── Photo d'identité : lecture depuis la médiathèque ─────────────────────
 
     public function testProfilePictureIsServedFromMediatheque(): void
     {
@@ -347,7 +347,7 @@ class MemberApiTest extends ApiTestCase
         static::getContainer()->get(MemberMediaSeeder::class)->ensureRootFolders($member);
         $this->em()->flush();
         $slot = static::getContainer()->get(MemberDocumentRepository::class)
-            ->findRootDocumentSlot($member, 'profile_picture');
+            ->findRootDocumentSlot($member, 'identity_photo');
         $this->assertNotNull($slot);
 
         $dir = static::getContainer()->getParameter('upload_directory').'/member-media';

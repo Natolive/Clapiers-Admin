@@ -16,7 +16,7 @@ use Symfony\Component\HttpFoundation\Response;
 /**
  * Dépôt public d'une pièce d'inscription via le magic link. Chaque fichier
  * atterrit directement dans le slot médiathèque du membre (source unique) :
- *  - profile_picture / id_card → dossier racine « Identité » ;
+ *  - identity_photo / id_card → dossier racine « Identité » ;
  *  - medical_certificate       → dossier de la saison de la licence.
  *
  * @extends AbstractUseCase<UploadLicenseRequestDocumentCommand>
@@ -24,7 +24,7 @@ use Symfony\Component\HttpFoundation\Response;
 class UploadLicenseRequestDocumentUseCase extends AbstractUseCase
 {
     /** Slots déposables publiquement à l'inscription. */
-    private const ROOT_KEYS = ['profile_picture', 'id_card'];
+    private const ROOT_KEYS = ['identity_photo', 'id_card'];
     private const SEASON_KEYS = ['medical_certificate', 'attestation'];
 
     public function __construct(
@@ -49,7 +49,7 @@ class UploadLicenseRequestDocumentUseCase extends AbstractUseCase
         }
 
         // La photo de profil doit être une image (pas un PDF).
-        if ($command->systemKey === 'profile_picture' && !str_starts_with((string) $command->file->getMimeType(), 'image/')) {
+        if ($command->systemKey === 'identity_photo' && !str_starts_with((string) $command->file->getMimeType(), 'image/')) {
             throw new UseCaseException('La photo de profil doit être une image.', Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 

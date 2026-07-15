@@ -69,8 +69,8 @@ class MemberController extends AbstractController
             return $this->json(['error' => 'Profile picture not found'], 404);
         }
 
-        // La médiathèque est la source unique : slot « Photo de profil ».
-        $slot = $documentRepository->findRootDocumentSlot($member, 'profile_picture');
+        // La médiathèque est la source unique : slot « Photo d'identité ».
+        $slot = $documentRepository->findRootDocumentSlot($member, 'identity_photo');
         if ($slot && $slot->hasFile()) {
             $path = $mediaStorage->path((string) $slot->getStoredName());
             if (is_file($path)) {
