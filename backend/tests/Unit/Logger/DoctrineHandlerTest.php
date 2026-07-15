@@ -92,6 +92,45 @@ class DoctrineHandlerTest extends TestCase
         $this->assertNull($captured['context']);
     }
 
+    public function testPrunesOldLogsOncePerProcessWithDefaultRetention(): void
+    {
+        $thresholds = [];
+        $connection = $this->createStub(Connection::class);
+        $connection->method('executeStatement')->willReturnCallback(function (string $sql, array $params) use (&$thresholds) {
+            $this->assertStringContainsString('DELETE FROM log', $sql);
+            $thresholds[] = $params['threshold'];
+
+            return 0;
+        });
+
+        $handler = new DoctrineHandler($connection);
+        $handler->handle($this->record(Level::Warning));
+        $handler->handle($this->record(Level::Error));
+
+        // Une seule purge par process, quel que soit le nombre de logs écrits.
+        $this->assertCount(1, $thresholds);
+        // Seuil ~ maintenant - 14 jours.
+        $this->assertLessThan((new \DateTimeImmutable('-13 days'))->format('Y-m-d H:i:s'), $thresholds[0]);
+        $this->assertGreaterThan((new \DateTimeImmutable('-15 days'))->format('Y-m-d H:i:s'), $thresholds[0]);
+    }
+
+    public function testHonoursCustomRetentionWindow(): void
+    {
+        $threshold = null;
+        $connection = $this->createStub(Connection::class);
+        $connection->method('executeStatement')->willReturnCallback(function (string $sql, array $params) use (&$threshold) {
+            $threshold = $params['threshold'];
+
+            return 0;
+        });
+
+        $handler = new DoctrineHandler($connection, 2);
+        $handler->handle($this->record(Level::Warning));
+
+        $this->assertLessThan((new \DateTimeImmutable('-1 days'))->format('Y-m-d H:i:s'), $threshold);
+        $this->assertGreaterThan((new \DateTimeImmutable('-3 days'))->format('Y-m-d H:i:s'), $threshold);
+    }
+
     public function testSwallowsInsertFailure(): void
     {
         $connection = $this->createStub(Connection::class);

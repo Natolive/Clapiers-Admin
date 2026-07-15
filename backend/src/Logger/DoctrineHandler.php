@@ -19,10 +19,14 @@ use Monolog\LogRecord;
  */
 class DoctrineHandler extends AbstractProcessingHandler
 {
+    private const DEFAULT_RETENTION_DAYS = 14;
+
     private bool $writing = false;
+    private bool $pruned = false;
 
     public function __construct(
         private readonly Connection $connection,
+        private readonly int $retentionDays = self::DEFAULT_RETENTION_DAYS,
         int|string|Level $level = Level::Warning,
         bool $bubble = true,
     ) {
@@ -46,11 +50,34 @@ class DoctrineHandler extends AbstractProcessingHandler
                 'context' => $this->encodeContext($record),
                 'created_at' => $record->datetime->format('Y-m-d H:i:s'),
             ]);
+
+            // Rétention appliquée au fil de l'eau, une seule fois par process :
+            // pas de cron à planifier, et un seul DELETE par requête qui journalise.
+            $this->pruneOldLogs();
         } catch (\Throwable) {
             // Journaliser ne doit jamais faire échouer la requête.
         } finally {
             $this->writing = false;
         }
+    }
+
+    private function pruneOldLogs(): void
+    {
+        if ($this->pruned) {
+            return;
+        }
+        // Marqué avant exécution : un échec de purge ne doit pas être retenté en
+        // boucle sur les logs suivants du même process.
+        $this->pruned = true;
+
+        $threshold = (new \DateTimeImmutable('now'))
+            ->modify(sprintf('-%d days', max(1, $this->retentionDays)))
+            ->format('Y-m-d H:i:s');
+
+        $this->connection->executeStatement(
+            'DELETE FROM log WHERE created_at < :threshold',
+            ['threshold' => $threshold],
+        );
     }
 
     private function encodeContext(LogRecord $record): ?string
