@@ -32,24 +32,34 @@
           <li v-for="item in navigationItems" :key="item.label">
 
             <template v-if="item.items">
-              <div class="nav-group-label">
+              <button
+                type="button"
+                class="nav-group-label"
+                :class="{ 'nav-group-label--open': isGroupOpen(item.label) }"
+                :aria-expanded="isGroupOpen(item.label)"
+                @click="toggleGroup(item.label)"
+                v-tooltip.right="isCollapsedOnly ? item.label : undefined"
+              >
                 <i :class="item.icon" class="nav-icon"></i>
                 <span class="nav-text">{{ item.label }}</span>
+                <i class="pi pi-chevron-down nav-chevron"></i>
+              </button>
+              <div class="nav-collapse" :class="{ 'nav-collapse--open': isGroupOpen(item.label) }">
+                <ul class="nav-sublist">
+                  <li v-for="sub in item.items" :key="sub.label">
+                    <a
+                      class="nav-link nav-link--sub"
+                      :class="{ 'nav-link--active': route.path === sub.route }"
+                      @click="sub.command?.()"
+                      v-tooltip.right="isCollapsedOnly ? sub.label : undefined"
+                    >
+                      <span class="nav-indicator"></span>
+                      <i :class="sub.icon" class="nav-icon"></i>
+                      <span class="nav-text">{{ sub.label }}</span>
+                    </a>
+                  </li>
+                </ul>
               </div>
-              <ul class="nav-sublist">
-                <li v-for="sub in item.items" :key="sub.label">
-                  <a
-                    class="nav-link nav-link--sub"
-                    :class="{ 'nav-link--active': route.path === sub.route }"
-                    @click="sub.command?.()"
-                    v-tooltip.right="isCollapsedOnly ? sub.label : undefined"
-                  >
-                    <span class="nav-indicator"></span>
-                    <i :class="sub.icon" class="nav-icon"></i>
-                    <span class="nav-text">{{ sub.label }}</span>
-                  </a>
-                </li>
-              </ul>
             </template>
 
             <template v-else>
@@ -125,7 +135,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import { useAuthStore } from '~/stores/auth.store';
 import DialogContainer from '~/components/common/DialogContainer.vue';
 
@@ -146,6 +156,17 @@ const {
 } = useSidebar();
 
 const { navigationItems, pageTitle } = useDashboardNav(closeSidebarOnMobile);
+
+// Catégories repliables — état persisté, ouvertes par défaut.
+const GROUPS_KEY = 'dashboard.openGroups';
+const openGroups = ref<Record<string, boolean>>(
+  import.meta.client ? JSON.parse(localStorage.getItem(GROUPS_KEY) || '{}') : {}
+);
+const isGroupOpen = (label: string) => openGroups.value[label] !== false;
+const toggleGroup = (label: string) => {
+  openGroups.value = { ...openGroups.value, [label]: !isGroupOpen(label) };
+  if (import.meta.client) localStorage.setItem(GROUPS_KEY, JSON.stringify(openGroups.value));
+};
 const { currentTime } = useClock();
 const { season, fetchSeason } = useCurrentSeason();
 onMounted(fetchSeason);
@@ -180,6 +201,7 @@ const handleLogout = () => authStore.logout();
   --rail-accent: #f4a261;
   --rail-text: rgba(255, 255, 255, 0.72);
   --rail-text-dim: rgba(255, 255, 255, 0.42);
+  --rail-label: rgba(255, 255, 255, 0.62);
   --rail-hover: rgba(255, 255, 255, 0.07);
   --rail-active: rgba(255, 255, 255, 0.12);
   --rail-border: rgba(255, 255, 255, 0.09);
@@ -351,17 +373,57 @@ const handleLogout = () => authStore.logout();
 }
 
 .nav-group-label {
+  width: 100%;
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  padding: 0.875rem 0.75rem 0.375rem;
+  margin-top: 0.375rem;
+  padding: 0.5rem 0.75rem;
+  border: none;
+  background: transparent;
+  border-radius: 8px;
+  font-family: inherit;
   font-size: 0.6875rem;
-  font-weight: 600;
-  color: var(--rail-text-dim);
+  font-weight: 700;
+  color: var(--rail-label);
   text-transform: uppercase;
-  letter-spacing: 0.07em;
+  letter-spacing: 0.08em;
   overflow: hidden;
   white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.nav-group-label:hover {
+  background: var(--rail-hover);
+  color: #fff;
+}
+
+.nav-chevron {
+  margin-left: auto;
+  font-size: 0.625rem;
+  opacity: 0.7;
+  transition: transform 0.2s ease;
+}
+
+.nav-group-label:not(.nav-group-label--open) .nav-chevron {
+  transform: rotate(-90deg);
+}
+
+/* Repli animé sans hauteur fixe (grid 0fr → 1fr) */
+.nav-collapse {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.22s ease;
+}
+
+.nav-collapse--open {
+  grid-template-rows: 1fr;
+}
+
+.nav-collapse > .nav-sublist {
+  overflow: hidden;
+  min-height: 0;
 }
 
 .nav-sublist {
@@ -473,6 +535,7 @@ const handleLogout = () => authStore.logout();
   /* hide text elements */
   .sidebar--collapsed:not(.sidebar--hovered) .brand-text,
   .sidebar--collapsed:not(.sidebar--hovered) .nav-text,
+  .sidebar--collapsed:not(.sidebar--hovered) .nav-chevron,
   .sidebar--collapsed:not(.sidebar--hovered) .user-info,
   .sidebar--collapsed:not(.sidebar--hovered) .logout-btn {
     opacity: 0;
@@ -501,6 +564,11 @@ const handleLogout = () => authStore.logout();
     justify-content: center;
     padding: 0.875rem 0 0.375rem;
     gap: 0;
+  }
+
+  /* rail réduit : les sous-menus restent visibles (icônes), repli ignoré */
+  .sidebar--collapsed:not(.sidebar--hovered) .nav-collapse {
+    grid-template-rows: 1fr;
   }
 
   /* footer: remove horizontal padding + center user-card */
