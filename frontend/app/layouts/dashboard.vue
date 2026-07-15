@@ -559,13 +559,18 @@ const handleLogout = () => authStore.logout();
     gap: 0;
   }
 
+  /* en icônes, l'en-tête devient un séparateur discret (pas une icône) */
   .sidebar--collapsed:not(.sidebar--hovered) .nav-group-label {
-    justify-content: center;
-    padding: 0.875rem 0 0.375rem;
-    gap: 0;
+    height: 1px;
+    padding: 0;
+    margin: 0.5rem 0.75rem;
+    background: var(--rail-border);
+    border-radius: 0;
+    overflow: hidden;
+    pointer-events: none;
   }
 
-  /* chevron retiré du flux (sinon son margin-left:auto décentre l'icône) */
+  .sidebar--collapsed:not(.sidebar--hovered) .nav-group-label .nav-icon,
   .sidebar--collapsed:not(.sidebar--hovered) .nav-chevron {
     display: none;
   }
