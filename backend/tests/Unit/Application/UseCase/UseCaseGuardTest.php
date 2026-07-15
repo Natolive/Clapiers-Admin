@@ -45,6 +45,7 @@ class UseCaseGuardTest extends TestCase
             \App\Application\UseCase\License\RejectLicense\RejectLicenseUseCase::class,
             \App\Application\UseCase\License\SubmitLicenseRequest\SubmitLicenseRequestUseCase::class,
             \App\Application\UseCase\License\UploadLicenseRequestDocument\UploadLicenseRequestDocumentUseCase::class,
+            \App\Application\UseCase\Log\GetPaginatedLogs\GetPaginatedLogsUseCase::class,
             \App\Application\UseCase\Member\CreateUpdateMember\CreateUpdateMemberUseCase::class,
             \App\Application\UseCase\Member\Media\CreateDocument\CreateDocumentUseCase::class,
             \App\Application\UseCase\Member\Media\CreateFolder\CreateFolderUseCase::class,
