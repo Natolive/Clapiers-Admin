@@ -12,7 +12,8 @@ backend/config/jwt/
 frontend/.nuxt/
 frontend/.output/
 frontend/node_modules/
-frontend/.env
+frontend/.env.local
+frontend/.env.*.local
 
 # IDE
 .idea/
