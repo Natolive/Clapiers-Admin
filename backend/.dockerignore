@@ -1,1 +1,4 @@
-.env.example
+# Never bake local env overrides / secrets into the image.
+# Real values are injected at runtime (k8s); committed .env holds only defaults.
+.env.local
+.env.*.local
