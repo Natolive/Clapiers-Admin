@@ -10,6 +10,7 @@ use App\Application\UseCase\Member\GetMembersByTeam\GetMembersByTeamUseCase;
 use App\Application\UseCase\Member\GetPaginatedMembers\GetPaginatedMembersCommand;
 use App\Application\UseCase\Member\GetPaginatedMembers\GetPaginatedMembersUseCase;
 use App\Common\Service\MemberMediaStorage;
+use App\Controller\Input\SeasonQuery;
 use App\Entity\Enum\AppUserRole;
 use App\Repository\MemberDocumentRepository;
 use App\Repository\MemberRepository;
@@ -50,9 +51,9 @@ class MemberController extends AbstractController
     }
 
     #[Route('/team/{teamId}', name: 'get_by_team', methods: ['GET'])]
-    public function getByTeam(int $teamId, GetMembersByTeamUseCase $useCase): Response
+    public function getByTeam(int $teamId, #[MapQueryString] ?SeasonQuery $query, GetMembersByTeamUseCase $useCase): Response
     {
-        $command = new GetMembersByTeamCommand($teamId);
+        $command = new GetMembersByTeamCommand($teamId, $query?->season);
         return $useCase->execute($command);
     }
 

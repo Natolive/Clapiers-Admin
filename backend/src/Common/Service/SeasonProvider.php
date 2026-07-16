@@ -2,6 +2,7 @@
 
 namespace App\Common\Service;
 
+use App\Repository\SeasonRepository;
 use App\Repository\SettingRepository;
 
 /**
@@ -16,6 +17,7 @@ class SeasonProvider
     public function __construct(
         private readonly SettingRepository $settingRepository,
         private readonly SeasonResolver $seasonResolver,
+        private readonly SeasonRepository $seasonRepository,
     ) {
     }
 
@@ -34,5 +36,23 @@ class SeasonProvider
     public function set(string $season): void
     {
         $this->settingRepository->set(self::SETTING_KEY, $season);
+        $this->seasonRepository->ensure($season);
+    }
+
+    /**
+     * Saisons proposables (celles enregistrées), la saison courante toujours
+     * présente en tête si elle n'a pas encore été enregistrée.
+     *
+     * @return string[] plus récente d'abord
+     */
+    public function all(): array
+    {
+        $seasons = $this->seasonRepository->findAllNames();
+        $current = $this->current();
+        if (!in_array($current, $seasons, true)) {
+            array_unshift($seasons, $current);
+        }
+
+        return $seasons;
     }
 }

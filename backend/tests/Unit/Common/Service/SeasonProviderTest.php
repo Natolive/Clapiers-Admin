@@ -4,6 +4,7 @@ namespace App\Tests\Unit\Common\Service;
 
 use App\Common\Service\SeasonProvider;
 use App\Common\Service\SeasonResolver;
+use App\Repository\SeasonRepository;
 use App\Repository\SettingRepository;
 use PHPUnit\Framework\TestCase;
 
@@ -14,7 +15,7 @@ class SeasonProviderTest extends TestCase
         $settings = $this->createStub(SettingRepository::class);
         $settings->method('get')->willReturn('2030-2031');
 
-        $provider = new SeasonProvider($settings, new SeasonResolver());
+        $provider = new SeasonProvider($settings, new SeasonResolver(), $this->createStub(SeasonRepository::class));
 
         $this->assertSame('2030-2031', $provider->current());
     }
@@ -22,7 +23,7 @@ class SeasonProviderTest extends TestCase
     public function testFallsBackToComputedWhenUnset(): void
     {
         // Stub non configuré : get() renvoie null → repli sur le calcul par date.
-        $provider = new SeasonProvider($this->createStub(SettingRepository::class), new SeasonResolver());
+        $provider = new SeasonProvider($this->createStub(SettingRepository::class), new SeasonResolver(), $this->createStub(SeasonRepository::class));
 
         $this->assertMatchesRegularExpression('/^\d{4}-\d{4}$/', $provider->current());
         $this->assertSame($provider->computed(), $provider->current());

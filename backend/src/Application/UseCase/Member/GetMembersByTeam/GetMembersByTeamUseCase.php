@@ -36,12 +36,13 @@ class GetMembersByTeamUseCase extends AbstractUseCase
             throw new UseCaseException('Team not found', Response::HTTP_NOT_FOUND);
         }
 
-        // "Licence payée" alignée sur la saison courante (cohérence avec le reste).
-        $season = $this->seasonProvider->current();
+        // Saison choisie (défaut : courante). L'équipe n'affiche que les membres
+        // licenciés pour cette saison ; le flag « payée » suit la même saison.
+        $season = $command->season ?: $this->seasonProvider->current();
 
         return array_map(
             fn (Member $m) => $m->toArray($season),
-            $this->memberRepository->findByTeam($team),
+            $this->memberRepository->findByTeam($team, $season),
         );
     }
 }

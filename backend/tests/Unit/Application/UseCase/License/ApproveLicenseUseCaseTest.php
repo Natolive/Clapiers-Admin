@@ -80,6 +80,10 @@ class ApproveLicenseUseCaseTest extends TestCase
         // APP_FRONTEND_URL non injecté → l'env processor `default::` fournit null.
         $useCase = new ApproveLicenseUseCase(
             $repository,
+            $this->createStub(MemberRepository::class),
+            $this->createStub(MemberDocumentRepository::class),
+            $this->createStub(MemberMediaSeeder::class),
+            $this->createStub(MemberMediaStorage::class),
             $this->createStub(EntityManagerInterface::class),
             $mailer,
             new NullLogger(),

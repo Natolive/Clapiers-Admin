@@ -2,7 +2,10 @@
 
 namespace App\Tests\Support\Builder;
 
+use App\Entity\Enum\LicenseStatus;
 use App\Entity\Enum\MemberGender;
+use App\Entity\Enum\MemberStatus;
+use App\Entity\License;
 use App\Entity\Member;
 use App\Entity\Team;
 use App\Entity\ValueObject\Address;
@@ -21,6 +24,8 @@ final class MemberBuilder
     private string $nationality = 'Française';
     private Address $address;
     private ?string $licenseNumber = null;
+    private ?string $licensedSeason = null;
+    private LicenseStatus $licenseStatus = LicenseStatus::VALIDEE;
     /** @var list<Team> */
     private array $teams = [];
 
@@ -66,6 +71,19 @@ final class MemberBuilder
         return $this;
     }
 
+    /**
+     * Rend le membre visible dans la liste paginée : lui attache une licence de
+     * la saison donnée (validée par défaut) et le laisse ACTIVE — la population
+     * de findPaginated est scopée à la saison courante.
+     */
+    public function licensedFor(string $season, LicenseStatus $status = LicenseStatus::VALIDEE): self
+    {
+        $this->licensedSeason = $season;
+        $this->licenseStatus = $status;
+
+        return $this;
+    }
+
     public function build(): Member
     {
         $n = ++self::$seq;
@@ -89,6 +107,17 @@ final class MemberBuilder
     {
         $member = $this->build();
         $this->em->persist($member);
+
+        if ($this->licensedSeason !== null) {
+            $member->setStatus(MemberStatus::ACTIVE);
+            $license = new License();
+            $license->setMember($member);
+            $license->setSeason($this->licensedSeason);
+            $license->setStatus($this->licenseStatus);
+            $license->setAccessToken(sprintf('token-%s', bin2hex(random_bytes(6))));
+            $this->em->persist($license);
+        }
+
         $this->em->flush();
 
         return $member;
