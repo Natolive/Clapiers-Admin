@@ -112,7 +112,8 @@
             "require": "7.4.*"
         },
         "runtime": {
-            "class": "Runtime\\FrankenPhpSymfony\\Runtime"
+            "class": "Runtime\\FrankenPhpSymfony\\Runtime",
+            "disable_dotenv": true
         }
     }
 }

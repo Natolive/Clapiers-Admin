@@ -77,29 +77,23 @@ class AbstractUseCaseTest extends TestCase
 
         $this->assertSame(Response::HTTP_INTERNAL_SERVER_ERROR, $response->getStatusCode());
         $body = json_decode($response->getContent(), true);
-        // APP_ENV=test here, so internals must not leak
+        // environment defaults to 'prod' (no container to autowire it), so internals must not leak
         $this->assertSame('Unknown Error', $body['message']);
         $this->assertNull($body['error']);
     }
 
     public function testUnexpectedExceptionExposesDetailsInDev(): void
     {
-        $previousEnv = getenv('APP_ENV') ?? null;
-        $_ENV['APP_ENV'] = 'dev';
+        $useCase = $this->useCaseThrowing(new \RuntimeException('détail interne'));
+        $useCase->setEnvironment('dev');
 
-        try {
-            $useCase = $this->useCaseThrowing(new \RuntimeException('détail interne'));
+        $response = $useCase->execute();
 
-            $response = $useCase->execute();
-
-            $this->assertSame(Response::HTTP_INTERNAL_SERVER_ERROR, $response->getStatusCode());
-            $body = json_decode($response->getContent(), true);
-            $this->assertSame('détail interne', $body['message']);
-            $this->assertSame(\RuntimeException::class, $body['error']['class']);
-            $this->assertArrayHasKey('trace', $body['error']);
-        } finally {
-            $_ENV['APP_ENV'] = $previousEnv;
-        }
+        $this->assertSame(Response::HTTP_INTERNAL_SERVER_ERROR, $response->getStatusCode());
+        $body = json_decode($response->getContent(), true);
+        $this->assertSame('détail interne', $body['message']);
+        $this->assertSame(\RuntimeException::class, $body['error']['class']);
+        $this->assertArrayHasKey('trace', $body['error']);
     }
 
     private function useCaseReturning(mixed $result): AbstractUseCase

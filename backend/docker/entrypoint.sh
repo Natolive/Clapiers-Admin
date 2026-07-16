@@ -1,11 +1,6 @@
 #!/bin/sh
 set -e
 
-# Symfony requires a .env file to exist (Docker env vars are used instead)
-if [ ! -f .env ]; then
-    touch .env
-fi
-
 # Install composer dependencies if vendor is empty
 if [ ! -f vendor/autoload.php ]; then
     echo "Installing Composer dependencies..."
