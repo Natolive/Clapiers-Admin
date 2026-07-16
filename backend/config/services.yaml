@@ -8,11 +8,6 @@
 # https://symfony.com/doc/current/best_practices.html#use-parameters-for-application-configuration
 parameters:
     upload_directory: '%kernel.project_dir%/var/uploads'
-    # Build-time defaults for env vars resolved during cache:clear / warmup
-    # (image build & pod start, before real values are injected). The real
-    # environment variables always override these when present.
-    env(DATABASE_URL): 'postgresql://symfony:symfony@127.0.0.1:5432/clapiers_db?serverVersion=16&charset=utf8'
-    env(DEFAULT_URI): 'https://api.clapiers.local'
 
 services:
     # default configuration for services in *this* file

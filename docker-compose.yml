@@ -59,10 +59,12 @@ services:
       timeout: 5s
       retries: 20
       start_period: 60s
-    # All backend env vars (incl. DATABASE_URL with host `postgres`) live in
-    # backend/.env. Copy backend/.env.example to backend/.env on first setup.
-    env_file:
-      - backend/.env
+    # Symfony reads backend/.env (committed defaults) + backend/.env.local
+    # (local secrets) itself from the mounted volume. Only Xdebug needs a real
+    # env var (the extension reads it before PHP/dotenv runs).
+    environment:
+      XDEBUG_MODE: ${XDEBUG_MODE:-off}
+      XDEBUG_CONFIG: "client_host=host.docker.internal"
     depends_on:
       postgres:
         condition: service_healthy

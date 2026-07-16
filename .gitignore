@@ -1,6 +1,3 @@
-# Docker local env (contains secrets)
-.env
-
 # Certificats TLS locaux (générés par mkcert)
 docker/certs/
 
