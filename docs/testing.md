@@ -22,13 +22,11 @@ NOT detect config changes by itself. Same trap for **validator constraints**
 (`#[Assert\...]` attributes): their metadata is cached too — a new constraint
 silently does nothing under bare phpunit until the cache is cleared.
 
-> Local setup: the bootstrap needs a base `backend/.env` (gitignored) to exist
-> — create it with a single line `APP_ENV=dev` if missing. The test DB
-> connection is covered by a `DATABASE_URL` default in `.env.test` pointing at
-> the compose `postgres` service, so `docker compose exec php …` works even when
-> the running container was started without the compose `environment:` block
-> (CI and a freshly-recreated container export their own `DATABASE_URL`, which
-> wins).
+> Local setup: `backend/.env` is committed with safe defaults (incl.
+> `DATABASE_URL` pointing at the compose `postgres` service), so
+> `docker compose exec php …` works out of the box; put real/secret values in
+> `backend/.env.local` (gitignored). CI exports its own `DATABASE_URL`
+> (127.0.0.1), which wins over the committed default.
 
 Hooks in `.claude/settings.json` enforce this guide automatically:
 
