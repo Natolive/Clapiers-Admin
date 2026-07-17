@@ -48,7 +48,7 @@ class GetMyTeamUseCase extends AbstractUseCase
                         'hasProfilePicture' => $this->documentRepository
                             ->findRootDocumentSlot($m, 'identity_photo')?->hasFile() ?? false,
                     ],
-                    $this->memberRepository->findByTeam($team)
+                    $this->memberRepository->findByTeam($team, $season)
                 ),
             ];
         }

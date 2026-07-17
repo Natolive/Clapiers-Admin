@@ -68,6 +68,7 @@ useHead({ title: 'Paramètres' })
 const repo = new SettingRepository()
 const toast = usePVToastService()
 const { season: sharedSeason } = useCurrentSeason()
+const { seasons: seasonList } = useSeasonFilter()
 
 const season = ref('')
 const suggestion = ref('')
@@ -96,6 +97,7 @@ const save = async () => {
     const res = await repo.setSeason(season.value)
     season.value = res.season
     sharedSeason.value = res.season // propage l'affichage (bandeau, pages) sans rechargement
+    seasonList.value = [] // force le rechargement de la liste (nouvelle saison enregistrée)
     toast.add({ severity: 'success', summary: 'Saison enregistrée', detail: res.season, life: 3000 })
   } catch (e: any) {
     error.value = e?.data?.message || 'Enregistrement impossible.'

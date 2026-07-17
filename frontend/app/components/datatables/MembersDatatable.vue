@@ -225,6 +225,7 @@ const loading = ref(false);
 const searchValue = ref('');
 const selectedTeamId = ref<number | null>(null);
 const licensePaidFilter = ref(false);
+const { selected: season, load: loadSeasons } = useSeasonFilter();
 let searchTimeout: ReturnType<typeof setTimeout> | null = null;
 
 const isMobile = useIsMobile();
@@ -251,7 +252,7 @@ watch(searchValue, () => {
   }, 300);
 });
 
-watch([selectedTeamId, licensePaidFilter], () => {
+watch([selectedTeamId, licensePaidFilter, season], () => {
   lazyParams.value.first = 0;
   fetchData();
 });
@@ -267,6 +268,7 @@ const fetchData = async () => {
       search: searchValue.value || undefined,
       teamId: selectedTeamId.value || undefined,
       licensePaid: licensePaidFilter.value ? true : undefined,
+      season: season.value || undefined,
     });
     members.value = result.data;
     totalRecords.value = result.total;
@@ -319,6 +321,7 @@ const openDialog = (member?: Member, initialTab: 'fiche' | 'media' = 'fiche') =>
 };
 
 onMounted(() => {
+  loadSeasons();
   fetchData();
 });
 </script>

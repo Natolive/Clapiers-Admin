@@ -204,8 +204,9 @@ class TeamApiTest extends ApiTestCase
         $teamB = $this->aTeam()->named('Équipe B')->persist();
         $otherTeam = $this->aTeam()->named('Autre équipe')->persist();
 
-        $memberA = $this->aMember()->inTeams($teamA)->persist();
-        $this->aMember()->inTeams($otherTeam)->persist();
+        $season = static::getContainer()->get(SeasonProvider::class)->current();
+        $memberA = $this->aMember()->inTeams($teamA)->licensedFor($season)->persist();
+        $this->aMember()->inTeams($otherTeam)->licensedFor($season)->persist();
 
         $coach = $this->aUser()->admin()->managing($teamA, $teamB)->persist();
         $this->actingAs($coach);

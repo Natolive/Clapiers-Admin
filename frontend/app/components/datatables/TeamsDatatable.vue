@@ -48,7 +48,7 @@
       </template>
     </Column>
     <template #expansion="slotProps">
-      <div class="p-3">
+      <div class="p-3" :key="`exp-${slotProps.data.id}-${season}`">
         <h5 class="mb-3">Licenciés de l'équipe</h5>
         <div v-if="loadingMembers[slotProps.data.id]" class="text-center">
           <i class="pi pi-spinner pi-spin" style="font-size: 2rem"></i>
@@ -106,7 +106,7 @@
           />
         </div>
 
-        <div v-if="isExpanded(team.id)" class="team-card__members">
+        <div v-if="isExpanded(team.id)" :key="`mem-${team.id}-${season}`" class="team-card__members">
           <div v-if="loadingMembers[team.id]" class="team-card__members-loading">
             <i class="pi pi-spinner pi-spin" />
           </div>
@@ -160,6 +160,7 @@ const expandedRows = ref<Team[]>([]);
 const expandedTeamIds = ref(new Set<number>());
 const teamMembers = ref<Record<number, Member[]>>({});
 const loadingMembers = ref<Record<number, boolean>>({});
+const { selected: season, load: loadSeasons } = useSeasonFilter();
 
 // Chargement partagé entre l'expansion du DataTable (desktop) et les cartes (mobile)
 const loadTeamMembers = async (teamId: number) => {
@@ -170,7 +171,7 @@ const loadTeamMembers = async (teamId: number) => {
   loadingMembers.value[teamId] = true;
 
   try {
-    teamMembers.value[teamId] = await memberRepository.getByTeam(teamId);
+    teamMembers.value[teamId] = await memberRepository.getByTeam(teamId, season.value || undefined);
   } catch (error) {
     console.error('Error loading members:', error);
     teamMembers.value[teamId] = [];
@@ -178,6 +179,15 @@ const loadTeamMembers = async (teamId: number) => {
     loadingMembers.value[teamId] = false;
   }
 };
+
+// Changement de saison : vider le cache et recharger les équipes dépliées.
+watch(season, () => {
+  const ids = new Set<number>([...expandedTeamIds.value, ...expandedRows.value.map(t => t.id)]);
+  teamMembers.value = {};
+  ids.forEach(id => loadTeamMembers(id));
+});
+
+onMounted(loadSeasons);
 
 const onRowExpand = (event: { data: Team }) => loadTeamMembers(event.data.id);
 

@@ -30,6 +30,20 @@ class LicenseAdminApiTest extends ApiTestCase
         $this->assertArrayHasKey('member', $body['data'][0]);
     }
 
+    public function testListFiltersBySeason(): void
+    {
+        $this->aLicense()->inSeason('2030-2031')->persist();
+        $this->aLicense()->inSeason('2030-2031')->persist();
+        $this->aLicense()->inSeason('2031-2032')->persist();
+        $this->actingAsSuperAdmin();
+
+        $this->getJson('/api/license/paginated?season=2030-2031');
+
+        $body = $this->assertJsonResponse(200);
+        $this->assertSame(2, $body['total']);
+        $this->assertCount(2, $body['data']);
+    }
+
     public function testListRequiresAuthentication(): void
     {
         $this->getJson('/api/license/paginated');

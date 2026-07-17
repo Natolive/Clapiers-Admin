@@ -3,6 +3,8 @@ export interface SeasonSettings {
     season: string;
     /** Saison suggérée, calculée depuis la date du jour. */
     suggestion: string;
+    /** Saisons enregistrées, la plus récente d'abord (courante incluse). */
+    seasons: string[];
 }
 
 export class SettingRepository {

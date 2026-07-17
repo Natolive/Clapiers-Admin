@@ -31,7 +31,8 @@ class GetPaginatedMembersUseCase extends AbstractUseCase
             $command->search,
             $command->teamId,
             $command->licensePaid,
-            $season = $this->seasonProvider->current(),
+            // Saison choisie côté client, sinon la saison courante.
+            $season = $command->season ?: $this->seasonProvider->current(),
         );
 
         return [

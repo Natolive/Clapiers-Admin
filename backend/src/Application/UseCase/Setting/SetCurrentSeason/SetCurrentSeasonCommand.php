@@ -3,13 +3,14 @@
 namespace App\Application\UseCase\Setting\SetCurrentSeason;
 
 use App\Common\Command\CommandInterface;
+use App\Validator\Season;
 use Symfony\Component\Validator\Constraints as Assert;
 
 class SetCurrentSeasonCommand implements CommandInterface
 {
     public function __construct(
         #[Assert\NotBlank]
-        #[Assert\Regex(pattern: '/^\d{4}-\d{4}$/', message: 'Format attendu : AAAA-AAAA.')]
+        #[Season]
         public readonly string $season,
     ) {
     }
