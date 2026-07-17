@@ -24,14 +24,12 @@ use Symfony\Component\HttpFoundation\Response;
  */
 class CreateCheckoutUseCase extends AbstractUseCase
 {
-    private const DEFAULT_FRONTEND_URL = 'https://preprod.clapiersvb.fr';
-
     public function __construct(
         private readonly LicenseRepository $licenseRepository,
         private readonly EntityManagerInterface $entityManager,
         private readonly HelloAssoClientInterface $helloAssoClient,
-        #[Autowire(env: 'default::APP_FRONTEND_URL')]
-        private readonly ?string $frontendUrl = null,
+        #[Autowire(env: 'APP_FRONTEND_URL')]
+        private readonly string $frontendUrl,
     ) {
     }
 
@@ -77,7 +75,7 @@ class CreateCheckoutUseCase extends AbstractUseCase
     private function buildCheckoutBody(License $license, int $amount): array
     {
         $member = $license->getMember();
-        $base = rtrim($this->frontendUrl ?: self::DEFAULT_FRONTEND_URL, '/').'/licence/'.$license->getAccessToken();
+        $base = rtrim($this->frontendUrl, '/').'/licence/'.$license->getAccessToken();
 
         return [
             'totalAmount' => $amount,
