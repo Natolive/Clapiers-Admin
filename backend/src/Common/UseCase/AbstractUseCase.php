@@ -4,14 +4,28 @@ namespace App\Common\UseCase;
 
 use App\Common\Command\CommandInterface;
 use App\Common\Exception\UseCaseException;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Contracts\Service\Attribute\Required;
 
 /**
  * @template TCommand of CommandInterface|null
  */
 abstract class AbstractUseCase
 {
+    private string $environment = 'prod';
+
+    /**
+     * Autowired by the container. Defaults to 'prod' so use cases built
+     * outside the container (unit tests) mask internals unless set explicitly.
+     */
+    #[Required]
+    public function setEnvironment(#[Autowire('%kernel.environment%')] string $environment): void
+    {
+        $this->environment = $environment;
+    }
+
     /**
      * @param TCommand $command
      * @return mixed
@@ -37,7 +51,7 @@ abstract class AbstractUseCase
                 $e->getCode() ?? Response::HTTP_BAD_REQUEST
             );
         } catch (\Throwable $e) {
-            $isDev = ($_ENV['APP_ENV'] ?? 'prod') === 'dev';
+            $isDev = 'dev' === $this->environment;
 
             return new JsonResponse(
                 [
