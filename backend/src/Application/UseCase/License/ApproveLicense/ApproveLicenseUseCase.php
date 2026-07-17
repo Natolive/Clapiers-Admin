@@ -30,7 +30,6 @@ use Symfony\Component\Mime\Address;
 class ApproveLicenseUseCase extends AbstractUseCase
 {
     private const TOKEN_VALIDITY = 'P30D';
-    private const DEFAULT_FRONTEND_URL = 'https://preprod.clapiersvb.fr';
 
     /** Pièces déplaçables lors d'une fusion (par portée médiathèque). */
     private const ROOT_KEYS = ['identity_photo', 'id_card'];
@@ -47,8 +46,8 @@ class ApproveLicenseUseCase extends AbstractUseCase
         private readonly LoggerInterface $logger,
         #[Autowire(env: 'CONTACT_SENDER_EMAIL')]
         private readonly string $senderEmail,
-        #[Autowire(env: 'default::APP_FRONTEND_URL')]
-        private readonly ?string $frontendUrl = null,
+        #[Autowire(env: 'APP_FRONTEND_URL')]
+        private readonly string $frontendUrl,
     ) {
     }
 
@@ -186,7 +185,7 @@ class ApproveLicenseUseCase extends AbstractUseCase
     private function sendPaymentLinkEmail(License $license): void
     {
         $member = $license->getMember();
-        $paymentUrl = rtrim($this->frontendUrl ?: self::DEFAULT_FRONTEND_URL, '/').'/licence/'.$license->getAccessToken();
+        $paymentUrl = rtrim($this->frontendUrl, '/').'/licence/'.$license->getAccessToken();
         $amountEuros = number_format(($license->getAmount() ?? 0) / 100, 2, ',', ' ');
 
         $email = (new TemplatedEmail())
