@@ -191,16 +191,17 @@ class MemberRepository extends ServiceEntityRepository
             ['season' => $season, 'seasonStart' => $seasonStart, 'seasonEnd' => $seasonEnd]
         );
 
-        // Nouveaux membres inscrits pendant la saison (première adhésion sur la période).
+        // Nouveaux membres = première adhésion cette saison : dans la population
+        // de la saison, sans aucune licence validée sur une saison antérieure.
+        // On se base sur la licence, pas sur createdAt : les inscriptions d'une
+        // saison ouvrent avant le 1er septembre (hors fenêtre calendaire) et les
+        // renouvellements gardent le createdAt de la première adhésion.
         $newThisSeason = (int) $this->createQueryBuilder('m')
             ->select('COUNT(m.id)')
             ->andWhere($pop)
-            ->andWhere('m.createdAt >= :seasonStart')
-            ->andWhere('m.createdAt < :seasonEnd')
+            ->andWhere('NOT EXISTS (SELECT lo.id FROM '.License::class.' lo WHERE lo.member = m AND lo.season < :season AND lo.status IN (:validated))')
             ->setParameter('season', $season)
             ->setParameter('validated', $validated)
-            ->setParameter('seasonStart', new \DateTimeImmutable($seasonStart))
-            ->setParameter('seasonEnd', new \DateTimeImmutable($seasonEnd))
             ->getQuery()->getSingleScalarResult();
 
         return [
