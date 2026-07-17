@@ -20,6 +20,18 @@
 - `SeasonProvider::all()` returns the registered seasons (name DESC), with the
   current season prepended if not yet registered — so it's always selectable.
 
+## Inscriptions open/closed
+
+- Admin `Setting` key `inscriptions_open`, wrapped by `InscriptionsStatusProvider`
+  (`isOpen()`/`setOpen()`). **Open by default**: only the explicit value `'0'`
+  closes; unset or anything else reads as open.
+- Read publicly (unauthenticated) at `GET /api/public/inscriptions-status`
+  → `{ open: bool }`; the homepage banner uses it.
+- Admin `GET`/`PUT /api/settings/inscriptions` (`ROLE_SUPER_ADMIN`,
+  `Get`/`SetInscriptionsStatusUseCase`). `PUT` body `{ open: bool }` (422 if not
+  a bool). Purely a display flag today — it does **not** block the
+  `/api/public/license-request` endpoint.
+
 ## Season scoping across the app
 
 - Shared input `SeasonQuery` carries `?season=` via `#[MapQueryString]`.
@@ -74,4 +86,5 @@
   the raw-SQL table/column names are still literal and Postgres-specific (`AGE`,
   `EXTRACT`, `TO_CHAR`).
 - All `/api/settings` and `/api/stats` are `ROLE_SUPER_ADMIN`. The current
-  season is also exposed unauthenticated at `/season`.
+  season and the inscriptions-open flag are also exposed unauthenticated at
+  `/api/public/season` and `/api/public/inscriptions-status`.

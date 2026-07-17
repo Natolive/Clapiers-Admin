@@ -20,4 +20,15 @@ export class SettingRepository {
             body: { season },
         });
     }
+
+    async getInscriptionsStatus(): Promise<{ open: boolean }> {
+        return await this.api<{ open: boolean }>('/settings/inscriptions', { method: 'GET' });
+    }
+
+    async setInscriptionsStatus(open: boolean): Promise<{ open: boolean }> {
+        return await this.api<{ open: boolean }>('/settings/inscriptions', {
+            method: 'PUT',
+            body: { open },
+        });
+    }
 }

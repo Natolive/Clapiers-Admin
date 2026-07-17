@@ -1,2 +1,119 @@
 @import 'primeflex/primeflex.css';
 @import 'primeicons/primeicons.css';
+
+/* ─────────────────────────────────────────────────────────────
+   Public content pages — shared shell (club, horaires, calendrier,
+   contact, documents). Markup: <PublicPage> + .pp-block cards.
+   ───────────────────────────────────────────────────────────── */
+.pp-page {
+  min-height: 60vh;
+  padding: 6.5rem 2rem 4rem; /* top dégagé sous la navbar fixe */
+  background: var(--club-gradient);
+}
+
+.pp-container {
+  max-width: 720px;
+  margin: 0 auto;
+}
+.pp-container--wide {
+  max-width: 1100px;
+}
+
+.pp-head {
+  text-align: center;
+  margin-bottom: 2.5rem;
+}
+.pp-label {
+  display: inline-block;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--club-accent);
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+}
+.pp-title {
+  font-size: 2.25rem;
+  font-weight: 700;
+  color: #fff;
+  margin: 0 0 0.75rem;
+}
+.pp-subtitle {
+  color: rgba(255, 255, 255, 0.85);
+  margin: 0 auto;
+  max-width: 640px;
+  line-height: 1.6;
+}
+
+.pp-block {
+  background: #fff;
+  border-radius: 16px;
+  padding: 2rem;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+}
+.pp-block:last-child {
+  margin-bottom: 0;
+}
+.pp-block__title {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--club-dark);
+  margin: 0 0 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+.pp-block__title i {
+  color: var(--club-secondary);
+}
+.pp-block__hint {
+  color: #6b7280;
+  font-size: 0.95rem;
+  margin: 0 0 1.5rem;
+}
+
+/* Two equal columns that collapse to one on small screens.
+   Direct .pp-block children lose their stacking margin inside the grid. */
+.pp-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+}
+.pp-cols > .pp-block {
+  margin-bottom: 0;
+}
+
+.pp-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--club-primary);
+  color: #fff;
+  text-decoration: none;
+  font-weight: 600;
+  padding: 0.75rem 1.5rem;
+  border-radius: 10px;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+.pp-cta:hover {
+  background: var(--club-accent);
+  transform: translateY(-1px);
+}
+
+@media (max-width: 768px) {
+  .pp-cols {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 640px) {
+  .pp-page {
+    padding: 6rem 1rem 3rem;
+  }
+  .pp-block {
+    padding: 1.5rem;
+  }
+  .pp-title {
+    font-size: 1.85rem;
+  }
+}

@@ -3,8 +3,11 @@
 namespace App\Controller;
 
 use App\Application\UseCase\Setting\GetCurrentSeason\GetCurrentSeasonUseCase;
+use App\Application\UseCase\Setting\GetInscriptionsStatus\GetInscriptionsStatusUseCase;
 use App\Application\UseCase\Setting\SetCurrentSeason\SetCurrentSeasonCommand;
 use App\Application\UseCase\Setting\SetCurrentSeason\SetCurrentSeasonUseCase;
+use App\Application\UseCase\Setting\SetInscriptionsStatus\SetInscriptionsStatusCommand;
+use App\Application\UseCase\Setting\SetInscriptionsStatus\SetInscriptionsStatusUseCase;
 use App\Entity\Enum\AppUserRole;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Response;
@@ -26,6 +29,20 @@ class SettingController extends AbstractController
     public function setSeason(
         #[MapRequestPayload] SetCurrentSeasonCommand $command,
         SetCurrentSeasonUseCase $useCase
+    ): Response {
+        return $useCase->execute($command);
+    }
+
+    #[Route('/inscriptions', name: 'get_inscriptions', methods: ['GET'])]
+    public function getInscriptions(GetInscriptionsStatusUseCase $useCase): Response
+    {
+        return $useCase->execute();
+    }
+
+    #[Route('/inscriptions', name: 'set_inscriptions', methods: ['PUT'])]
+    public function setInscriptions(
+        #[MapRequestPayload] SetInscriptionsStatusCommand $command,
+        SetInscriptionsStatusUseCase $useCase
     ): Response {
         return $useCase->execute($command);
     }

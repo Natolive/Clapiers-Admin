@@ -18,6 +18,14 @@ class PublicApiTest extends ApiTestCase
         $this->assertMatchesRegularExpression('/^\d{4}-\d{4}$/', $body['season']);
     }
 
+    public function testInscriptionsStatusIsPubliclyReadableAndOpenByDefault(): void
+    {
+        $this->getJson('/api/public/inscriptions-status');
+
+        $body = $this->assertJsonResponse(200);
+        $this->assertTrue($body['open']);
+    }
+
     public function testCreateContactMessagePersistsAndReturnsIt(): void
     {
         $this->postJson('/api/public/contact-message', [

@@ -14,6 +14,7 @@ use App\Application\UseCase\License\SubmitLicenseRequest\SubmitLicenseRequestCom
 use App\Application\UseCase\License\SubmitLicenseRequest\SubmitLicenseRequestUseCase;
 use App\Application\UseCase\License\UploadLicenseRequestDocument\UploadLicenseRequestDocumentCommand;
 use App\Application\UseCase\License\UploadLicenseRequestDocument\UploadLicenseRequestDocumentUseCase;
+use App\Common\Service\InscriptionsStatusProvider;
 use App\Common\Service\SeasonProvider;
 use App\Entity\Enum\MemberNationality;
 use App\Repository\GameRepository;
@@ -97,6 +98,12 @@ class PublicController extends AbstractController
     public function season(SeasonProvider $seasonProvider): Response
     {
         return $this->json(['season' => $seasonProvider->current()]);
+    }
+
+    #[Route('/inscriptions-status', name: 'inscriptions_status', methods: ['GET'])]
+    public function inscriptionsStatus(InscriptionsStatusProvider $provider): Response
+    {
+        return $this->json(['open' => $provider->isOpen()]);
     }
 
     #[Route('/nationalities', name: 'nationalities', methods: ['GET'])]

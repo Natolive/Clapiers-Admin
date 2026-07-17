@@ -87,6 +87,55 @@ class SettingApiTest extends ApiTestCase
         $this->assertJsonResponse(403);
     }
 
+    public function testGetInscriptionsRequiresAuthentication(): void
+    {
+        $this->getJson('/api/settings/inscriptions');
+        $this->assertJsonResponse(401);
+    }
+
+    public function testGetInscriptionsIsForbiddenForAdmin(): void
+    {
+        $this->actingAsAdmin();
+        $this->getJson('/api/settings/inscriptions');
+        $this->assertJsonResponse(403);
+    }
+
+    public function testGetInscriptionsIsOpenByDefault(): void
+    {
+        $this->actingAsSuperAdmin();
+        $this->getJson('/api/settings/inscriptions');
+        $this->assertTrue($this->assertJsonResponse(200)['open']);
+    }
+
+    public function testSetInscriptionsPersistsAndIsReadBack(): void
+    {
+        $this->actingAsSuperAdmin();
+
+        $this->putJson('/api/settings/inscriptions', ['open' => false]);
+        $this->assertFalse($this->assertJsonResponse(200)['open']);
+
+        $this->getJson('/api/settings/inscriptions');
+        $this->assertFalse($this->assertJsonResponse(200)['open']);
+
+        // Réouverture : mise à jour du réglage existant.
+        $this->putJson('/api/settings/inscriptions', ['open' => true]);
+        $this->assertTrue($this->assertJsonResponse(200)['open']);
+    }
+
+    public function testSetInscriptionsRejectsInvalidPayload(): void
+    {
+        $this->actingAsSuperAdmin();
+        $this->putJson('/api/settings/inscriptions', ['open' => 'yes']);
+        $this->assertJsonResponse(422);
+    }
+
+    public function testSetInscriptionsIsForbiddenForAdmin(): void
+    {
+        $this->actingAsAdmin();
+        $this->putJson('/api/settings/inscriptions', ['open' => false]);
+        $this->assertJsonResponse(403);
+    }
+
     public function testSubmittedLicenseUsesConfiguredSeason(): void
     {
         $this->actingAsSuperAdmin();

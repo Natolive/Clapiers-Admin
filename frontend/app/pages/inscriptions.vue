@@ -154,7 +154,7 @@
             Il est à conserver&nbsp;; vous ne le transmettez pas au club.
           </p>
           <FormField v-slot="$field" name="healthDeclaration" class="checkbox-row">
-            <Checkbox :model-value="$field.value" :binary="true" input-id="health" @update:model-value="(v) => $field.onChange({ value: v })" />
+            <Checkbox :model-value="$field.value" :binary="true" input-id="health" @update:model-value="(v) => onHealthToggle(v, $field)" />
             <label for="health">
               J'atteste avoir répondu <strong>NON</strong> à toutes les rubriques du questionnaire de santé.
             </label>
@@ -213,6 +213,17 @@
         </div>
       </Form>
     </div>
+
+    <Dialog v-model:visible="healthConfirmVisible" modal header="Confirmation" :draggable="false" :style="{ maxWidth: '440px' }">
+      <p>
+        Confirmez-vous avoir répondu <strong>NON</strong> à toutes les rubriques
+        du questionnaire de santé&nbsp;? À défaut, un certificat médical sera exigé.
+      </p>
+      <template #footer>
+        <Button label="Annuler" severity="secondary" outlined @click="cancelHealth" />
+        <Button label="Je confirme" @click="confirmHealth" />
+      </template>
+    </Dialog>
   </div>
 </template>
 
@@ -231,7 +242,15 @@ import { MemberGender, MemberGenderOptions } from '~/types/enum/MemberGender'
 definePageMeta({ layout: 'public' })
 useSeoMeta({
   title: 'Inscriptions - Clapiers Volley Ball',
-  description: 'Demandez votre licence au Clapiers Volley Ball.',
+  description: 'Demandez votre licence au Clapiers Volley Ball en quelques étapes : formulaire en ligne, validation par le club puis paiement sécurisé.',
+  ogTitle: 'Inscriptions - Clapiers Volley Ball',
+  ogDescription: 'Demandez votre licence au Clapiers Volley Ball en quelques étapes : formulaire en ligne, validation par le club puis paiement sécurisé.',
+  ogUrl: 'https://clapiersvb.fr/inscriptions',
+  twitterTitle: 'Inscriptions - Clapiers Volley Ball',
+  twitterDescription: 'Demandez votre licence au Clapiers Volley Ball : formulaire en ligne, validation puis paiement sécurisé.',
+})
+useHead({
+  link: [{ rel: 'canonical', href: 'https://clapiersvb.fr/inscriptions' }],
 })
 
 const publicApi = usePublicApi()
@@ -239,17 +258,19 @@ const config = useRuntimeConfig()
 const recaptchaEnabled = !!config.public.recaptchaSiteKey
 const licenseRepo = new LicenseRepository()
 
-const { season, fetchSeason } = useCurrentSeason()
-onMounted(fetchSeason)
+const { season } = useCurrentSeason()
 
 const genderOptions = MemberGenderOptions
 const pad = (n: number) => String(n).padStart(2, '0')
 const now = new Date()
 const todayInput = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`
-const { data: nationalities } = await useAsyncData(
+// Pas de `await` : fetch client-only (server:false). Un top-level await rendrait
+// le setup asynchrone et masquerait les refs déclarées après (ex. la confirmation
+// santé) lors du rendu. `data` démarre à [] puis se remplit côté client.
+const { data: nationalities } = useAsyncData(
   'nationalities',
   () => publicApi<string[]>('/public/nationalities'),
-  { server: false, default: () => [] as string[] },
+  { server: false, default: () => [] as string[], lazy: true },
 )
 
 // Documents officiels FSGT, hébergés dans public/documents/fsgt.
@@ -319,7 +340,7 @@ const initialValues = {
   firstName: '', lastName: '', email: '', phoneNumber: '',
   gender: null, birthDate: '', nationality: null,
   addressStreet: '', addressZip: '', addressCity: '', licenseNumber: '',
-  healthDeclaration: true,
+  healthDeclaration: false,
   legalRepFirstName: '', legalRepLastName: '', legalRepEmail: '', legalRepPhone: '',
 }
 
@@ -332,6 +353,25 @@ const recaptcha = ref<{ reset: () => void } | null>(null)
 
 const fieldValue = (name: string) => form.value?.states?.[name]?.value
 const isMinor = computed(() => isMinorFromDate(fieldValue('birthDate')))
+
+// Cocher l'attestation santé demande une confirmation ; décocher est immédiat.
+const healthConfirmVisible = ref(false)
+let healthOnChange: ((e: { value: boolean }) => void) | null = null
+const onHealthToggle = (v: boolean, field: { onChange: (e: { value: boolean }) => void }) => {
+  if (v) {
+    healthOnChange = field.onChange
+    healthConfirmVisible.value = true
+  } else {
+    field.onChange({ value: false })
+  }
+}
+const confirmHealth = () => {
+  healthOnChange?.({ value: true })
+  healthConfirmVisible.value = false
+}
+const cancelHealth = () => {
+  healthConfirmVisible.value = false
+}
 const certRequired = computed(() => fieldValue('healthDeclaration') === false)
 const healthDocUrl = computed(() => (isMinor.value ? FSGT_DOCS.questionnaireMineur : FSGT_DOCS.questionnaireMajeur))
 const attestationUrl = computed(() => (isMinor.value ? FSGT_DOCS.attestationMineur : FSGT_DOCS.attestationMajeur))
@@ -469,7 +509,7 @@ const onSubmit = async (e: FormSubmitEvent) => {
 <style scoped>
 .inscription-page {
   min-height: 60vh;
-  padding: 4rem 2rem;
+  padding: 6.5rem 2rem 4rem; /* top dégagé sous la navbar fixe */
   background: var(--club-gradient);
 }
 
@@ -689,7 +729,8 @@ const onSubmit = async (e: FormSubmitEvent) => {
 }
 
 .doc-link {
-  display: inline-flex;
+  display: flex;
+  width: fit-content;
   align-items: center;
   gap: 0.5rem;
   color: var(--club-primary);
