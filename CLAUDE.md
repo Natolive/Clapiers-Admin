@@ -4,6 +4,14 @@ This file covers ONE topic: how to keep the backend test suite green, fast, and
 at ≥95% line coverage when fixing bugs or building features. Read
 `backend/README.md` for the human-facing summary.
 
+## Domain rules
+
+- **Licence "comptée" = active** : une licence ne compte comme adhésion que si
+  son statut est `VALIDEE`, `EN_PAIEMENT` ou `PAYEE` (cf. `LicenseStatus`).
+  `SOUMISE`/`REFUSEE`/`REMBOURSEE` ne comptent pas. Toute stat/scope de saison
+  (population dashboard, liste des licenciés, membres d'une équipe) filtre sur
+  ces trois statuts.
+
 ## Running tests
 
 PHP only exists inside Docker. From the repo root:
