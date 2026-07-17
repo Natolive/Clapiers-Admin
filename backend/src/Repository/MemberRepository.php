@@ -58,7 +58,7 @@ class MemberRepository extends ServiceEntityRepository
         if ($season !== null) {
             $qb->andWhere('EXISTS (SELECT ls.id FROM '.License::class.' ls WHERE ls.member = m AND ls.season = :season AND ls.status IN (:validatedStatuses))')
                 ->setParameter('season', $season)
-                ->setParameter('validatedStatuses', [LicenseStatus::VALIDEE, LicenseStatus::EN_PAIEMENT, LicenseStatus::PAYEE]);
+                ->setParameter('validatedStatuses', LicenseStatus::activeMembership());
         }
 
         if ($search) {
@@ -122,7 +122,7 @@ class MemberRepository extends ServiceEntityRepository
      */
     public function getStats(string $season): array
     {
-        $validated = [LicenseStatus::VALIDEE, LicenseStatus::EN_PAIEMENT, LicenseStatus::PAYEE];
+        $validated = LicenseStatus::activeMembership();
 
         // Population (DQL) : membre avec une licence validée pour la saison.
         $pop = 'EXISTS (SELECT lp.id FROM '.License::class.' lp'
@@ -152,9 +152,14 @@ class MemberRepository extends ServiceEntityRepository
         $seasonStart = sprintf('%d-09-01', $startYear);
         $seasonEnd = sprintf('%d-09-01', $startYear + 1);
 
-        // Même population, en SQL brut, pour les agrégats ci-dessous.
+        // Même population, en SQL brut, pour les agrégats ci-dessous. Valeurs
+        // issues de l'enum (aucune saisie externe) → interpolation sûre.
+        $statusList = implode(', ', array_map(
+            static fn (string $v) => "'".$v."'",
+            LicenseStatus::activeMembershipValues()
+        ));
         $popSql = "EXISTS (SELECT 1 FROM license l WHERE l.member_id = member.id"
-            ." AND l.season = :season AND l.status IN ('validee', 'en_paiement', 'payee'))";
+            ." AND l.season = :season AND l.status IN ($statusList))";
 
         // Répartition par sexe
         $byGenderRaw = $conn->fetchAllAssociative(
@@ -265,7 +270,7 @@ class MemberRepository extends ServiceEntityRepository
         if ($season !== null) {
             $qb->andWhere('EXISTS (SELECT ls.id FROM '.License::class.' ls WHERE ls.member = m AND ls.season = :season AND ls.status IN (:validatedStatuses))')
                 ->setParameter('season', $season)
-                ->setParameter('validatedStatuses', [LicenseStatus::VALIDEE, LicenseStatus::EN_PAIEMENT, LicenseStatus::PAYEE]);
+                ->setParameter('validatedStatuses', LicenseStatus::activeMembership());
         }
 
         return $qb->orderBy('m.lastName', 'ASC')

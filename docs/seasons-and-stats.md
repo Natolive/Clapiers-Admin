@@ -25,8 +25,9 @@
 - Shared input `SeasonQuery` carries `?season=` via `#[MapQueryString]`.
 - **The counted-membership rule**: a member counts for a season only with a
   licence in `[VALIDEE, EN_PAIEMENT, PAYEE]` for that season. Excludes
-  past-season non-renewals and licence-less members. This is the single most
-  repeated filter in the codebase.
+  past-season non-renewals and licence-less members. **Single source of truth:
+  `LicenseStatus::activeMembership()`** (and `::activeMembershipValues()` for raw
+  SQL) — every scope/stat query goes through it, so change the set in one place.
 - **Defaults differ by list** — a real gotcha:
   - Members list, members-by-team, dashboard → default to **current** season.
   - **Licences list does NOT default** — the season is passed straight through;
@@ -45,8 +46,9 @@
   - `withoutLicense = total - withLicense` = validated-but-not-yet-paid.
   - Neither means "no licence at all".
 - `byGender`, `age` (Postgres `AGE()/EXTRACT` on `birth_date`, fixed buckets),
-  `byMonth` — computed in **raw SQL** with hardcoded enum strings and column
-  names.
+  `byMonth` — computed in **raw SQL**. The status list is interpolated from
+  `LicenseStatus::activeMembershipValues()` (safe — enum values, no external
+  input); column/table names are still literal.
 - **`newThisSeason`** (`:199-205`) = in-season population with **no validated
   licence for any earlier season** (`NOT EXISTS ... lo.season < :season`).
   First-ever validated licence, **not `createdAt`**.
@@ -67,9 +69,9 @@
   `lo.season < :season`. Only valid because seasons are fixed-width 4-digit,
   same-century strings. Breaks if a non-conforming name ever reaches the DB.
 - **DQL + raw SQL split in `getStats`**: `total`/`withLicense`/`newThisSeason`
-  use DQL enum params; `byGender`/`age`/`byMonth` use raw SQL with **hardcoded**
-  `'validee','en_paiement','payee'` and table/column names. Rename an enum value
-  or column and the raw-SQL metrics silently drift from the DQL ones. Also
-  Postgres-specific (`AGE`, `EXTRACT`, `TO_CHAR`).
+  use DQL enum params; `byGender`/`age`/`byMonth` use raw SQL. Both now take the
+  status set from `LicenseStatus`, so the membership set no longer drifts — but
+  the raw-SQL table/column names are still literal and Postgres-specific (`AGE`,
+  `EXTRACT`, `TO_CHAR`).
 - All `/api/settings` and `/api/stats` are `ROLE_SUPER_ADMIN`. The current
   season is also exposed unauthenticated at `/season`.
