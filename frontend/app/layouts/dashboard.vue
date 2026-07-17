@@ -14,11 +14,8 @@
     >
       <!-- Brand -->
       <div class="sidebar__brand">
-        <img src="/logo.png" alt="Clapiers Volley-Ball" class="brand-logo" />
-        <div class="brand-text">
-          <span class="brand-name">Clapiers</span>
-          <span class="brand-sub">Volley-Ball Club</span>
-        </div>
+        <img src="/logo-banner.svg" alt="Clapiers Volley-Ball" class="brand-banner" />
+        <img src="/logo.svg" alt="Clapiers Volley-Ball" class="brand-mark" />
       </div>
 
       <div v-if="season" class="sidebar__season" v-tooltip.right="isCollapsedOnly ? ('Saison ' + season) : undefined">
@@ -118,6 +115,14 @@
           <span class="page-title">{{ pageTitle }}</span>
         </div>
         <div class="topbar__right">
+          <button
+            class="theme-btn"
+            @click="toggleDark"
+            :aria-label="isDark ? 'Passer en mode clair' : 'Passer en mode sombre'"
+            v-tooltip.bottom="isDark ? 'Mode clair' : 'Mode sombre'"
+          >
+            <i :class="isDark ? 'pi pi-sun' : 'pi pi-moon'"></i>
+          </button>
           <SeasonSelect />
           <div class="clock">
             <i class="pi pi-clock"></i>
@@ -140,6 +145,9 @@ import { computed, ref } from 'vue';
 import { useAuthStore } from '~/stores/auth.store';
 import DialogContainer from '~/components/common/DialogContainer.vue';
 import SeasonSelect from '~/components/common/SeasonSelect.vue';
+
+// Backend admin theme — dark by default, preference persisted (see useDarkMode).
+const { isDark, toggleDark } = useDarkMode();
 
 const authStore = useAuthStore();
 const route = useRoute();
@@ -170,8 +178,7 @@ const toggleGroup = (label: string) => {
   if (import.meta.client) localStorage.setItem(GROUPS_KEY, JSON.stringify(openGroups.value));
 };
 const { currentTime } = useClock();
-const { season, fetchSeason } = useCurrentSeason();
-onMounted(fetchSeason);
+const { season } = useCurrentSeason();
 
 const userName = computed(() => authStore.user?.email?.split('@')[0] ?? 'Utilisateur');
 const userInitials = computed(() => userName.value.slice(0, 2).toUpperCase());
@@ -227,6 +234,7 @@ const handleLogout = () => authStore.logout();
 .sidebar__brand {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 0.75rem;
   padding: 1.125rem 1rem;
   border-bottom: 1px solid var(--rail-border);
@@ -234,36 +242,20 @@ const handleLogout = () => authStore.logout();
   overflow: hidden;
 }
 
-.brand-logo {
+.brand-banner {
+  height: 2.5rem;
+  width: auto;
+  max-width: 100%;
+  object-fit: contain;
+}
+
+/* 1:1 mark shown only when the rail is collapsed */
+.brand-mark {
+  display: none;
   width: 2.25rem;
   height: 2.25rem;
   min-width: 2.25rem;
   object-fit: contain;
-  border-radius: 8px;
-}
-
-.brand-text {
-  display: flex;
-  flex-direction: column;
-  line-height: 1.25;
-  overflow: hidden;
-  white-space: nowrap;
-  transition: opacity 0.2s ease;
-}
-
-.brand-name {
-  font-size: 0.9375rem;
-  font-weight: 700;
-  color: #fff;
-  letter-spacing: -0.01em;
-}
-
-.brand-sub {
-  font-size: 0.6875rem;
-  font-weight: 400;
-  color: var(--rail-text-dim);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
 }
 
 .sidebar__season {
@@ -528,8 +520,15 @@ const handleLogout = () => authStore.logout();
     width: 4rem;
   }
 
+  /* collapsed rail: swap the wide banner for the square 1:1 mark */
+  .sidebar--collapsed:not(.sidebar--hovered) .brand-banner {
+    display: none;
+  }
+  .sidebar--collapsed:not(.sidebar--hovered) .brand-mark {
+    display: block;
+  }
+
   /* hide text elements */
-  .sidebar--collapsed:not(.sidebar--hovered) .brand-text,
   .sidebar--collapsed:not(.sidebar--hovered) .nav-text,
   .sidebar--collapsed:not(.sidebar--hovered) .user-info,
   .sidebar--collapsed:not(.sidebar--hovered) .logout-btn {
@@ -642,6 +641,26 @@ const handleLogout = () => authStore.logout();
 }
 .menu-btn:hover {
   background: var(--p-surface-hover);
+}
+
+/* Theme toggle — same look as menu-btn but always visible */
+.theme-btn {
+  display: flex;
+  width: 2.25rem;
+  height: 2.25rem;
+  border: 1px solid var(--p-surface-border);
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  color: var(--p-text-muted-color);
+  font-size: 0.875rem;
+  transition: all 0.15s ease;
+}
+.theme-btn:hover {
+  background: var(--p-surface-hover);
+  color: var(--p-text-color);
 }
 
 .page-title {

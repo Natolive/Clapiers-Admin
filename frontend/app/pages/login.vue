@@ -3,7 +3,7 @@
     <div class="surface-card p-6 shadow-2 border-round w-full" style="max-width: 450px">
 
       <div class="text-center mb-5">
-        <img src="/logo.png" alt="Clapiers Volley Ball" height="100" class="mb-3">
+        <img :src="isDark ? '/logo.svg' : '/logo-light.svg'" alt="Clapiers Volley Ball" height="100" class="mb-3">
         <h1 class="text-3xl font-medium mb-3">Connexion</h1>
         <span class="text-600 font-medium">Accédez à votre compte</span>
       </div>
@@ -19,6 +19,9 @@ import type {Credentials} from "~/types/custom/Credentials";
 import {useAuthStore} from "~/stores/auth.store";
 
 useHead({ title: 'Connexion - CVB' })
+
+// Login follows the saved admin theme; logo swaps to a dark-text variant in light mode.
+const { isDark } = useDarkMode();
 
 const isSubmitting = ref<boolean>(false);
 

@@ -44,6 +44,19 @@
                   </p>
                 </template>
               </div>
+
+              <div class="setting-block">
+                <h3 class="setting-title">Inscriptions en ligne</h3>
+                <p class="setting-help">
+                  Affiche « inscriptions ouvertes / fermées » sur la page d'accueil.
+                </p>
+
+                <div v-if="inscriptionsLoading" class="text-color-secondary">Chargement…</div>
+                <div v-else class="inscriptions-row">
+                  <ToggleSwitch v-model="inscriptionsOpen" :disabled="inscriptionsSaving" @update:model-value="saveInscriptions" />
+                  <span>{{ inscriptionsOpen ? 'Inscriptions ouvertes' : 'Inscriptions fermées' }}</span>
+                </div>
+              </div>
             </TabPanel>
           </TabPanels>
         </Tabs>
@@ -76,6 +89,11 @@ const loading = ref(true)
 const saving = ref(false)
 const error = ref('')
 
+const { open: sharedInscriptionsOpen } = useInscriptionsStatus()
+const inscriptionsOpen = ref(true)
+const inscriptionsLoading = ref(true)
+const inscriptionsSaving = ref(false)
+
 onMounted(async () => {
   try {
     const s = await repo.getSeason()
@@ -84,7 +102,27 @@ onMounted(async () => {
   } finally {
     loading.value = false
   }
+  try {
+    inscriptionsOpen.value = (await repo.getInscriptionsStatus()).open
+  } finally {
+    inscriptionsLoading.value = false
+  }
 })
+
+const saveInscriptions = async (value: boolean) => {
+  inscriptionsSaving.value = true
+  try {
+    const res = await repo.setInscriptionsStatus(value)
+    inscriptionsOpen.value = res.open
+    sharedInscriptionsOpen.value = res.open // propage l'affichage public sans rechargement
+    toast.add({ severity: 'success', summary: 'Inscriptions', detail: res.open ? 'Ouvertes' : 'Fermées', life: 3000 })
+  } catch {
+    inscriptionsOpen.value = !value // revient à l'état précédent en cas d'échec
+    toast.add({ severity: 'error', summary: 'Inscriptions', detail: 'Enregistrement impossible.', life: 4000 })
+  } finally {
+    inscriptionsSaving.value = false
+  }
+}
 
 const save = async () => {
   if (!/^\d{4}-\d{4}$/.test(season.value)) {
@@ -125,7 +163,8 @@ const save = async () => {
   color: var(--p-text-muted-color);
 }
 
-.season-row {
+.season-row,
+.inscriptions-row {
   display: flex;
   gap: 0.75rem;
   align-items: center;

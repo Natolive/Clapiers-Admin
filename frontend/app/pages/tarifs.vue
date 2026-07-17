@@ -16,6 +16,14 @@ definePageMeta({ layout: 'public' })
 useSeoMeta({
   title: 'Tarifs - Clapiers Volley Ball',
   description: 'Tarifs des licences et cotisations au Clapiers Volley Ball.',
+  ogTitle: 'Tarifs - Clapiers Volley Ball',
+  ogDescription: 'Tarifs des licences et cotisations au Clapiers Volley Ball.',
+  ogUrl: 'https://clapiersvb.fr/tarifs',
+  // Page encore en préparation : contenu mince → ne pas indexer (mais suivre les liens).
+  robots: 'noindex, follow',
+})
+useHead({
+  link: [{ rel: 'canonical', href: 'https://clapiersvb.fr/tarifs' }],
 })
 </script>
 
@@ -25,7 +33,7 @@ useSeoMeta({
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 4rem 2rem;
+  padding: 6.5rem 2rem 4rem; /* top dégagé sous la navbar fixe */
 }
 
 .container {

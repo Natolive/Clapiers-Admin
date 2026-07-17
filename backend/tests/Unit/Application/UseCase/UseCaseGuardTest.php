@@ -57,6 +57,7 @@ class UseCaseGuardTest extends TestCase
             \App\Application\UseCase\Member\Media\UploadDocumentFile\UploadDocumentFileUseCase::class,
             \App\Application\UseCase\SalleClosure\CreateSalleClosure\CreateSalleClosureUseCase::class,
             \App\Application\UseCase\Setting\SetCurrentSeason\SetCurrentSeasonUseCase::class,
+            \App\Application\UseCase\Setting\SetInscriptionsStatus\SetInscriptionsStatusUseCase::class,
             \App\Application\UseCase\SalleClosure\DeleteSalleClosure\DeleteSalleClosureUseCase::class,
             \App\Application\UseCase\Team\CreateUpdateTeam\CreateUpdateTeamUseCase::class,
             \App\Application\UseCase\Team\DownloadMyTeamMemberLicense\DownloadMyTeamMemberLicenseUseCase::class,
