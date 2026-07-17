@@ -13,6 +13,7 @@ export interface PaginationParams {
     search?: string;
     teamId?: number;
     licensePaid?: boolean;
+    season?: string;
 }
 
 export class MemberRepository {
@@ -35,6 +36,7 @@ export class MemberRepository {
                 ...(params.search ? { search: params.search } : {}),
                 ...(params.teamId ? { teamId: params.teamId } : {}),
                 ...(params.licensePaid !== undefined ? { licensePaid: params.licensePaid } : {}),
+                ...(params.season ? { season: params.season } : {}),
             }
         });
     }
@@ -46,9 +48,10 @@ return await this.api<Member>('/member', {
         });
     }
 
-    async getByTeam(teamId: number): Promise<Member[]> {
+    async getByTeam(teamId: number, season?: string): Promise<Member[]> {
         return await this.api<Member[]>(`/member/team/${teamId}`, {
-            method: 'GET'
+            method: 'GET',
+            params: season ? { season } : {},
         });
     }
 

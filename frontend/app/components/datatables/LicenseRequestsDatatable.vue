@@ -155,6 +155,7 @@ const total = ref(0)
 const loading = ref(false)
 const statusFilter = ref<string | null>(LicenseStatus.SOUMISE)
 const search = ref('')
+const { selected: season, load: loadSeasons } = useSeasonFilter()
 let searchTimeout: ReturnType<typeof setTimeout> | undefined
 
 const lazyParams = ref({ first: 0, rows: 10 })
@@ -181,6 +182,7 @@ const fetchData = async () => {
       limit: lazyParams.value.rows,
       status: statusFilter.value ?? undefined,
       search: search.value.trim() || undefined,
+      season: season.value || undefined,
     })
     items.value = result.data
     total.value = result.total
@@ -195,7 +197,7 @@ const onPage = (event: { first: number; rows: number }) => {
   fetchData()
 }
 
-watch(statusFilter, () => { lazyParams.value.first = 0; fetchData() })
+watch([statusFilter, season], () => { lazyParams.value.first = 0; fetchData() })
 watch(search, () => {
   if (searchTimeout) clearTimeout(searchTimeout)
   searchTimeout = setTimeout(() => { lazyParams.value.first = 0; fetchData() }, 300)
@@ -205,7 +207,7 @@ const openReview = (license: License) => show({ component: LicenseReviewDialog, 
 const openApprove = (license: License) => show({ component: ApproveLicenseDialog, props: { license, onSaved: fetchData } })
 const openReject = (license: License) => show({ component: RejectLicenseDialog, props: { license, onSaved: fetchData } })
 
-onMounted(fetchData)
+onMounted(() => { loadSeasons(); fetchData() })
 defineExpose({ refresh: fetchData })
 </script>
 

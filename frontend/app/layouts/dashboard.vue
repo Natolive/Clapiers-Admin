@@ -118,6 +118,7 @@
           <span class="page-title">{{ pageTitle }}</span>
         </div>
         <div class="topbar__right">
+          <SeasonSelect />
           <div class="clock">
             <i class="pi pi-clock"></i>
             <span>{{ currentTime }}</span>
@@ -138,6 +139,7 @@
 import { computed, ref } from 'vue';
 import { useAuthStore } from '~/stores/auth.store';
 import DialogContainer from '~/components/common/DialogContainer.vue';
+import SeasonSelect from '~/components/common/SeasonSelect.vue';
 
 const authStore = useAuthStore();
 const route = useRoute();
@@ -653,6 +655,7 @@ const handleLogout = () => authStore.logout();
 .topbar__right {
   display: flex;
   align-items: center;
+  gap: 0.75rem;
 }
 
 .clock {
@@ -716,6 +719,13 @@ const handleLogout = () => authStore.logout();
   }
   .menu-btn {
     display: flex;
+  }
+}
+
+/* Sur téléphone, l'horloge cède la place au sélecteur de saison. */
+@media (max-width: 767px) {
+  .clock {
+    display: none;
   }
 }
 </style>

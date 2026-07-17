@@ -27,8 +27,8 @@ class GetPaginatedLicensesUseCase extends AbstractUseCase
 
         $status = $command->status !== null ? LicenseStatus::tryFrom($command->status) : null;
 
-        $licenses = $this->licenseRepository->findPaginated($command->page, $command->limit, $status, $command->search);
-        $total = $this->licenseRepository->countByFilters($status, $command->search);
+        $licenses = $this->licenseRepository->findPaginated($command->page, $command->limit, $status, $command->search, $command->season);
+        $total = $this->licenseRepository->countByFilters($status, $command->search, $command->season);
 
         return [
             'data' => array_map(fn (License $license) => $license->toArray(), $licenses),

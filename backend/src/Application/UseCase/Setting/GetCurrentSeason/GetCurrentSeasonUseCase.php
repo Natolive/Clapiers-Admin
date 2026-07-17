@@ -24,6 +24,7 @@ class GetCurrentSeasonUseCase extends AbstractUseCase
         return [
             'season' => $this->seasonProvider->current(),
             'suggestion' => $this->seasonProvider->computed(),
+            'seasons' => $this->seasonProvider->all(),
         ];
     }
 }

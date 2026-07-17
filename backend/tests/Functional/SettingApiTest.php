@@ -48,6 +48,24 @@ class SettingApiTest extends ApiTestCase
         $this->assertSame('2031-2032', $this->assertJsonResponse(200)['season']);
     }
 
+    public function testSetSeasonRegistersSeasonInList(): void
+    {
+        $this->actingAsSuperAdmin();
+
+        $this->putJson('/api/settings/season', ['season' => '2030-2031']);
+        $this->assertJsonResponse(200);
+        $this->putJson('/api/settings/season', ['season' => '2031-2032']);
+        $this->assertJsonResponse(200);
+
+        $this->getJson('/api/settings/season');
+        $body = $this->assertJsonResponse(200);
+
+        // Les deux saisons enregistrées apparaissent, la plus récente d'abord.
+        $this->assertContains('2030-2031', $body['seasons']);
+        $this->assertContains('2031-2032', $body['seasons']);
+        $this->assertSame('2031-2032', $body['seasons'][0]);
+    }
+
     public function testSetSeasonRejectsBadFormat(): void
     {
         $this->actingAsSuperAdmin();

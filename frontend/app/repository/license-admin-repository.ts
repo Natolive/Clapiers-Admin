@@ -12,6 +12,7 @@ export interface LicensePaginationParams {
     limit: number;
     status?: string;
     search?: string;
+    season?: string;
 }
 
 export interface LicenseReviewDocument {
@@ -55,6 +56,7 @@ export class LicenseAdminRepository {
                 limit: params.limit,
                 ...(params.status ? { status: params.status } : {}),
                 ...(params.search ? { search: params.search } : {}),
+                ...(params.season ? { season: params.season } : {}),
             },
         });
     }

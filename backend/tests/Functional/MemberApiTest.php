@@ -151,9 +151,10 @@ class MemberApiTest extends ApiTestCase
 
     public function testPaginatedMembersReturnsDataAndTotal(): void
     {
+        $season = $this->currentSeason();
         $team = $this->aTeam()->persist();
         for ($i = 0; $i < 3; ++$i) {
-            $this->aMember()->inTeams($team)->persist();
+            $this->aMember()->inTeams($team)->licensedFor($season)->persist();
         }
 
         $this->actingAsSuperAdmin();
@@ -166,7 +167,7 @@ class MemberApiTest extends ApiTestCase
 
     public function testPaginatedMembersExcludesNonActiveMembers(): void
     {
-        $active = $this->aMember()->named('Active', 'Membre')->persist();
+        $active = $this->aMember()->named('Active', 'Membre')->licensedFor($this->currentSeason())->persist();
 
         $pending = $this->aMember()->named('Pending', 'Membre')->persist();
         $pending->setStatus(MemberStatus::PENDING_VALIDATION);
@@ -185,9 +186,10 @@ class MemberApiTest extends ApiTestCase
 
     public function testPaginatedMembersFiltersBySearch(): void
     {
+        $season = $this->currentSeason();
         $team = $this->aTeam()->persist();
-        $this->aMember()->named('Zoé', 'Unique')->inTeams($team)->persist();
-        $this->aMember()->named('Marc', 'Commun')->inTeams($team)->persist();
+        $this->aMember()->named('Zoé', 'Unique')->inTeams($team)->licensedFor($season)->persist();
+        $this->aMember()->named('Marc', 'Commun')->inTeams($team)->licensedFor($season)->persist();
 
         $this->actingAsSuperAdmin();
         $this->getJson('/api/member/paginated?search=Zoé');
@@ -199,10 +201,11 @@ class MemberApiTest extends ApiTestCase
 
     public function testPaginatedMembersFiltersByTeam(): void
     {
+        $season = $this->currentSeason();
         $teamA = $this->aTeam()->persist();
         $teamB = $this->aTeam()->persist();
-        $inA = $this->aMember()->inTeams($teamA)->persist();
-        $this->aMember()->inTeams($teamB)->persist();
+        $inA = $this->aMember()->inTeams($teamA)->licensedFor($season)->persist();
+        $this->aMember()->inTeams($teamB)->licensedFor($season)->persist();
 
         $this->actingAsSuperAdmin();
         $this->getJson('/api/member/paginated?teamId='.$teamA->getId());
@@ -219,7 +222,7 @@ class MemberApiTest extends ApiTestCase
         $paid = $this->aMember()->inTeams($team)->persist();
         $this->aLicense()->forMember($paid)->inSeason($season)->withStatus(LicenseStatus::PAYEE)->persist();
         $paid->setStatus(MemberStatus::ACTIVE); // le builder de licence l'avait passé en attente
-        $this->aMember()->inTeams($team)->persist(); // actif, sans licence payée
+        $this->aMember()->inTeams($team)->licensedFor($season)->persist(); // actif, licence validée mais non payée
         $this->em()->flush();
 
         $paidId = $paid->getId();
@@ -245,7 +248,9 @@ class MemberApiTest extends ApiTestCase
         $this->aLicense()->forMember($current)->inSeason($season)->withStatus(LicenseStatus::PAYEE)->persist();
         $current->setStatus(MemberStatus::ACTIVE);
 
-        $past = $this->aMember()->named('Payé', 'Avant')->inTeams($team)->persist();
+        // Licencié cette saison (validée, non payée) MAIS payé une saison passée :
+        // il apparaît, et le flag « payée » ne doit voir que la saison courante.
+        $past = $this->aMember()->named('Payé', 'Avant')->inTeams($team)->licensedFor($season)->persist();
         $this->aLicense()->forMember($past)->inSeason('2000-2001')->withStatus(LicenseStatus::PAYEE)->persist();
         $past->setStatus(MemberStatus::ACTIVE);
         $this->em()->flush();
@@ -268,11 +273,25 @@ class MemberApiTest extends ApiTestCase
         $this->assertFalse($paidById[$pastId], 'Licence payée d’une saison passée → pas à jour');
     }
 
+    public function testPaginatedMembersScopeToRequestedSeason(): void
+    {
+        $this->aMember()->named('SaisonA', 'Licencie')->licensedFor('2030-2031')->persist();
+        $this->aMember()->named('SaisonB', 'Licencie')->licensedFor('2031-2032')->persist();
+
+        $this->actingAsSuperAdmin();
+        $this->getJson('/api/member/paginated?season=2030-2031&limit=50');
+
+        $body = $this->assertJsonResponse(200);
+        $this->assertSame(1, $body['total']);
+        $this->assertSame('SaisonA', $body['data'][0]['firstName']);
+    }
+
     public function testPaginatedMembersSortsByLastNameDesc(): void
     {
+        $season = $this->currentSeason();
         $team = $this->aTeam()->persist();
-        $this->aMember()->named('A', 'Aaa')->inTeams($team)->persist();
-        $this->aMember()->named('B', 'Zzz')->inTeams($team)->persist();
+        $this->aMember()->named('A', 'Aaa')->inTeams($team)->licensedFor($season)->persist();
+        $this->aMember()->named('B', 'Zzz')->inTeams($team)->licensedFor($season)->persist();
 
         $this->actingAsSuperAdmin();
         $this->getJson('/api/member/paginated?sortField=lastName&sortOrder=desc');
@@ -284,8 +303,8 @@ class MemberApiTest extends ApiTestCase
     public function testPaginatedExposesLicenseDocumentFlagFromMedia(): void
     {
         $season = static::getContainer()->get(SeasonProvider::class)->current();
-        $withLicense = $this->aMember()->named('Avec', 'Licence')->persist();
-        $without = $this->aMember()->named('Sans', 'Licence')->persist();
+        $withLicense = $this->aMember()->named('Avec', 'Licence')->licensedFor($season)->persist();
+        $without = $this->aMember()->named('Sans', 'Licence')->licensedFor($season)->persist();
 
         // Remplit le slot Licence de la saison courante d'un seul membre.
         static::getContainer()->get(MemberMediaSeeder::class)->ensureSeason($withLicense, $season);
@@ -312,11 +331,12 @@ class MemberApiTest extends ApiTestCase
 
     public function testMembersByTeamReturnsOnlyThatTeam(): void
     {
+        $season = $this->currentSeason();
         $teamA = $this->aTeam()->persist();
         $teamB = $this->aTeam()->persist();
-        $inA = $this->aMember()->inTeams($teamA)->persist();
-        $inBoth = $this->aMember()->inTeams($teamA, $teamB)->persist();
-        $this->aMember()->inTeams($teamB)->persist();
+        $inA = $this->aMember()->inTeams($teamA)->licensedFor($season)->persist();
+        $inBoth = $this->aMember()->inTeams($teamA, $teamB)->licensedFor($season)->persist();
+        $this->aMember()->inTeams($teamB)->licensedFor($season)->persist();
 
         $this->actingAsSuperAdmin();
         $this->getJson('/api/member/team/'.$teamA->getId());
@@ -327,6 +347,33 @@ class MemberApiTest extends ApiTestCase
         $expected = [$inA->getId(), $inBoth->getId()];
         sort($expected);
         $this->assertSame($expected, $ids);
+    }
+
+    public function testMembersByTeamScopeToRequestedSeason(): void
+    {
+        $team = $this->aTeam()->persist();
+        $this->aMember()->named('SaisonA', 'Equipe')->inTeams($team)->licensedFor('2030-2031')->persist();
+        $this->aMember()->named('SaisonB', 'Equipe')->inTeams($team)->licensedFor('2031-2032')->persist();
+
+        $this->actingAsSuperAdmin();
+        $this->getJson('/api/member/team/'.$team->getId().'?season=2030-2031');
+
+        $body = $this->assertJsonResponse(200);
+        $this->assertCount(1, $body);
+        $this->assertSame('SaisonA', $body[0]['firstName']);
+    }
+
+    public function testMembersByTeamRejectsMalformedSeason(): void
+    {
+        // Le format de saison est validé par la contrainte générique #[Season]
+        // via MapQueryString ; une valeur invalide est rejetée (404 = statut par
+        // défaut de MapQueryString en cas d'échec de validation).
+        $team = $this->aTeam()->persist();
+
+        $this->actingAsSuperAdmin();
+        $this->getJson('/api/member/team/'.$team->getId().'?season=not-a-season');
+
+        $this->assertJsonResponse(404);
     }
 
     public function testMembersByUnknownTeamReturns404(): void

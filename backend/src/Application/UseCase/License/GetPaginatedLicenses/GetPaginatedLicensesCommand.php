@@ -3,6 +3,7 @@
 namespace App\Application\UseCase\License\GetPaginatedLicenses;
 
 use App\Common\Command\CommandInterface;
+use App\Validator\Season;
 use Symfony\Component\Validator\Constraints as Assert;
 
 class GetPaginatedLicensesCommand implements CommandInterface
@@ -14,6 +15,8 @@ class GetPaginatedLicensesCommand implements CommandInterface
         public readonly int $limit = 20,
         public readonly ?string $status = null,
         public readonly ?string $search = null,
+        #[Season]
+        public readonly ?string $season = null,
     ) {
     }
 }
