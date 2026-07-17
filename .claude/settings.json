@@ -15,6 +15,12 @@
             "command": "f=$(jq -r '.tool_input.file_path // empty'); case \"$f\" in */backend/src/*) if [ -z \"$(git status --porcelain -- backend/tests)\" ]; then printf '{\"hookSpecificOutput\":{\"hookEventName\":\"PostToolUse\",\"additionalContext\":\"You edited %s but nothing under backend/tests was added or updated yet. Per CLAUDE.md every behavior change needs a functional test (or a unit test only if the branch is unreachable over HTTP). Update the matching test before finishing.\"}}' \"$f\"; fi ;; esac",
             "timeout": 15,
             "statusMessage": "Checking for matching test changes…"
+          },
+          {
+            "type": "command",
+            "command": "f=$(jq -r '.tool_input.file_path // empty'); case \"$f\" in */backend/src/*) if [ -z \"$(git status --porcelain -- docs CLAUDE.md)\" ]; then printf '{\"hookSpecificOutput\":{\"hookEventName\":\"PostToolUse\",\"additionalContext\":\"You edited %s. If this changes behavior documented in docs/ (lifecycle, roles, season scoping, state machines, invariants, API surface, or a file:line reference), update the matching docs/*.md file so the knowledge base does not drift. Skip only if this change is not covered there.\"}}' \"$f\"; fi ;; esac",
+            "timeout": 15,
+            "statusMessage": "Checking whether docs need updating…"
           }
         ]
       }

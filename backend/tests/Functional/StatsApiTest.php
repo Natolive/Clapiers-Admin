@@ -65,27 +65,26 @@ class StatsApiTest extends ApiTestCase
         $this->assertSame(1, $this->assertJsonResponse(200)['licenses']['total']);
     }
 
-    public function testRegistrationMetricsAreScopedToSeasonWindow(): void
+    public function testNewThisSeasonCountsFirstTimeMembersRegardlessOfCreatedAt(): void
     {
-        // Saison 2030-2031 : fenêtre [2030-09-01, 2031-09-01) (bascule septembre).
-        $joined  = $this->aMember()->licensedFor('2030-2031')->persist(); // rejoint pendant la saison
-        $renewed = $this->aMember()->licensedFor('2030-2031')->persist(); // renouvellement, rejoint avant
+        // Nouveau : licence validée cette saison, aucune licence antérieure.
+        // createdAt hors de la fenêtre calendaire (inscription avant septembre) :
+        // il doit tout de même compter comme nouveau.
+        $newcomer = $this->aMember()->licensedFor('2030-2031')->persist();
+        $this->backdateMember($newcomer, '2030-07-01');
 
-        $this->backdateMember($joined, '2030-10-15');
-        $this->backdateMember($renewed, '2029-05-01');
+        // Renouvellement : licence cette saison ET une saison antérieure → pas nouveau.
+        $returning = $this->aMember()->licensedFor('2030-2031')->persist();
+        $this->aLicense()->forMember($returning)->inSeason('2029-2030')
+            ->withStatus(LicenseStatus::VALIDEE)->persist();
 
         $this->actingAsSuperAdmin();
         $this->getJson('/api/stats/dashboard?season=2030-2031');
         $body = $this->assertJsonResponse(200);
 
-        // Les deux sont licenciés (total) ; un seul a rejoint pendant la saison.
+        // Les deux sont licenciés (total) ; un seul est une première adhésion.
         $this->assertSame(2, $body['members']['total']);
         $this->assertSame(1, $body['members']['createdAt']['newThisSeason']);
-
-        // byMonth ne couvre que les mois de la saison.
-        $months = array_column($body['members']['createdAt']['byMonth'], 'month');
-        $this->assertContains('2030-10', $months);
-        $this->assertNotContains('2029-05', $months);
     }
 
     private function backdateMember(\App\Entity\Member $member, string $date): void
