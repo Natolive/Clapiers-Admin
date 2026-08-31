@@ -86,7 +86,7 @@ class UploadLicenseRequestDocumentUseCase extends AbstractUseCase
         }
 
         $this->storage->delete($slot->getStoredName());
-        $meta = $this->storage->store($command->file);
+        $meta = $this->storage->store($command->file, (int) $member->getId());
         $slot->setFile($meta['storedName'], $meta['originalName'], $meta['mimeType'], $meta['size']);
 
         // Marqueur sur la licence pour le badge « certificat déposé » côté admin.

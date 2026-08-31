@@ -60,15 +60,15 @@ class TeamController extends AbstractController
         $user = $this->getUser();
         $command = new DownloadMyTeamMemberLicenseCommand($user, $memberId);
 
-        // run() returns a BinaryFileResponse, so execute() (JSON wrapper) cannot be
-        // used here: map the use case errors to JSON manually
+        // run() returns a file response (stream Bunny ou fichier local), donc
+        // execute() (wrapper JSON) est inutilisable : mapper les erreurs à la main
         try {
             return $useCase->run($command);
         } catch (UseCaseException $e) {
             return $this->json(['message' => $e->getMessage()], $e->getCode());
         } catch (\Throwable) {
-            // e.g. file removed between the use case's file_exists check and
-            // BinaryFileResponse construction: keep the JSON error shape
+            // e.g. fichier disparu entre la vérification du use case et la
+            // construction de la réponse : garder la forme d'erreur JSON
             return $this->json(['message' => 'Unknown Error'], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }

@@ -55,8 +55,10 @@ class ApproveLicenseUseCase extends AbstractUseCase
         }
 
         // Réinscription : fusionner dans le membre existant choisi par l'admin.
+        // Les fichiers devenus inutiles ne sont supprimés qu'après le commit.
+        $obsoleteFiles = [];
         if ($command->replaceMemberId !== null) {
-            $this->mergeIntoExistingMember($license, $command->replaceMemberId);
+            $obsoleteFiles = $this->mergeIntoExistingMember($license, $command->replaceMemberId);
         }
 
         $license->setHelloAssoTierId($command->helloAssoTierId);
@@ -73,6 +75,11 @@ class ApproveLicenseUseCase extends AbstractUseCase
 
         $this->entityManager->flush();
 
+        // Après le commit seulement : supprimer plus tôt, c'est perdre les
+        // fichiers si la suite échoue — la base pointerait sur des objets déjà
+        // effacés de la zone.
+        $this->deleteObsoleteFiles($obsoleteFiles);
+
         $this->mailer->send($license);
 
         return $license;
@@ -82,8 +89,10 @@ class ApproveLicenseUseCase extends AbstractUseCase
      * Rattache la licence à un membre existant (même email), déplace les pièces
      * déposées dans sa médiathèque, met à jour ses coordonnées, puis supprime la
      * fiche en double créée par la demande.
+     *
+     * @return list<string> fichiers rendus obsolètes, à supprimer après le flush
      */
-    private function mergeIntoExistingMember(License $license, int $existingMemberId): void
+    private function mergeIntoExistingMember(License $license, int $existingMemberId): array
     {
         $existing = $this->memberRepository->find($existingMemberId);
         if (!$existing) {
@@ -111,7 +120,7 @@ class ApproveLicenseUseCase extends AbstractUseCase
         $this->seeder->ensureSeason($existing, $license->getSeason());
         $this->entityManager->flush();
 
-        $this->moveDocuments($source, $existing, $license->getSeason());
+        $obsoleteFiles = $this->moveDocuments($source, $existing, $license->getSeason());
 
         $license->setMember($existing);
         $this->copyCoordinates($source, $existing);
@@ -120,40 +129,83 @@ class ApproveLicenseUseCase extends AbstractUseCase
         // médiathèque partent en cascade (base), les fichiers déplacés restant
         // référencés par le membre existant.
         $this->entityManager->remove($source);
+
+        return $obsoleteFiles;
     }
 
-    private function moveDocuments(Member $source, Member $target, string $season): void
+    /** @return list<string> */
+    private function moveDocuments(Member $source, Member $target, string $season): array
     {
+        $obsoleteFiles = [];
+
         foreach (self::ROOT_KEYS as $key) {
             $src = $this->documentRepository->findRootDocumentSlot($source, $key);
             $dest = $this->documentRepository->findRootDocumentSlot($target, $key);
-            $this->moveFile($src, $dest);
+            $obsoleteFiles = [...$obsoleteFiles, ...$this->moveFile($src, $dest)];
         }
 
         foreach (self::SEASON_KEYS as $key) {
             $src = $this->documentRepository->findDefaultSlot($source, $season, $key);
             $dest = $this->documentRepository->findDefaultSlot($target, $season, $key);
-            $this->moveFile($src, $dest);
+            $obsoleteFiles = [...$obsoleteFiles, ...$this->moveFile($src, $dest)];
         }
+
+        return $obsoleteFiles;
     }
 
-    private function moveFile(?MemberDocument $src, ?MemberDocument $dest): void
+    /** @return list<string> */
+    private function moveFile(?MemberDocument $src, ?MemberDocument $dest): array
     {
         if ($src === null || $dest === null || !$src->hasFile()) {
-            return;
+            return [];
         }
 
-        // Remplace la pièce éventuellement déjà présente côté membre existant.
+        $obsoleteFiles = [];
+
+        // La pièce éventuellement déjà présente côté membre existant est
+        // remplacée : son fichier ne sert plus, mais on ne l'efface qu'après.
         if ($dest->hasFile()) {
-            $this->storage->delete($dest->getStoredName());
+            $obsoleteFiles[] = (string) $dest->getStoredName();
+        }
+
+        // Le stockage est rangé par membre : la pièce doit suivre dans le
+        // dossier du membre existant, sinon elle resterait sous l'id de la
+        // fiche en double, qui est supprimée juste après.
+        $storedName = $this->storage->copyTo(
+            (string) $src->getStoredName(),
+            (int) $dest->getMember()->getId(),
+        );
+
+        if ($storedName !== $src->getStoredName()) {
+            $obsoleteFiles[] = (string) $src->getStoredName();
         }
 
         $dest->setFile(
-            (string) $src->getStoredName(),
+            $storedName,
             $src->getOriginalName() ?? $dest->getName(),
             $src->getMimeType(),
             $src->getSize(),
         );
+
+        return $obsoleteFiles;
+    }
+
+    /**
+     * Ménage post-commit. La validation est déjà enregistrée : un objet resté
+     * dans la zone ne doit pas faire échouer la demande (l'erreur est déjà
+     * loggée par le stockage).
+     *
+     * @param list<string> $storedNames
+     */
+    private function deleteObsoleteFiles(array $storedNames): void
+    {
+        foreach ($storedNames as $storedName) {
+            try {
+                $this->storage->delete($storedName);
+            } catch (UseCaseException) {
+                // Orphelin toléré : mieux qu'une 502 sur une licence validée.
+            }
+        }
     }
 
     private function copyCoordinates(Member $source, Member $target): void

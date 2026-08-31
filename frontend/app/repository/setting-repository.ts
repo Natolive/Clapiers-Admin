@@ -19,6 +19,12 @@ export interface HelloAssoConfig {
     clientSecretDefined: boolean;
 }
 
+/** Configuration Bunny Storage : la clé d'accès n'est jamais renvoyée par l'API. */
+export interface BunnyConfig {
+    storageUrl: string;
+    storageKeyDefined: boolean;
+}
+
 export class SettingRepository {
     private api = useApi();
 
@@ -40,6 +46,18 @@ export class SettingRepository {
     /** Champs vides = inchangés (notamment le secret client). */
     async setHelloAssoConfig(body: Partial<Omit<HelloAssoConfig, 'clientSecretDefined'>> & { clientSecret?: string }): Promise<HelloAssoConfig> {
         return await this.api<HelloAssoConfig>('/settings/helloasso', {
+            method: 'PUT',
+            body,
+        });
+    }
+
+    async getBunnyConfig(): Promise<BunnyConfig> {
+        return await this.api<BunnyConfig>('/settings/bunny', { method: 'GET' });
+    }
+
+    /** Champs vides = inchangés (notamment la clé d'accès). */
+    async setBunnyConfig(body: { storageUrl?: string; storageKey?: string }): Promise<BunnyConfig> {
+        return await this.api<BunnyConfig>('/settings/bunny', {
             method: 'PUT',
             body,
         });

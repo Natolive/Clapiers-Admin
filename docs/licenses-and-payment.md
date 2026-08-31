@@ -182,6 +182,21 @@ logged only). No token/media cleanup.
   `helloasso.access_token` / `helloasso.form_tiers`** : sans ça un changement
   d'identifiants resterait invisible ~25 min.
 
+## Réglages du stockage de fichiers (table `setting`)
+
+Même schéma, via `BunnyConfigProvider` (`src/Common/Service/`) — détails du
+stockage dans [`members-and-mediatheque.md`](members-and-mediatheque.md) :
+
+| Champ | Clé en base |
+|-------|-------------|
+| `storageUrl` | `bunny_storage_url` |
+| `storageKey` | `bunny_storage_key` |
+
+- `GET /api/settings/bunny` (super-admin) renvoie l'URL de la zone et
+  `storageKeyDefined`, **jamais la clé**. `PUT` n'applique que les champs non
+  vides (clé vide = inchangée) et refuse un corps vide (422). Pas de cache à
+  purger : le stockage relit les réglages à chaque appel.
+
 ## Réglages d'inscription (table `setting`)
 
 Deux drapeaux indépendants, ouverts par défaut (seule la valeur `'0'` ferme),

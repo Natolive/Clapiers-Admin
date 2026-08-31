@@ -74,16 +74,26 @@
                           :severity="member.licensePaid ? 'success' : 'warn'"
                           class="text-xs"
                         />
-                        <Button
-                          v-if="member.hasLicenseDocument"
-                          icon="pi pi-download"
-                          label="Fichier"
-                          severity="info"
-                          text
-                          size="small"
-                          class="text-xs p-0 pl-1"
-                          @click="downloadLicense(member)"
-                        />
+                        <template v-if="member.hasLicenseDocument">
+                          <Button
+                            icon="pi pi-eye"
+                            label="Voir"
+                            severity="info"
+                            text
+                            size="small"
+                            class="text-xs p-0 pl-1"
+                            @click="viewLicense(member)"
+                          />
+                          <Button
+                            icon="pi pi-download"
+                            label="Fichier"
+                            severity="info"
+                            text
+                            size="small"
+                            class="text-xs p-0 pl-1"
+                            @click="downloadLicense(member)"
+                          />
+                        </template>
                         <Tag
                           v-else
                           value="Aucune licence"
@@ -119,6 +129,9 @@ definePageMeta({
 
 useHead({ title: 'Mon équipe' });
 
+const file = useAuthenticatedFile();
+const toast = usePVToastService();
+
 const groups = ref<MyTeamGroup[]>([]);
 const loading = ref(true);
 
@@ -128,21 +141,19 @@ const photoUrl = (member: Member) => {
   return `${config.public.apiBase}/team/my-team/member/${member.id}/profile-picture`;
 };
 
-const downloadLicense = async (member: Member) => {
-  const config = useRuntimeConfig();
-  const url = `${config.public.apiBase}/team/my-team/license/${member.id}`;
-  const token = useCookie('auth_token').value;
+const licensePath = (member: Member) => `/team/my-team/license/${member.id}`;
 
-  const res = await fetch(url, {
-    headers: { Authorization: `Bearer ${token}` }
-  });
-  const blob = await res.blob();
-  const blobUrl = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = blobUrl;
-  a.download = `licence-${member.lastName}-${member.firstName}`;
-  a.click();
-  URL.revokeObjectURL(blobUrl);
+const downloadLicense = async (member: Member) => {
+  await file.download(licensePath(member), `licence-${member.lastName}-${member.firstName}`);
+};
+
+// Nouvel onglet : visionneuse du navigateur, pas de viewer embarqué.
+const viewLicense = async (member: Member) => {
+  try {
+    await file.view(licensePath(member));
+  } catch (e: any) {
+    toast.add({ severity: 'error', summary: 'Aperçu impossible', detail: e?.message, life: 4000 });
+  }
 };
 
 onMounted(async () => {

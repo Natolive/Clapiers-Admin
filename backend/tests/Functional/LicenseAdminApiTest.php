@@ -9,6 +9,7 @@ use App\Entity\Member;
 use App\Entity\MemberDocument;
 use App\Repository\MemberDocumentRepository;
 use App\Tests\Support\ApiTestCase;
+use App\Tests\Support\Fake\FakeBunnyStorageClient;
 
 /**
  * Back-office des licences (SUPER_ADMIN) : liste, tarifs HelloAsso,
@@ -251,9 +252,101 @@ class LicenseAdminApiTest extends ApiTestCase
         // Les pièces déposées ont été déplacées vers le membre existant.
         $reloaded = $this->em()->getRepository(Member::class)->find($existingId);
         $docRepo = $this->em()->getRepository(MemberDocument::class);
-        $this->assertTrue($docRepo->findRootDocumentSlot($reloaded, 'identity_photo')->hasFile());
-        $this->assertTrue($docRepo->findDefaultSlot($reloaded, '2030-2031', 'medical_certificate')->hasFile());
+        $photo = $docRepo->findRootDocumentSlot($reloaded, 'identity_photo');
+        $certificate = $docRepo->findDefaultSlot($reloaded, '2030-2031', 'medical_certificate');
+        $this->assertTrue($photo->hasFile());
+        $this->assertTrue($certificate->hasFile());
 
+        // Le stockage est rangé par membre : les fichiers ont suivi dans le
+        // dossier du membre existant, et plus rien ne traîne sous la fiche en
+        // double (qui n'existe plus).
+        $bunny = static::getContainer()->get(FakeBunnyStorageClient::class);
+        foreach ([$photo, $certificate] as $slot) {
+            $stored = (string) $slot->getStoredName();
+            $this->assertStringStartsWith($existingId.'/', $stored);
+            $this->assertTrue($bunny->has($stored));
+            $this->assertFalse($bunny->has($requestMemberId.'/'.basename($stored)));
+        }
+
+        $this->assertEmailCount(1);
+    }
+
+    public function testApproveWithReplaceLosesNoFileWhenTheStorageFailsMidMerge(): void
+    {
+        $requestMember = $this->aMember()->named('Paul', 'Durand')->withEmail('paul@test.fr')->persist();
+        $license = $this->aLicense()->forMember($requestMember)->withToken('tok-fail')->inSeason('2030-2031')->persist();
+        $requestMemberId = $requestMember->getId();
+
+        // 2 PUT : les deux pièces déposées via le magic link.
+        $this->uploadFile('/api/public/license-request/tok-fail/document/identity_photo', $this->fakePng());
+        $this->uploadFile('/api/public/license-request/tok-fail/document/medical_certificate', $this->fakePdf());
+
+        $existing = $this->aMember()->named('Paul', 'Durand')->withEmail('paul@test.fr')->persist();
+
+        // La copie de la 1re pièce (3e PUT) passe, celle de la 2e (4e) échoue :
+        // c'est la fenêtre où la fusion est à moitié faite et rien n'est commité.
+        FakeBunnyStorageClient::failPutsFromCall(4);
+
+        $this->actingAsSuperAdmin();
+        $this->postJson("/api/license/{$license->getId()}/approve", [
+            'helloAssoTierId' => 102,
+            'amount' => 12000,
+            'replaceMemberId' => $existing->getId(),
+        ]);
+
+        $this->assertJsonResponse(502);
+
+        // Rien n'est perdu : la base référence toujours les pièces de la demande,
+        // et ces objets sont toujours dans la zone. La demande reste rejouable.
+        $this->em()->clear();
+        $source = $this->em()->getRepository(Member::class)->find($requestMemberId);
+        $this->assertNotNull($source);
+
+        $docRepo = $this->em()->getRepository(MemberDocument::class);
+        $bunny = static::getContainer()->get(FakeBunnyStorageClient::class);
+        foreach ([
+            $docRepo->findRootDocumentSlot($source, 'identity_photo'),
+            $docRepo->findDefaultSlot($source, '2030-2031', 'medical_certificate'),
+        ] as $slot) {
+            $this->assertTrue($slot->hasFile());
+            $this->assertTrue(
+                $bunny->has((string) $slot->getStoredName()),
+                'Le fichier référencé en base doit toujours exister dans la zone',
+            );
+        }
+
+        $this->assertEmailCount(0);
+    }
+
+    public function testApproveWithReplaceSucceedsEvenIfTheStorageCleanupFails(): void
+    {
+        $requestMember = $this->aMember()->named('Luc', 'Martin')->withEmail('luc@test.fr')->persist();
+        $license = $this->aLicense()->forMember($requestMember)->withToken('tok-clean')->inSeason('2030-2031')->persist();
+
+        $this->uploadFile('/api/public/license-request/tok-clean/document/identity_photo', $this->fakePng());
+
+        $existing = $this->aMember()->named('Luc', 'Martin')->withEmail('luc@test.fr')->persist();
+        $existingId = $existing->getId();
+
+        // Le ménage post-commit échoue : la licence est validée, ça ne doit pas
+        // remonter en erreur — au pire un objet orphelin reste dans la zone.
+        FakeBunnyStorageClient::failDeletes();
+
+        $this->actingAsSuperAdmin();
+        $this->postJson("/api/license/{$license->getId()}/approve", [
+            'helloAssoTierId' => 102,
+            'amount' => 12000,
+            'replaceMemberId' => $existingId,
+        ]);
+
+        $body = $this->assertJsonResponse(200);
+        $this->assertSame('validee', $body['status']);
+        $this->assertSame($existingId, $body['member']['id']);
+
+        $this->em()->clear();
+        $reloaded = $this->em()->getRepository(Member::class)->find($existingId);
+        $slot = $this->em()->getRepository(MemberDocument::class)->findRootDocumentSlot($reloaded, 'identity_photo');
+        $this->assertStringStartsWith($existingId.'/', (string) $slot->getStoredName());
         $this->assertEmailCount(1);
     }
 
