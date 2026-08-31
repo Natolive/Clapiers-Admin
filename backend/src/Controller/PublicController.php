@@ -4,15 +4,31 @@ namespace App\Controller;
 
 use App\Application\UseCase\ContactMessage\CreateContactMessage\CreateContactMessageCommand;
 use App\Application\UseCase\ContactMessage\CreateContactMessage\CreateContactMessageUseCase;
+use App\Application\UseCase\License\CreateCheckout\CreateCheckoutCommand;
+use App\Application\UseCase\License\CreateCheckout\CreateCheckoutUseCase;
+use App\Application\UseCase\License\GetLicenseForPayment\GetLicenseForPaymentCommand;
+use App\Application\UseCase\License\GetLicenseForPayment\GetLicenseForPaymentUseCase;
+use App\Application\UseCase\License\HandleHelloAssoWebhook\HandleHelloAssoWebhookCommand;
+use App\Application\UseCase\License\HandleHelloAssoWebhook\HandleHelloAssoWebhookUseCase;
+use App\Application\UseCase\License\SubmitLicenseRequest\SubmitLicenseRequestCommand;
+use App\Application\UseCase\License\SubmitLicenseRequest\SubmitLicenseRequestUseCase;
+use App\Application\UseCase\License\UploadLicenseRequestDocument\UploadLicenseRequestDocumentCommand;
+use App\Application\UseCase\License\UploadLicenseRequestDocument\UploadLicenseRequestDocumentUseCase;
+use App\Common\Service\InscriptionsStatusProvider;
+use App\Common\Service\SeasonProvider;
 use App\Entity\Enum\MemberNationality;
 use App\Repository\GameRepository;
 use App\Repository\SalleClosureRepository;
 use App\Repository\TeamRepository;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\File\UploadedFile;
+use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Attribute\MapQueryString;
 use Symfony\Component\HttpKernel\Attribute\MapRequestPayload;
+use Symfony\Component\HttpKernel\Attribute\MapUploadedFile;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\Validator\Constraints as Assert;
 
 #[Route('/api/public', name: 'api_public_')]
 class PublicController extends AbstractController
@@ -25,12 +41,69 @@ class PublicController extends AbstractController
         return $useCase->execute($command);
     }
 
+    #[Route('/license-request', name: 'license_request', methods: ['POST'])]
+    public function submitLicenseRequest(
+        #[MapRequestPayload] SubmitLicenseRequestCommand $command,
+        SubmitLicenseRequestUseCase $useCase
+    ): Response {
+        return $useCase->execute($command);
+    }
+
+    #[Route('/license-request/{token}/document/{systemKey}', name: 'license_document', methods: ['POST'], requirements: ['systemKey' => 'identity_photo|id_card|medical_certificate|attestation'])]
+    public function uploadLicenseRequestDocument(
+        string $token,
+        string $systemKey,
+        #[MapUploadedFile([new Assert\File(maxSize: '5M', mimeTypes: ['application/pdf', 'image/png', 'image/jpeg'])])]
+        UploadedFile $file,
+        UploadLicenseRequestDocumentUseCase $useCase
+    ): Response {
+        return $useCase->execute(new UploadLicenseRequestDocumentCommand($token, $systemKey, $file));
+    }
+
+    #[Route('/license/{token}', name: 'license_for_payment', methods: ['GET'])]
+    public function licenseForPayment(
+        string $token,
+        GetLicenseForPaymentUseCase $useCase
+    ): Response {
+        return $useCase->execute(new GetLicenseForPaymentCommand($token));
+    }
+
+    #[Route('/license/{token}/checkout', name: 'license_checkout', methods: ['POST'])]
+    public function createCheckout(
+        string $token,
+        CreateCheckoutUseCase $useCase
+    ): Response {
+        return $useCase->execute(new CreateCheckoutCommand($token));
+    }
+
+    #[Route('/helloasso/webhook', name: 'helloasso_webhook', methods: ['POST'])]
+    public function helloAssoWebhook(
+        Request $request,
+        HandleHelloAssoWebhookUseCase $useCase
+    ): Response {
+        $payload = json_decode($request->getContent(), true);
+
+        return $useCase->execute(new HandleHelloAssoWebhookCommand(is_array($payload) ? $payload : []));
+    }
+
     #[Route('/home-games', name: 'home_games', methods: ['GET'])]
     public function homeGames(GameRepository $gameRepository): Response
     {
         $games = $gameRepository->findUpcomingHomeGames(10);
 
         return $this->json(array_map(fn ($g) => $g->toArray(), $games));
+    }
+
+    #[Route('/season', name: 'season', methods: ['GET'])]
+    public function season(SeasonProvider $seasonProvider): Response
+    {
+        return $this->json(['season' => $seasonProvider->current()]);
+    }
+
+    #[Route('/inscriptions-status', name: 'inscriptions_status', methods: ['GET'])]
+    public function inscriptionsStatus(InscriptionsStatusProvider $provider): Response
+    {
+        return $this->json(['open' => $provider->isOpen(), 'formOpen' => $provider->isFormOpen()]);
     }
 
     #[Route('/nationalities', name: 'nationalities', methods: ['GET'])]

@@ -4,11 +4,7 @@
       <div class="footer-content">
         <div class="footer-brand">
           <div class="logo">
-            <img src="/logo.png" alt="Clapiers Volley Ball" class="logo-img">
-            <span class="logo-text">
-              <span class="logo-main">Clapiers</span>
-              <span class="logo-sub">Volley Ball</span>
-            </span>
+            <img src="/logo-banner.svg" alt="Clapiers Volley Ball" width="121" height="48" class="logo-img">
           </div>
           <p class="footer-tagline">
             Depuis plus de 25 ans, le volleyball à Clapiers.
@@ -97,27 +93,9 @@ const currentYear = new Date().getFullYear()
 }
 
 .logo-img {
-  height: 2.5rem;
+  height: 3rem;
   width: auto;
   object-fit: contain;
-}
-
-.logo-text {
-  display: flex;
-  flex-direction: column;
-  line-height: 1.2;
-}
-
-.logo-main {
-  font-size: 1.25rem;
-  font-weight: 700;
-}
-
-.logo-sub {
-  font-size: 0.75rem;
-  opacity: 0.7;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
 }
 
 .footer-tagline {

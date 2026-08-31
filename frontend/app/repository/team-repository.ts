@@ -15,10 +15,10 @@ export class TeamRepository {
         });
     }
 
-    async createUpdate(name: string, id: number|null = null): Promise<Team> {
+    async createUpdate(name: string, id: number|null = null, userIds?: number[]): Promise<Team> {
         return await this.api<Team>('/team', {
             method: 'POST',
-            body: { id, name }
+            body: { id, name, ...(userIds !== undefined ? { userIds } : {}) }
         });
     }
 

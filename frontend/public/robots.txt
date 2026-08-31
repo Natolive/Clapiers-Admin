@@ -1,1 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /dashboard
+Disallow: /login
+
 Sitemap: https://clapiersvb.fr/sitemap.xml

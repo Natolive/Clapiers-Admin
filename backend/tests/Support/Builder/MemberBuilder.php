@@ -2,7 +2,10 @@
 
 namespace App\Tests\Support\Builder;
 
+use App\Entity\Enum\LicenseStatus;
 use App\Entity\Enum\MemberGender;
+use App\Entity\Enum\MemberStatus;
+use App\Entity\License;
 use App\Entity\Member;
 use App\Entity\Team;
 use App\Entity\ValueObject\Address;
@@ -20,10 +23,9 @@ final class MemberBuilder
     private \DateTimeImmutable $birthDate;
     private string $nationality = 'Française';
     private Address $address;
-    private bool $licensePaid = false;
     private ?string $licenseNumber = null;
-    private ?string $licenseFileName = null;
-    private ?string $profilePicture = null;
+    private ?string $licensedSeason = null;
+    private LicenseStatus $licenseStatus = LicenseStatus::VALIDEE;
     /** @var list<Team> */
     private array $teams = [];
 
@@ -62,13 +64,6 @@ final class MemberBuilder
         return $this;
     }
 
-    public function licensePaid(bool $paid = true): self
-    {
-        $this->licensePaid = $paid;
-
-        return $this;
-    }
-
     public function withLicenseNumber(?string $number): self
     {
         $this->licenseNumber = $number;
@@ -76,17 +71,15 @@ final class MemberBuilder
         return $this;
     }
 
-    /** Only sets the DB column — write the file yourself if the test reads it. */
-    public function withLicenseFileName(?string $fileName): self
+    /**
+     * Rend le membre visible dans la liste paginée : lui attache une licence de
+     * la saison donnée (validée par défaut) et le laisse ACTIVE — la population
+     * de findPaginated est scopée à la saison courante.
+     */
+    public function licensedFor(string $season, LicenseStatus $status = LicenseStatus::VALIDEE): self
     {
-        $this->licenseFileName = $fileName;
-
-        return $this;
-    }
-
-    public function withProfilePicture(?string $fileName): self
-    {
-        $this->profilePicture = $fileName;
+        $this->licensedSeason = $season;
+        $this->licenseStatus = $status;
 
         return $this;
     }
@@ -104,10 +97,7 @@ final class MemberBuilder
         $member->setBirthDate($this->birthDate);
         $member->setNationality($this->nationality);
         $member->setAddress($this->address);
-        $member->setLicensePaid($this->licensePaid);
         $member->setLicenseNumber($this->licenseNumber);
-        $member->setLicenseFileName($this->licenseFileName);
-        $member->setProfilePicture($this->profilePicture);
         $member->setTeams($this->teams);
 
         return $member;
@@ -117,6 +107,17 @@ final class MemberBuilder
     {
         $member = $this->build();
         $this->em->persist($member);
+
+        if ($this->licensedSeason !== null) {
+            $member->setStatus(MemberStatus::ACTIVE);
+            $license = new License();
+            $license->setMember($member);
+            $license->setSeason($this->licensedSeason);
+            $license->setStatus($this->licenseStatus);
+            $license->setAccessToken(sprintf('token-%s', bin2hex(random_bytes(6))));
+            $this->em->persist($license);
+        }
+
         $this->em->flush();
 
         return $member;

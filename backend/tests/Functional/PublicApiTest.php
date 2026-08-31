@@ -10,6 +10,22 @@ use App\Tests\Support\ApiTestCase;
  */
 class PublicApiTest extends ApiTestCase
 {
+    public function testSeasonIsPubliclyReadable(): void
+    {
+        $this->getJson('/api/public/season');
+
+        $body = $this->assertJsonResponse(200);
+        $this->assertMatchesRegularExpression('/^\d{4}-\d{4}$/', $body['season']);
+    }
+
+    public function testInscriptionsStatusIsPubliclyReadableAndOpenByDefault(): void
+    {
+        $this->getJson('/api/public/inscriptions-status');
+
+        $body = $this->assertJsonResponse(200);
+        $this->assertTrue($body['open']);
+    }
+
     public function testCreateContactMessagePersistsAndReturnsIt(): void
     {
         $this->postJson('/api/public/contact-message', [

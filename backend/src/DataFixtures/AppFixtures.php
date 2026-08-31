@@ -75,7 +75,6 @@ class AppFixtures extends Fixture
                 $member->setPhoneNumber(sprintf("+336%08d", random_int(10000000, 99999999)));
                 $member->addTeam($team);
                 $member->setGender($gender);
-                $member->setLicensePaid((bool) random_int(0, 1));
                 $member->setLicenseNumber(random_int(0, 2) > 0 ? (string) random_int(100000000, 999999999) : null);
                 $member->setNationality($nationalities[array_rand($nationalities)]);
                 $member->setAddress(new Address($streets[array_rand($streets)], "34830", "Clapiers"));

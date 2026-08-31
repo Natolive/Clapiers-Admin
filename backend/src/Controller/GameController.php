@@ -63,7 +63,7 @@ class GameController extends AbstractController
     }
 
     #[Route('', name: 'create', methods: ['POST'])]
-    #[IsGranted(AppUserRole::ROLE_ADMIN)]
+    #[IsGranted(AppUserRole::ROLE_SUPER_ADMIN)]
     public function create(
         #[MapRequestPayload] CreateUpdateGameInput $input,
         CreateUpdateGameUseCase $useCase
@@ -109,7 +109,7 @@ class GameController extends AbstractController
     }
 
     #[Route('/{id}', name: 'delete', methods: ['DELETE'])]
-    #[IsGranted(AppUserRole::ROLE_ADMIN)]
+    #[IsGranted(AppUserRole::ROLE_SUPER_ADMIN)]
     public function delete(int $id, DeleteGameUseCase $useCase): Response
     {
         /** @var AppUser $user */

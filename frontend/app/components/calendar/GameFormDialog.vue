@@ -2,7 +2,7 @@
     <Dialog
         :visible="visible"
         @update:visible="$emit('update:visible', $event)"
-        :header="isEdit ? 'Modifier le match' : 'Nouveau match'"
+        :header="dateOnly ? 'Replanifier le match' : (isEdit ? 'Modifier le match' : 'Nouveau match')"
         modal
         :style="{ width: '30rem' }"
     >
@@ -17,7 +17,7 @@
                     option-label="name"
                     option-value="id"
                     placeholder="Sélectionner une équipe"
-                    :disabled="noTeamAvailable"
+                    :disabled="noTeamAvailable || dateOnly"
                     :invalid="!!errors.teamId"
                     :fluid="true"
                 />
@@ -34,6 +34,7 @@
                     v-model="form.opponent"
                     placeholder="Ex: Montpellier VB"
                     :invalid="!!errors.opponent"
+                    :disabled="dateOnly"
                     autofocus
                 />
                 <small v-if="errors.opponent" class="text-red-500">{{ errors.opponent }}</small>
@@ -60,6 +61,7 @@
                     :options="GameVenueOptions"
                     option-label="label"
                     option-value="value"
+                    :disabled="dateOnly"
                 />
             </div>
 
@@ -101,13 +103,14 @@
                     v-model="form.meetingTime"
                     placeholder="Ex: 14h30"
                     style="max-width: 10rem"
+                    :disabled="dateOnly"
                 />
             </div>
 
             <!-- Location -->
             <div class="flex flex-column gap-2">
                 <label class="font-medium text-sm">Lieu</label>
-                <InputText v-model="form.location" placeholder="Ex: Gymnase Clapiers" />
+                <InputText v-model="form.location" placeholder="Ex: Gymnase Clapiers" :disabled="dateOnly" />
             </div>
 
             <!-- Actions -->
@@ -151,6 +154,10 @@ const loading = ref(false);
 const errors = ref<Record<string, string>>({});
 
 const isEdit = computed(() => !!props.game?.id);
+
+// Admin (non super admin) : sur un match existant, seule la date est modifiable.
+// La création reste réservée au super admin, donc dateOnly ne concerne que l'édition.
+const dateOnly = computed(() => isEdit.value && !isSuperAdmin.value);
 
 // Le sélecteur n'est masqué que si l'équipe est implicite (exactement une) :
 // un admin sans équipe doit voir le champ et son erreur, pas un submit muet

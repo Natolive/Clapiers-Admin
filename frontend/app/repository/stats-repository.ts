@@ -24,12 +24,24 @@ export type DashboardStats = {
     teams: {
         total: number;
     };
+    licenses: {
+        total: number;
+        byStatus: Record<string, number>;
+    };
+    users: {
+        total: number;
+    };
+    messages: {
+        total: number;
+    };
 };
 
 export class StatsRepository {
     private api = useApi();
 
-    async getDashboard(): Promise<DashboardStats> {
-        return await this.api<DashboardStats>('/stats/dashboard');
+    async getDashboard(season?: string): Promise<DashboardStats> {
+        return await this.api<DashboardStats>('/stats/dashboard', {
+            params: season ? { season } : {},
+        });
     }
 }

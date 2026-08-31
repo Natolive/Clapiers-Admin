@@ -109,22 +109,20 @@ class UserApiTest extends ApiTestCase
 
     // ── POST/PUT /api/user ──────────────────────────────────────────────────
 
-    public function testSuperAdminCreatesUserWithRoleAndTeams(): void
+    public function testSuperAdminCreatesUserWithRole(): void
     {
-        $team = $this->aTeam()->persist();
-
         $this->actingAsSuperAdmin();
         $this->postJson('/api/user', [
             'email' => 'nouveau.coach@test.fr',
             'role' => AppUserRole::ROLE_ADMIN,
             'password' => 'S3cret!pass',
-            'teamIds' => [$team->getId()],
         ]);
 
         $body = $this->assertJsonResponse(200);
         $this->assertSame('nouveau.coach@test.fr', $body['email']);
         $this->assertContains(AppUserRole::ROLE_ADMIN, $body['roles']);
-        $this->assertCount(1, $body['teams']);
+        // L'affectation d'équipes ne se fait plus ici : un nouveau user n'a pas d'équipe.
+        $this->assertCount(0, $body['teams']);
 
         // The created user can actually log in with that password
         $this->client->setServerParameter('HTTP_AUTHORIZATION', '');
@@ -160,60 +158,6 @@ class UserApiTest extends ApiTestCase
 
         $body = $this->assertJsonResponse(400);
         $this->assertSame('Email already exists', $body['message']);
-    }
-
-    public function testCreateUserWithUnknownTeamReturns404(): void
-    {
-        $this->actingAsSuperAdmin();
-        $this->postJson('/api/user', [
-            'email' => 'coach@test.fr',
-            'role' => AppUserRole::ROLE_ADMIN,
-            'password' => 'whatever',
-            'teamIds' => [999999],
-        ]);
-
-        $body = $this->assertJsonResponse(404);
-        $this->assertSame('Team 999999 not found', $body['message']);
-    }
-
-    public function testUpdateUserReplacesTeams(): void
-    {
-        $oldTeam = $this->aTeam()->persist();
-        $newTeamA = $this->aTeam()->persist();
-        $newTeamB = $this->aTeam()->persist();
-        $user = $this->aUser()->admin()->managing($oldTeam)->persist();
-
-        $this->actingAsSuperAdmin();
-        $this->putJson('/api/user', [
-            'id' => $user->getId(),
-            'email' => $user->getEmail(),
-            'role' => AppUserRole::ROLE_ADMIN,
-            'teamIds' => [$newTeamA->getId(), $newTeamB->getId()],
-        ]);
-
-        $body = $this->assertJsonResponse(200);
-        $teamIds = array_column($body['teams'], 'id');
-        sort($teamIds);
-        $expected = [$newTeamA->getId(), $newTeamB->getId()];
-        sort($expected);
-        $this->assertSame($expected, $teamIds);
-    }
-
-    public function testUpdateUserWithNullTeamIdsKeepsExistingTeams(): void
-    {
-        $team = $this->aTeam()->persist();
-        $user = $this->aUser()->admin()->managing($team)->persist();
-
-        $this->actingAsSuperAdmin();
-        $this->putJson('/api/user', [
-            'id' => $user->getId(),
-            'email' => $user->getEmail(),
-            'role' => AppUserRole::ROLE_ADMIN,
-        ]);
-
-        $body = $this->assertJsonResponse(200);
-        $this->assertCount(1, $body['teams']);
-        $this->assertSame($team->getId(), $body['teams'][0]['id']);
     }
 
     public function testUpdateUserCannotTakeAnotherUsersEmail(): void

@@ -2,6 +2,9 @@
 
 namespace App\Repository;
 
+use App\Entity\Enum\LicenseStatus;
+use App\Entity\Enum\MemberStatus;
+use App\Entity\License;
 use App\Entity\Member;
 use App\Entity\Team;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
@@ -29,7 +32,7 @@ class MemberRepository extends ServiceEntityRepository
         ?string $search = null,
         ?int $teamId = null,
         ?bool $licensePaid = null,
-        ?bool $hasLicense = null,
+        ?string $season = null,
     ): array {
         $allowedFields = [
             'firstName' => 'm.firstName',
@@ -37,13 +40,26 @@ class MemberRepository extends ServiceEntityRepository
             'email' => 'm.email',
             'phoneNumber' => 'm.phoneNumber',
             'createdAt' => 'm.createdAt',
-            'licensePaid' => 'm.licensePaid',
         ];
 
         $orderColumn = $allowedFields[$sortField] ?? 'm.firstName';
         $orderDir = strtolower($sortOrder) === 'desc' ? 'DESC' : 'ASC';
 
         $qb = $this->createQueryBuilder('m');
+
+        // La liste des licenciés n'affiche que les membres actifs : les demandes
+        // en attente de validation ou refusées restent dans "Demandes de licence".
+        $qb->andWhere('m.status = :activeStatus')
+            ->setParameter('activeStatus', MemberStatus::ACTIVE);
+
+        // Scopée à la saison courante (même population que le dashboard) : le membre
+        // doit avoir une licence validée pour cette saison. Exclut les licenciés
+        // d'une saison passée non renouvelés et les créations sans licence.
+        if ($season !== null) {
+            $qb->andWhere('EXISTS (SELECT ls.id FROM '.License::class.' ls WHERE ls.member = m AND ls.season = :season AND ls.status IN (:validatedStatuses))')
+                ->setParameter('season', $season)
+                ->setParameter('validatedStatuses', LicenseStatus::activeMembership());
+        }
 
         if ($search) {
             $searchTerm = '%' . $search . '%';
@@ -59,15 +75,14 @@ class MemberRepository extends ServiceEntityRepository
         }
 
         if ($licensePaid !== null) {
-            $qb->andWhere('m.licensePaid = :licensePaid')
-                ->setParameter('licensePaid', $licensePaid);
-        }
-
-        if ($hasLicense !== null) {
-            if ($hasLicense) {
-                $qb->andWhere('m.licenseFileName IS NOT NULL');
-            } else {
-                $qb->andWhere('m.licenseFileName IS NULL');
+            // "Payé" est dérivé : le membre a (ou non) une licence PAYEE. Si une
+            // saison est fournie, on la restreint à cette saison (cohérence UI).
+            $seasonClause = $season !== null ? ' AND lp.season = :season' : '';
+            $exists = 'EXISTS (SELECT lp.id FROM '.License::class.' lp WHERE lp.member = m AND lp.status = :paidStatus'.$seasonClause.')';
+            $qb->andWhere($licensePaid ? $exists : 'NOT '.$exists)
+                ->setParameter('paidStatus', LicenseStatus::PAYEE);
+            if ($season !== null) {
+                $qb->setParameter('season', $season);
             }
         }
 
@@ -98,22 +113,58 @@ class MemberRepository extends ServiceEntityRepository
         return ['data' => $data, 'total' => (int) $total];
     }
 
-    public function getStats(): array
+    /**
+     * Statistiques du tableau de bord, restreintes à la population de la saison
+     * courante : un membre ne compte que s'il a une licence VALIDÉE pour cette
+     * saison (soit validée, en paiement ou payée). Les demandes soumises/refusées
+     * ne sont pas des membres. « Licence payée » = statut payée ; « sans licence »
+     * = validé mais pas encore payé.
+     */
+    public function getStats(string $season): array
     {
+        $validated = LicenseStatus::activeMembership();
+
+        // Population (DQL) : membre avec une licence validée pour la saison.
+        $pop = 'EXISTS (SELECT lp.id FROM '.License::class.' lp'
+            .' WHERE lp.member = m AND lp.season = :season AND lp.status IN (:validated))';
+
         $total = (int) $this->createQueryBuilder('m')
             ->select('COUNT(m.id)')
+            ->andWhere($pop)
+            ->setParameter('season', $season)
+            ->setParameter('validated', $validated)
             ->getQuery()->getSingleScalarResult();
 
+        // Licence payée = validée puis payée (statut payée) sur la saison.
         $withLicense = (int) $this->createQueryBuilder('m')
             ->select('COUNT(m.id)')
-            ->andWhere('m.licensePaid = true')
+            ->andWhere('EXISTS (SELECT lp.id FROM '.License::class.' lp WHERE lp.member = m AND lp.season = :season AND lp.status = :paidStatus)')
+            ->setParameter('season', $season)
+            ->setParameter('paidStatus', LicenseStatus::PAYEE)
             ->getQuery()->getSingleScalarResult();
 
         $conn = $this->getEntityManager()->getConnection();
 
+        // Bornes de la saison sportive (bascule en septembre, cf. SeasonResolver) :
+        // "2026-2027" → [2026-09-01, 2027-09-01). Les métriques d'inscription sont
+        // fenêtrées sur la saison affichée, pas sur la date du jour.
+        $startYear = (int) explode('-', $season)[0];
+        $seasonStart = sprintf('%d-09-01', $startYear);
+        $seasonEnd = sprintf('%d-09-01', $startYear + 1);
+
+        // Même population, en SQL brut, pour les agrégats ci-dessous. Valeurs
+        // issues de l'enum (aucune saisie externe) → interpolation sûre.
+        $statusList = implode(', ', array_map(
+            static fn (string $v) => "'".$v."'",
+            LicenseStatus::activeMembershipValues()
+        ));
+        $popSql = "EXISTS (SELECT 1 FROM license l WHERE l.member_id = member.id"
+            ." AND l.season = :season AND l.status IN ($statusList))";
+
         // Répartition par sexe
         $byGenderRaw = $conn->fetchAllAssociative(
-            'SELECT gender, COUNT(*) AS total FROM member GROUP BY gender'
+            "SELECT gender, COUNT(*) AS total FROM member WHERE $popSql GROUP BY gender",
+            ['season' => $season]
         );
         $byGender = ['male' => 0, 'female' => 0, 'other' => 0];
         foreach ($byGenderRaw as $row) {
@@ -132,29 +183,30 @@ class MemberRepository extends ServiceEntityRepository
                 COUNT(CASE WHEN EXTRACT(YEAR FROM AGE(birth_date)) BETWEEN 26 AND 35 THEN 1 END) AS age26_35,
                 COUNT(CASE WHEN EXTRACT(YEAR FROM AGE(birth_date)) BETWEEN 36 AND 45 THEN 1 END) AS age36_45,
                 COUNT(CASE WHEN EXTRACT(YEAR FROM AGE(birth_date)) > 45              THEN 1 END) AS over45
-            FROM member WHERE birth_date IS NOT NULL"
+            FROM member WHERE birth_date IS NOT NULL AND $popSql",
+            ['season' => $season]
         );
 
-        // Inscriptions par mois (12 derniers mois)
+        // Inscriptions par mois, sur les 12 mois de la saison (par date de création).
         $byMonthRaw = $conn->fetchAllAssociative(
             "SELECT TO_CHAR(created_at, 'YYYY-MM') AS month, COUNT(*) AS total
              FROM member
-             WHERE created_at >= NOW() - INTERVAL '12 months'
-             GROUP BY month ORDER BY month ASC"
+             WHERE created_at >= :seasonStart AND created_at < :seasonEnd AND $popSql
+             GROUP BY month ORDER BY month ASC",
+            ['season' => $season, 'seasonStart' => $seasonStart, 'seasonEnd' => $seasonEnd]
         );
 
-        // Inscrits ce mois / cette année
-        $now = new \DateTimeImmutable();
-        $newThisMonth = (int) $this->createQueryBuilder('m')
+        // Nouveaux membres = première adhésion cette saison : dans la population
+        // de la saison, sans aucune licence validée sur une saison antérieure.
+        // On se base sur la licence, pas sur createdAt : les inscriptions d'une
+        // saison ouvrent avant le 1er septembre (hors fenêtre calendaire) et les
+        // renouvellements gardent le createdAt de la première adhésion.
+        $newThisSeason = (int) $this->createQueryBuilder('m')
             ->select('COUNT(m.id)')
-            ->andWhere('m.createdAt >= :from')
-            ->setParameter('from', new \DateTimeImmutable($now->format('Y-m') . '-01'))
-            ->getQuery()->getSingleScalarResult();
-
-        $newThisYear = (int) $this->createQueryBuilder('m')
-            ->select('COUNT(m.id)')
-            ->andWhere('m.createdAt >= :from')
-            ->setParameter('from', new \DateTimeImmutable($now->format('Y') . '-01-01'))
+            ->andWhere($pop)
+            ->andWhere('NOT EXISTS (SELECT lo.id FROM '.License::class.' lo WHERE lo.member = m AND lo.season < :season AND lo.status IN (:validated))')
+            ->setParameter('season', $season)
+            ->setParameter('validated', $validated)
             ->getQuery()->getSingleScalarResult();
 
         return [
@@ -176,9 +228,8 @@ class MemberRepository extends ServiceEntityRepository
                 ],
             ],
             'createdAt' => [
-                'newThisMonth' => $newThisMonth,
-                'newThisYear'  => $newThisYear,
-                'byMonth'      => array_map(fn($r) => [
+                'newThisSeason' => $newThisSeason,
+                'byMonth'       => array_map(fn($r) => [
                     'month' => $r['month'],
                     'total' => (int) $r['total'],
                 ], $byMonthRaw),
@@ -187,16 +238,42 @@ class MemberRepository extends ServiceEntityRepository
     }
 
     /**
-     * @return Member[]
+     * Membre distinct partageant le même email (hors membre exclu), le plus
+     * ancien d'abord. Sert à détecter un doublon lors d'une réinscription.
      */
-    public function findByTeam(Team $team): array
+    public function findOneByEmailExcluding(string $email, int $excludeId): ?Member
     {
         return $this->createQueryBuilder('m')
+            ->andWhere('LOWER(m.email) = LOWER(:email)')
+            ->andWhere('m.id != :excludeId')
+            ->setParameter('email', $email)
+            ->setParameter('excludeId', $excludeId)
+            ->orderBy('m.createdAt', 'ASC')
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
+
+    /**
+     * @return Member[]
+     */
+    public function findByTeam(Team $team, ?string $season = null): array
+    {
+        $qb = $this->createQueryBuilder('m')
             ->leftJoin('m.teams', 't')
             ->addSelect('t')
             ->andWhere(':team MEMBER OF m.teams')
-            ->setParameter('team', $team)
-            ->orderBy('m.lastName', 'ASC')
+            ->setParameter('team', $team);
+
+        // Scopée à la saison (même population que la liste des licenciés) : le
+        // membre doit avoir une licence validée pour cette saison.
+        if ($season !== null) {
+            $qb->andWhere('EXISTS (SELECT ls.id FROM '.License::class.' ls WHERE ls.member = m AND ls.season = :season AND ls.status IN (:validatedStatuses))')
+                ->setParameter('season', $season)
+                ->setParameter('validatedStatuses', LicenseStatus::activeMembership());
+        }
+
+        return $qb->orderBy('m.lastName', 'ASC')
             ->addOrderBy('m.firstName', 'ASC')
             ->getQuery()
             ->getResult();

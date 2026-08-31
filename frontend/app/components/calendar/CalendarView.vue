@@ -230,9 +230,11 @@ const calendarOptions = computed<CalendarOptions>(() => ({
     selectMirror: !props.readonly,
     dayCellClassNames: (arg) => isHomeDay(arg.date) ? ['fc-home-day'] : [],
     dayHeaderClassNames: (arg) => isHomeDay(arg.date) ? ['fc-home-col'] : [],
-    dayMaxEvents: true,
+    // Pas de "+N de plus" (popover bugué) : on affiche tous les matchs, la
+    // grille grandit et le wrapper scrolle si besoin
+    dayMaxEvents: false,
     weekends: true,
-    height: '100%',
+    height: 'auto',
     eventSources: [
         { events: eventSourceFn },
         { events: closureEvents.value },
@@ -285,7 +287,8 @@ const calendarOptions = computed<CalendarOptions>(() => ({
         detailDialog.game = game;
         detailDialog.visible = true;
     },
-    select: props.readonly ? undefined : (info: DateSelectArg) => {
+    // Création réservée au super admin ; l'admin déplace les matchs (eventDrop) sans en créer
+    select: (props.readonly || !isSuperAdmin.value) ? undefined : (info: DateSelectArg) => {
         openCreateDialog(info.start);
         calendarApi.value?.unselect();
     },
@@ -333,11 +336,28 @@ onUnmounted(() => {
     border-radius: 12px;
     border: 1px solid var(--p-surface-border);
     padding: 1rem;
-    overflow: hidden;
+    overflow-y: auto;
 }
 
-:deep(.fc) { height: 100%; font-family: inherit; }
-:deep(.fc-daygrid-day:hover) { background: var(--p-surface-hover); cursor: pointer; }
+:deep(.fc) {
+    font-family: inherit;
+    /* Map FullCalendar's own theme vars to the app theme. Fallbacks matter:
+       this component also renders on public pages where the --p-* vars are
+       undefined — an empty var makes FC's `border: 1px solid var(...)` an
+       INVALID declaration, which is what wiped out every grid line. The
+       currentColor-based fallbacks adapt to light and dark automatically. */
+    --fc-border-color: var(--p-surface-border, color-mix(in srgb, currentColor 14%, transparent));
+    --fc-page-bg-color: var(--p-surface-card, transparent);
+    --fc-neutral-bg-color: var(--p-surface-ground, color-mix(in srgb, currentColor 5%, transparent));
+    --fc-today-bg-color: color-mix(in srgb, var(--p-primary-color, #10b981) 8%, transparent);
+    --fc-highlight-color: color-mix(in srgb, var(--p-primary-color, #10b981) 14%, transparent);
+    --fc-list-event-hover-bg-color: var(--p-surface-hover, color-mix(in srgb, currentColor 6%, transparent));
+    color: var(--p-text-color, inherit);
+}
+:deep(.fc-daygrid-day:hover) {
+    background: var(--p-surface-hover, color-mix(in srgb, currentColor 5%, transparent));
+    cursor: pointer;
+}
 
 :deep(.fc-event) {
     border-radius: 4px;
@@ -407,7 +427,7 @@ onUnmounted(() => {
 }
 
 :deep(.fc-daygrid-day.fc-day-today) {
-    background: color-mix(in srgb, var(--p-primary-color) 8%, transparent);
+    background: color-mix(in srgb, var(--p-primary-color, #10b981) 8%, transparent);
 }
 
 :deep(.fc-daygrid-day.fc-home-day) {
@@ -446,8 +466,8 @@ onUnmounted(() => {
 :deep(.fc-home-badge) {
     font-size: 0.55rem;
     font-weight: 600;
-    background: color-mix(in srgb, var(--p-primary-color) 15%, transparent);
-    color: var(--p-primary-color);
+    background: color-mix(in srgb, var(--p-primary-color, #10b981) 15%, transparent);
+    color: var(--p-primary-color, #10b981);
     border-radius: 3px;
     padding: 0 3px;
     white-space: nowrap;

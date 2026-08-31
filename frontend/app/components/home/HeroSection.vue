@@ -1,3 +1,16 @@
+<script setup lang="ts">
+import { NuxtLink } from '#components'
+
+const { season, status: seasonStatus } = useCurrentSeason()
+const { open, status: openStatus } = useInscriptionsStatus()
+
+// Sur site statique, les données sont récupérées côté client (server:false) : on
+// affiche un squelette tant que les deux appels ne sont pas résolus, pour éviter
+// un flash « ouvertes » (défaut) qui basculerait ensuite en « clôturées ».
+const settled = (s: string) => s === 'success' || s === 'error'
+const badgeReady = computed(() => settled(seasonStatus.value) && settled(openStatus.value))
+</script>
+
 <template>
   <section id="accueil" class="hero">
     <div class="hero-bg">
@@ -8,10 +21,20 @@
 
     <div class="hero-content">
       <div class="hero-text">
-        <span class="hero-badge">
+        <span v-if="!badgeReady" class="hero-badge hero-badge--skeleton" aria-hidden="true">
           <span class="badge-dot"></span>
-          Inscriptions 2025-2026 clôturées
+          <span class="skeleton-text"></span>
         </span>
+        <component
+          v-else
+          :is="open ? NuxtLink : 'span'"
+          :to="open ? '/inscriptions' : undefined"
+          class="hero-badge"
+          :class="open ? 'is-open' : 'is-closed'"
+        >
+          <span class="badge-dot"></span>
+          Inscriptions{{ season ? ' ' + season : '' }} {{ open ? 'ouvertes' : 'clôturées' }}
+        </component>
 
         <h1 class="home-title">
           Clapiers
@@ -56,7 +79,7 @@
       <div class="hero-visual">
         <div class="visual-container">
           <div class="volleyball-wrapper">
-            <img src="/logo.png" alt="Clapiers Volley Ball" class="volleyball animate-float">
+            <img src="/logo.svg" alt="Clapiers Volley Ball" width="192" height="192" class="volleyball animate-float">
           
           </div>
           <div class="visual-card card-1">
@@ -156,14 +179,50 @@
   margin-bottom: 1.5rem;
   backdrop-filter: blur(10px);
   border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #fff;
+  text-decoration: none;
+  transition: background 0.2s ease;
+}
+
+/* Ouvert : le badge est un lien vers l'inscription. */
+a.hero-badge:hover {
+  background: rgba(255, 255, 255, 0.18);
 }
 
 .badge-dot {
   width: 8px;
   height: 8px;
-  background: #d4134f;
   border-radius: 50%;
   animation: pulse-soft 2s ease-in-out infinite;
+}
+
+.hero-badge.is-open .badge-dot {
+  background: #22c55e;
+}
+.hero-badge.is-closed .badge-dot {
+  background: #d4134f;
+}
+
+/* Squelette affiché tant que le statut n'est pas chargé (site statique). */
+.hero-badge--skeleton .badge-dot {
+  background: rgba(255, 255, 255, 0.4);
+  animation: none;
+}
+.skeleton-text {
+  display: inline-block;
+  width: 160px;
+  height: 0.9em;
+  border-radius: 4px;
+  background: linear-gradient(90deg,
+    rgba(255, 255, 255, 0.12) 25%,
+    rgba(255, 255, 255, 0.25) 37%,
+    rgba(255, 255, 255, 0.12) 63%);
+  background-size: 400% 100%;
+  animation: skeleton-shimmer 1.4s ease infinite;
+}
+@keyframes skeleton-shimmer {
+  0% { background-position: 100% 50%; }
+  100% { background-position: 0 50%; }
 }
 
 .text-accent {

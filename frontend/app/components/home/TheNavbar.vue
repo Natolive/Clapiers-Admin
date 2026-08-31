@@ -2,11 +2,7 @@
   <header class="navbar" :class="{ scrolled: isScrolled, solid: !isHome && !isScrolled }">
     <div class="navbar-container">
       <NuxtLink to="/" class="logo">
-        <img src="/logo.png" alt="Clapiers Volley Ball" class="logo-img">
-        <span class="logo-text">
-          <span class="logo-main">Clapiers</span>
-          <span class="logo-sub">Volley Ball</span>
-        </span>
+        <img src="/logo-banner.svg" alt="Clapiers Volley Ball" width="111" height="44" class="logo-img">
       </NuxtLink>
 
       <nav class="nav-links hide-mobile">
@@ -81,15 +77,15 @@ const handleScroll = () => {
 }
 
 .navbar.scrolled {
-  background: rgba(255, 255, 255, 0.95);
+  background: rgba(58, 26, 40, 0.95); /* deep plum — logo hue, darkened so the mauve/pink logo pops */
   backdrop-filter: blur(10px);
-  box-shadow: 0 2px 20px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 2px 20px rgba(0, 0, 0, 0.2);
   padding: 0.75rem 2rem;
 }
 
 .navbar.solid {
-  background: var(--club-primary, #1e3a5f);
-  box-shadow: 0 2px 20px rgba(0, 0, 0, 0.15);
+  background: #3a1a28; /* deep plum */
+  box-shadow: 0 2px 20px rgba(0, 0, 0, 0.2);
   padding: 0.75rem 2rem;
 }
 
@@ -110,34 +106,10 @@ const handleScroll = () => {
   transition: color 0.3s ease;
 }
 
-.scrolled .logo {
-  color: var(--club-dark);
-}
-
 .logo-img {
-  height: 2.5rem;
+  height: 2.75rem;
   width: auto;
   object-fit: contain;
-}
-
-.logo-text {
-  display: flex;
-  flex-direction: column;
-  line-height: 1.1;
-}
-
-.logo-main {
-  font-size: 1.25rem;
-  font-weight: 800;
-  letter-spacing: -0.02em;
-}
-
-.logo-sub {
-  font-size: 0.75rem;
-  font-weight: 500;
-  opacity: 0.8;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
 }
 
 .nav-links {
@@ -152,10 +124,6 @@ const handleScroll = () => {
   font-size: 0.95rem;
   transition: all 0.2s ease;
   position: relative;
-}
-
-.scrolled .nav-link {
-  color: var(--club-dark);
 }
 
 .nav-link::after {
@@ -195,19 +163,9 @@ const handleScroll = () => {
   transition: all 0.2s ease;
 }
 
-.scrolled .btn-login {
-  background: var(--club-primary);
-  color: white;
-  border-color: var(--club-primary);
-}
-
 .btn-login:hover {
   background: rgba(255, 255, 255, 0.25);
   transform: translateY(-1px);
-}
-
-.scrolled .btn-login:hover {
-  background: #2d5a87;
 }
 
 .mobile-menu-btn {
@@ -218,10 +176,6 @@ const handleScroll = () => {
   font-size: 1.5rem;
   cursor: pointer;
   padding: 0.5rem;
-}
-
-.scrolled .mobile-menu-btn {
-  color: var(--club-dark);
 }
 
 .mobile-menu {

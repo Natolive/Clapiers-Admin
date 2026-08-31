@@ -9,17 +9,18 @@
         sidebarCollapsed && isDesktop ? 'sidebar--collapsed' : '',
         sidebarHovered ? 'sidebar--hovered' : ''
       ]"
-      :style="!isDesktop ? { background: 'var(--p-surface-card, #ffffff)', backdropFilter: 'none' } : {}"
       @mouseenter="handleSidebarMouseEnter"
       @mouseleave="handleSidebarMouseLeave"
     >
       <!-- Brand -->
       <div class="sidebar__brand">
-        <div class="brand-orb">🏐</div>
-        <div class="brand-text">
-          <span class="brand-name">Clapiers</span>
-          <span class="brand-sub">Volley-Ball Club</span>
-        </div>
+        <img src="/logo-banner.svg" alt="Clapiers Volley-Ball" class="brand-banner" />
+        <img src="/logo.svg" alt="Clapiers Volley-Ball" class="brand-mark" />
+      </div>
+
+      <div v-if="season" class="sidebar__season" v-tooltip.right="isCollapsedOnly ? ('Saison ' + season) : undefined">
+        <i class="pi pi-calendar nav-icon"></i>
+        <span class="nav-text">Saison {{ season }}</span>
       </div>
 
       <!-- Nav -->
@@ -28,24 +29,34 @@
           <li v-for="item in navigationItems" :key="item.label">
 
             <template v-if="item.items">
-              <div class="nav-group-label">
+              <button
+                type="button"
+                class="nav-group-label"
+                :class="{ 'nav-group-label--open': isGroupOpen(item.label) }"
+                :aria-expanded="isGroupOpen(item.label)"
+                @click="toggleGroup(item.label)"
+                v-tooltip.right="isCollapsedOnly ? item.label : undefined"
+              >
                 <i :class="item.icon" class="nav-icon"></i>
                 <span class="nav-text">{{ item.label }}</span>
+                <i class="pi pi-chevron-down nav-chevron"></i>
+              </button>
+              <div class="nav-collapse" :class="{ 'nav-collapse--open': isGroupOpen(item.label) }">
+                <ul class="nav-sublist">
+                  <li v-for="sub in item.items" :key="sub.label">
+                    <a
+                      class="nav-link nav-link--sub"
+                      :class="{ 'nav-link--active': route.path === sub.route }"
+                      @click="sub.command?.()"
+                      v-tooltip.right="isCollapsedOnly ? sub.label : undefined"
+                    >
+                      <span class="nav-indicator"></span>
+                      <i :class="sub.icon" class="nav-icon"></i>
+                      <span class="nav-text">{{ sub.label }}</span>
+                    </a>
+                  </li>
+                </ul>
               </div>
-              <ul class="nav-sublist">
-                <li v-for="sub in item.items" :key="sub.label">
-                  <a
-                    class="nav-link nav-link--sub"
-                    :class="{ 'nav-link--active': route.path === sub.route }"
-                    @click="sub.command?.()"
-                    v-tooltip.right="isCollapsedOnly ? sub.label : undefined"
-                  >
-                    <span class="nav-indicator"></span>
-                    <i :class="sub.icon" class="nav-icon"></i>
-                    <span class="nav-text">{{ sub.label }}</span>
-                  </a>
-                </li>
-              </ul>
             </template>
 
             <template v-else>
@@ -104,6 +115,15 @@
           <span class="page-title">{{ pageTitle }}</span>
         </div>
         <div class="topbar__right">
+          <button
+            class="theme-btn"
+            @click="toggleDark"
+            :aria-label="isDark ? 'Passer en mode clair' : 'Passer en mode sombre'"
+            v-tooltip.bottom="isDark ? 'Mode clair' : 'Mode sombre'"
+          >
+            <i :class="isDark ? 'pi pi-sun' : 'pi pi-moon'"></i>
+          </button>
+          <SeasonSelect />
           <div class="clock">
             <i class="pi pi-clock"></i>
             <span>{{ currentTime }}</span>
@@ -121,9 +141,13 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import { useAuthStore } from '~/stores/auth.store';
 import DialogContainer from '~/components/common/DialogContainer.vue';
+import SeasonSelect from '~/components/common/SeasonSelect.vue';
+
+// Backend admin theme — dark by default, preference persisted (see useDarkMode).
+const { isDark, toggleDark } = useDarkMode();
 
 const authStore = useAuthStore();
 const route = useRoute();
@@ -142,7 +166,19 @@ const {
 } = useSidebar();
 
 const { navigationItems, pageTitle } = useDashboardNav(closeSidebarOnMobile);
+
+// Catégories repliables — état persisté, ouvertes par défaut.
+const GROUPS_KEY = 'dashboard.openGroups';
+const openGroups = ref<Record<string, boolean>>(
+  import.meta.client ? JSON.parse(localStorage.getItem(GROUPS_KEY) || '{}') : {}
+);
+const isGroupOpen = (label: string) => openGroups.value[label] !== false;
+const toggleGroup = (label: string) => {
+  openGroups.value = { ...openGroups.value, [label]: !isGroupOpen(label) };
+  if (import.meta.client) localStorage.setItem(GROUPS_KEY, JSON.stringify(openGroups.value));
+};
 const { currentTime } = useClock();
+const { season } = useCurrentSeason();
 
 const userName = computed(() => authStore.user?.email?.split('@')[0] ?? 'Utilisateur');
 const userInitials = computed(() => userName.value.slice(0, 2).toUpperCase());
@@ -168,11 +204,24 @@ const handleLogout = () => authStore.logout();
 
 /* ── Sidebar ─────────────────────────────────────── */
 .sidebar {
+  /* Rail sombre immersif — palette club */
+  --rail-navy: #1e3a5f;
+  --rail-navy-deep: #142942;
+  --rail-accent: #f4a261;
+  --rail-text: rgba(255, 255, 255, 0.72);
+  --rail-text-dim: rgba(255, 255, 255, 0.42);
+  --rail-label: rgba(255, 255, 255, 0.62);
+  --rail-hover: rgba(255, 255, 255, 0.07);
+  --rail-active: rgba(255, 255, 255, 0.12);
+  --rail-border: rgba(255, 255, 255, 0.09);
+
   position: fixed;
   left: 0; top: 0; bottom: 0;
   width: 15rem;
-  background: var(--p-surface-card);
-  border-right: 1px solid var(--p-surface-border);
+  background:
+    radial-gradient(120% 60% at 0% 0%, rgba(244, 162, 97, 0.14) 0%, transparent 55%),
+    linear-gradient(180deg, var(--rail-navy) 0%, var(--rail-navy-deep) 100%);
+  border-right: 1px solid var(--rail-border);
   display: flex;
   flex-direction: column;
   z-index: 100;
@@ -185,47 +234,42 @@ const handleLogout = () => authStore.logout();
 .sidebar__brand {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 0.75rem;
   padding: 1.125rem 1rem;
-  border-bottom: 1px solid var(--p-surface-border);
+  border-bottom: 1px solid var(--rail-border);
   flex-shrink: 0;
   overflow: hidden;
 }
 
-.brand-orb {
+.brand-banner {
+  height: 2.5rem;
+  width: auto;
+  max-width: 100%;
+  object-fit: contain;
+}
+
+/* 1:1 mark shown only when the rail is collapsed */
+.brand-mark {
+  display: none;
   width: 2.25rem;
   height: 2.25rem;
   min-width: 2.25rem;
-  background: var(--p-primary-color);
-  border-radius: 10px;
+  object-fit: contain;
+}
+
+.sidebar__season {
   display: flex;
   align-items: center;
-  justify-content: center;
-  font-size: 1.1rem;
-}
-
-.brand-text {
-  display: flex;
-  flex-direction: column;
-  line-height: 1.25;
-  overflow: hidden;
+  gap: 0.6rem;
+  margin: 0.25rem 0.75rem 0.75rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--club-accent, #f4a261) 15%, transparent);
+  color: var(--club-accent, #f4a261);
+  font-size: 0.8rem;
+  font-weight: 600;
   white-space: nowrap;
-  transition: opacity 0.2s ease;
-}
-
-.brand-name {
-  font-size: 0.9375rem;
-  font-weight: 700;
-  color: var(--p-text-color);
-  letter-spacing: -0.01em;
-}
-
-.brand-sub {
-  font-size: 0.6875rem;
-  font-weight: 400;
-  color: var(--p-text-muted-color);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
 }
 
 /* ── Nav ─────────────────────────────────────────── */
@@ -253,8 +297,8 @@ const handleLogout = () => authStore.logout();
   align-items: center;
   gap: 0.75rem;
   padding: 0.5625rem 0.75rem;
-  border-radius: 8px;
-  color: var(--p-text-muted-color);
+  border-radius: 10px;
+  color: var(--rail-text);
   cursor: pointer;
   transition: background 0.15s ease, color 0.15s ease;
   white-space: nowrap;
@@ -263,13 +307,22 @@ const handleLogout = () => authStore.logout();
 }
 
 .nav-link:hover {
-  background: var(--p-surface-hover);
-  color: var(--p-text-color);
+  background: var(--rail-hover);
+  color: #fff;
+}
+
+.nav-link:hover .nav-icon {
+  color: var(--rail-accent);
 }
 
 .nav-link--active {
-  background: var(--p-primary-50, #eff6ff);
-  color: var(--p-primary-color);
+  background: var(--rail-active);
+  color: #fff;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+.nav-link--active .nav-icon {
+  color: var(--rail-accent);
 }
 
 .nav-link--active .nav-indicator {
@@ -284,8 +337,9 @@ const handleLogout = () => authStore.logout();
   transform: translateY(-50%) scaleY(0);
   width: 3px;
   height: 1.25rem;
-  background: var(--p-primary-color);
+  background: var(--rail-accent);
   border-radius: 0 3px 3px 0;
+  box-shadow: 0 0 10px rgba(244, 162, 97, 0.6);
   opacity: 0;
   transition: opacity 0.15s ease, transform 0.15s ease;
 }
@@ -307,17 +361,57 @@ const handleLogout = () => authStore.logout();
 }
 
 .nav-group-label {
+  width: 100%;
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  padding: 0.875rem 0.75rem 0.375rem;
+  margin-top: 0.375rem;
+  padding: 0.5rem 0.75rem;
+  border: none;
+  background: transparent;
+  border-radius: 8px;
+  font-family: inherit;
   font-size: 0.6875rem;
-  font-weight: 600;
-  color: var(--p-text-muted-color);
+  font-weight: 700;
+  color: var(--rail-label);
   text-transform: uppercase;
-  letter-spacing: 0.07em;
+  letter-spacing: 0.08em;
   overflow: hidden;
   white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.nav-group-label:hover {
+  background: var(--rail-hover);
+  color: #fff;
+}
+
+.nav-chevron {
+  margin-left: auto;
+  font-size: 0.625rem;
+  opacity: 0.7;
+  transition: transform 0.2s ease;
+}
+
+.nav-group-label:not(.nav-group-label--open) .nav-chevron {
+  transform: rotate(-90deg);
+}
+
+/* Repli animé sans hauteur fixe (grid 0fr → 1fr) */
+.nav-collapse {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.22s ease;
+}
+
+.nav-collapse--open {
+  grid-template-rows: 1fr;
+}
+
+.nav-collapse > .nav-sublist {
+  overflow: hidden;
+  min-height: 0;
 }
 
 .nav-sublist {
@@ -336,7 +430,7 @@ const handleLogout = () => authStore.logout();
 /* ── Footer ──────────────────────────────────────── */
 .sidebar__footer {
   padding: 0.75rem 0.5rem;
-  border-top: 1px solid var(--p-surface-border);
+  border-top: 1px solid var(--rail-border);
   flex-shrink: 0;
 }
 
@@ -345,29 +439,31 @@ const handleLogout = () => authStore.logout();
   align-items: center;
   gap: 0.625rem;
   padding: 0.5rem 0.5rem;
-  border-radius: 8px;
+  border-radius: 10px;
   overflow: hidden;
   transition: background 0.15s ease;
 }
 
 .user-card:hover {
-  background: var(--p-surface-hover);
+  background: var(--rail-hover);
 }
 
 .user-avatar {
   width: 2rem;
   height: 2rem;
   min-width: 2rem;
-  border-radius: 8px;
-  background: var(--p-primary-color);
+  border-radius: 9px;
+  background: linear-gradient(135deg, var(--rail-accent) 0%, #e63946 100%);
   color: white;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 0.6875rem;
   font-weight: 700;
+  line-height: 1;
   letter-spacing: 0.05em;
   flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(244, 162, 97, 0.3);
 }
 
 .user-info {
@@ -384,14 +480,14 @@ const handleLogout = () => authStore.logout();
 .user-name {
   font-size: 0.8125rem;
   font-weight: 600;
-  color: var(--p-text-color);
+  color: #fff;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .user-role {
   font-size: 0.6875rem;
-  color: var(--p-text-muted-color);
+  color: var(--rail-text-dim);
 }
 
 .logout-btn {
@@ -404,7 +500,7 @@ const handleLogout = () => authStore.logout();
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--p-text-muted-color);
+  color: var(--rail-text-dim);
   cursor: pointer;
   transition: all 0.15s ease;
   font-size: 0.875rem;
@@ -414,8 +510,8 @@ const handleLogout = () => authStore.logout();
 }
 
 .logout-btn:hover {
-  background: #fee2e2;
-  color: #ef4444;
+  background: rgba(230, 57, 70, 0.18);
+  color: #ff6b78;
 }
 
 /* ── Collapsed ───────────────────────────────────── */
@@ -424,15 +520,26 @@ const handleLogout = () => authStore.logout();
     width: 4rem;
   }
 
+  /* collapsed rail: swap the wide banner for the square 1:1 mark */
+  .sidebar--collapsed:not(.sidebar--hovered) .brand-banner {
+    display: none;
+  }
+  .sidebar--collapsed:not(.sidebar--hovered) .brand-mark {
+    display: block;
+  }
+
   /* hide text elements */
-  .sidebar--collapsed:not(.sidebar--hovered) .brand-text,
   .sidebar--collapsed:not(.sidebar--hovered) .nav-text,
   .sidebar--collapsed:not(.sidebar--hovered) .user-info,
   .sidebar--collapsed:not(.sidebar--hovered) .logout-btn {
     opacity: 0;
     width: 0;
+    min-width: 0;  /* sinon min-width:1.75rem du bouton floore la largeur */
+    height: 0;     /* sinon leur hauteur rend la carte plus haute que l'avatar */
+    padding: 0;    /* border-box : le padding UA du <button> laissait 12px */
     overflow: hidden;
     flex-shrink: 1;
+    flex-grow: 0;  /* sinon .user-info (flex:1) s'étire et décentre l'avatar */
   }
 
   /* nav: remove horizontal padding so icons hit true center */
@@ -447,10 +554,25 @@ const handleLogout = () => authStore.logout();
     gap: 0;
   }
 
+  /* rail en icônes : on montre toujours tout (le repli ne vaut qu'en large) */
+  .sidebar--collapsed:not(.sidebar--hovered) .nav-collapse {
+    grid-template-rows: 1fr;
+  }
+
+  /* en icônes, l'en-tête devient un séparateur discret (pas une icône) */
   .sidebar--collapsed:not(.sidebar--hovered) .nav-group-label {
-    justify-content: center;
-    padding: 0.875rem 0 0.375rem;
-    gap: 0;
+    height: 1px;
+    padding: 0;
+    margin: 0.5rem 0.75rem;
+    background: var(--rail-border);
+    border-radius: 0;
+    overflow: hidden;
+    pointer-events: none;
+  }
+
+  .sidebar--collapsed:not(.sidebar--hovered) .nav-group-label .nav-icon,
+  .sidebar--collapsed:not(.sidebar--hovered) .nav-chevron {
+    display: none;
   }
 
   /* footer: remove horizontal padding + center user-card */
@@ -521,6 +643,26 @@ const handleLogout = () => authStore.logout();
   background: var(--p-surface-hover);
 }
 
+/* Theme toggle — same look as menu-btn but always visible */
+.theme-btn {
+  display: flex;
+  width: 2.25rem;
+  height: 2.25rem;
+  border: 1px solid var(--p-surface-border);
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  color: var(--p-text-muted-color);
+  font-size: 0.875rem;
+  transition: all 0.15s ease;
+}
+.theme-btn:hover {
+  background: var(--p-surface-hover);
+  color: var(--p-text-color);
+}
+
 .page-title {
   font-family: 'Sora', sans-serif;
   font-size: 0.9375rem;
@@ -532,6 +674,7 @@ const handleLogout = () => authStore.logout();
 .topbar__right {
   display: flex;
   align-items: center;
+  gap: 0.75rem;
 }
 
 .clock {
@@ -595,6 +738,13 @@ const handleLogout = () => authStore.logout();
   }
   .menu-btn {
     display: flex;
+  }
+}
+
+/* Sur téléphone, l'horloge cède la place au sélecteur de saison. */
+@media (max-width: 767px) {
+  .clock {
+    display: none;
   }
 }
 </style>

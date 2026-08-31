@@ -6,10 +6,8 @@ use App\Common\Command\CommandInterface;
 use App\Common\Exception\UseCaseException;
 use App\Common\UseCase\AbstractUseCase;
 use App\Entity\AppUser;
-use App\Repository\TeamRepository;
 use App\Repository\UserRepository;
 use Doctrine\ORM\EntityManagerInterface;
-use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
 /**
@@ -19,7 +17,6 @@ class CreateUpdateUserUseCase extends AbstractUseCase
 {
     public function __construct(
         private readonly UserRepository $userRepository,
-        private readonly TeamRepository $teamRepository,
         private readonly EntityManagerInterface $entityManager,
         private readonly UserPasswordHasherInterface $passwordHasher
     ) {
@@ -56,7 +53,6 @@ class CreateUpdateUserUseCase extends AbstractUseCase
         $user = new AppUser();
         $user->setEmail($command->email);
         $user->setRoles([$command->role]);
-        $this->applyTeams($user, $command);
 
         // Hash password
         $hashedPassword = $this->passwordHasher->hashPassword($user, $command->password);
@@ -86,7 +82,6 @@ class CreateUpdateUserUseCase extends AbstractUseCase
         }
 
         $user->setRoles([$command->role]);
-        $this->applyTeams($user, $command);
 
         // Only update password if provided
         if (!empty($command->password)) {
@@ -97,24 +92,5 @@ class CreateUpdateUserUseCase extends AbstractUseCase
         $this->entityManager->flush();
 
         return $user;
-    }
-
-    private function applyTeams(AppUser $user, CreateUpdateUserCommand $command): void
-    {
-        // null = le payload ne pilote pas les équipes (rétro-compat)
-        if ($command->teamIds === null) {
-            return;
-        }
-
-        $teams = [];
-        foreach (array_unique($command->teamIds) as $teamId) {
-            $team = $this->teamRepository->find($teamId);
-            if (!$team) {
-                throw new UseCaseException(sprintf('Team %d not found', $teamId), Response::HTTP_NOT_FOUND);
-            }
-            $teams[] = $team;
-        }
-
-        $user->setTeams($teams);
     }
 }

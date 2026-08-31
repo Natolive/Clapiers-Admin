@@ -8,7 +8,6 @@
   >
     <UserForm
       :user="user"
-      :teams="teamOptions"
       :loading="internalLoading"
       @submit="handleSubmit"
     />
@@ -18,10 +17,8 @@
 <script setup lang="ts">
 import UserForm from '~/components/forms/user-form.vue';
 import type { AppUser, AppUserRole } from '~/types/entity/AppUser';
-import type { Team } from '~/types/entity/Team';
-import { TeamRepository } from '~/repository/team-repository';
 
-type UserPayload = { email: string; role: AppUserRole; password: string | null; teamIds: number[] };
+type UserPayload = { email: string; role: AppUserRole; password: string | null };
 
 interface Props {
   visible?: boolean;
@@ -46,16 +43,6 @@ const emit = defineEmits<{
 }>();
 
 const internalLoading = ref(false);
-
-// Le dialog charge lui-même les équipes pour le MultiSelect « Équipes gérées »
-const teamOptions = ref<Team[]>([]);
-onMounted(async () => {
-  try {
-    teamOptions.value = await new TeamRepository().getAll();
-  } catch (error) {
-    console.error('Error loading teams:', error);
-  }
-});
 
 const header = computed(() =>
   props.user ? 'Modifier l\'utilisateur' : 'Nouvel utilisateur'

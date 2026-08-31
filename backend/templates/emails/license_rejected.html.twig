@@ -1,0 +1,33 @@
+{% extends 'emails/layout.html.twig' %}
+
+{% block title %}Votre demande de licence{% endblock %}
+
+{% block hero_eyebrow %}Demande de licence{% endblock %}
+
+{% block hero_title %}
+Demande<br><span style="color:#f4a261;">non validée</span>
+{% endblock %}
+
+{% block hero_meta %}{% endblock %}
+
+{% block body %}
+
+<div style="font-size:16px;line-height:1.7;color:#1a1a2e;">
+Bonjour <strong>{{ firstName }}</strong>,<br><br>
+Après examen, votre demande de licence n'a pas pu être validée en l'état, pour la raison suivante&nbsp;:
+</div>
+
+<div style="margin:24px 0;">
+{% embed 'emails/components/card.html.twig' %}
+{% block eyebrow %}Motif{% endblock %}
+{% block content %}
+<div style="font-size:15px;line-height:1.7;color:#1a1a2e;">{{ reason|nl2br }}</div>
+{% endblock %}
+{% endembed %}
+</div>
+
+<div style="font-size:15px;line-height:1.7;color:#1a1a2e;">
+N'hésitez pas à nous contacter pour régulariser votre situation ou soumettre une nouvelle demande.
+</div>
+
+{% endblock %}

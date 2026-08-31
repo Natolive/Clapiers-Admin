@@ -1,5 +1,5 @@
-# Docker local env (contains secrets)
-.env
+# Certificats TLS locaux (générés par mkcert)
+docker/certs/
 
 # Backend
 backend/.env.local
@@ -12,7 +12,8 @@ backend/config/jwt/
 frontend/.nuxt/
 frontend/.output/
 frontend/node_modules/
-frontend/.env
+frontend/.env.local
+frontend/.env.*.local
 
 # IDE
 .idea/

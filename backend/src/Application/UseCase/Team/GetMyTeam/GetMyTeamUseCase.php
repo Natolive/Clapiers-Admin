@@ -4,8 +4,10 @@ namespace App\Application\UseCase\Team\GetMyTeam;
 
 use App\Common\Command\CommandInterface;
 use App\Common\Exception\UseCaseException;
+use App\Common\Service\SeasonProvider;
 use App\Common\UseCase\AbstractUseCase;
 use App\Entity\Member;
+use App\Repository\MemberDocumentRepository;
 use App\Repository\MemberRepository;
 
 /**
@@ -14,7 +16,9 @@ use App\Repository\MemberRepository;
 class GetMyTeamUseCase extends AbstractUseCase
 {
     public function __construct(
-        private readonly MemberRepository $memberRepository
+        private readonly MemberRepository $memberRepository,
+        private readonly MemberDocumentRepository $documentRepository,
+        private readonly SeasonProvider $seasonProvider,
     ) {
     }
 
@@ -28,14 +32,23 @@ class GetMyTeamUseCase extends AbstractUseCase
             throw new UseCaseException('Invalid command');
         }
 
+        $season = $this->seasonProvider->current();
         $groups = [];
 
         foreach ($command->user->getTeams() as $team) {
             $groups[] = [
                 'team' => $team->toArray(),
                 'members' => array_map(
-                    fn (Member $m) => $m->toArray(),
-                    $this->memberRepository->findByTeam($team)
+                    fn (Member $m) => [
+                        // "Licence payée" et présence des fichiers : toutes sur
+                        // la saison courante (médiathèque = source de vérité).
+                        ...$m->toArray($season),
+                        'hasLicenseDocument' => $this->documentRepository
+                            ->findDefaultSlot($m, $season, 'license')?->hasFile() ?? false,
+                        'hasProfilePicture' => $this->documentRepository
+                            ->findRootDocumentSlot($m, 'identity_photo')?->hasFile() ?? false,
+                    ],
+                    $this->memberRepository->findByTeam($team, $season)
                 ),
             ];
         }

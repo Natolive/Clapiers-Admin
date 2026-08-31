@@ -10,6 +10,11 @@ export type DashboardMenuItem = {
 
 /**
  * Role-aware dashboard navigation: menu items and current page title.
+ *
+ * Structure d'une entrée (`DashboardMenuItem`) :
+ * - lien simple  → `route` + `command` (rendu comme nav-link cliquable) ;
+ * - catégorie    → clé `items: [...]` (rendu comme titre de groupe + sous-liste).
+ * Le template choisit l'un ou l'autre via `v-if="item.items"`.
  */
 export const useDashboardNav = (onNavigate?: () => void) => {
     const route = useRoute();
@@ -20,42 +25,46 @@ export const useDashboardNav = (onNavigate?: () => void) => {
         onNavigate?.();
     };
 
+    const link = (label: string, icon: string, route: string): DashboardMenuItem =>
+        ({ label, icon, route, command: go(route) });
+
+    /** Construit une catégorie à partir des liens non nuls ; renvoie null si vide. */
+    const group = (label: string, icon: string, links: (DashboardMenuItem | false)[]): DashboardMenuItem | null => {
+        const items = links.filter(Boolean) as DashboardMenuItem[];
+        return items.length ? { label, icon, items } : null;
+    };
+
     const navigationItems = computed<DashboardMenuItem[]>(() => {
-        const items: DashboardMenuItem[] = [
-            { label: 'Calendrier', icon: 'pi pi-calendar', route: '/dashboard/calendar', command: go('/dashboard/calendar') },
+        const su = isSuperAdmin.value;
+        const admin = isAdmin.value;
+        const canMsg = hasRole(AppUserRole.VIEW_MESSAGE);
+
+        const sections: (DashboardMenuItem | null)[] = [
+            // ── Principal (sans catégorie) ──────────────────────────
+            su && link('Tableau de bord', 'pi pi-home', '/dashboard'),
+            link('Calendrier', 'pi pi-calendar', '/dashboard/calendar'),
+            canMsg && link('Messages', 'pi pi-envelope', '/dashboard/messages'),
+
+            // ── Catégories ──────────────────────────────────────────
+            group('Compétition', 'pi pi-flag', [
+                su && link('Historique des matchs', 'pi pi-history', '/dashboard/game-history'),
+                admin && link('Mon équipe', 'pi pi-users', '/dashboard/my-team'),
+            ]),
+            group('Licences', 'pi pi-id-card', [
+                su && link('Licenciés', 'pi pi-id-card', '/dashboard/settings/members'),
+                su && link('Demandes', 'pi pi-inbox', '/dashboard/settings/license-requests'),
+            ]),
+            group('Organisation', 'pi pi-sitemap', [
+                su && link('Utilisateurs', 'pi pi-user', '/dashboard/settings/users'),
+                su && link('Équipes', 'pi pi-sitemap', '/dashboard/settings/teams'),
+            ]),
+            group('Système', 'pi pi-cog', [
+                su && link('Général', 'pi pi-sliders-h', '/dashboard/settings/general'),
+                su && link('Logs', 'pi pi-list', '/dashboard/settings/logs'),
+            ]),
         ];
 
-        if (isSuperAdmin.value) {
-            items.unshift({ label: 'Tableau de bord', icon: 'pi pi-home', route: '/dashboard', command: go('/dashboard') });
-            items.push({ label: 'Historique des matchs', icon: 'pi pi-history', route: '/dashboard/game-history', command: go('/dashboard/game-history') });
-        }
-
-        if (isAdmin.value) {
-            items.push({ label: 'Mon équipe', icon: 'pi pi-users', route: '/dashboard/my-team', command: go('/dashboard/my-team') });
-        }
-
-        if (hasRole(AppUserRole.VIEW_MESSAGE)) {
-            items.push({
-                label: 'Messages',
-                icon: 'pi pi-envelope',
-                route: '/dashboard/messages',
-                command: go('/dashboard/messages')
-            });
-        }
-
-        if (isSuperAdmin.value) {
-            items.push({
-                label: 'Paramètres',
-                icon: 'pi pi-cog',
-                items: [
-                    { label: 'Utilisateurs', icon: 'pi pi-users', route: '/dashboard/settings/users', command: go('/dashboard/settings/users') },
-                    { label: 'Équipes', icon: 'pi pi-sitemap', route: '/dashboard/settings/teams', command: go('/dashboard/settings/teams') },
-                    { label: 'Licenciés', icon: 'pi pi-id-card', route: '/dashboard/settings/members', command: go('/dashboard/settings/members') },
-                ]
-            });
-        }
-
-        return items;
+        return sections.filter(Boolean) as DashboardMenuItem[];
     });
 
     const pageTitle = computed(() => {

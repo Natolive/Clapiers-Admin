@@ -162,6 +162,20 @@ class AppUser implements UserInterface, PasswordAuthenticatedUserInterface
     {
         if (!$this->hasTeam($team)) {
             $this->teams->add($team);
+            $team->addCoach($this); // cohérence en mémoire (côté inverse)
+        }
+
+        return $this;
+    }
+
+    public function removeTeam(Team $team): static
+    {
+        foreach ($this->teams as $t) {
+            if ($t === $team || ($t->getId() !== null && $t->getId() === $team->getId())) {
+                $this->teams->removeElement($t);
+                $team->removeCoach($this);
+                break;
+            }
         }
 
         return $this;

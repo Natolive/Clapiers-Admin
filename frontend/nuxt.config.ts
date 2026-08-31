@@ -30,9 +30,13 @@ export default defineNuxtConfig({
                 { name: 'google-site-verification', content: 'pn8nl5hSqc7don08zbejN8u2Gb4vnaPNdj8-9JFg4pA' },
                 { property: 'og:site_name', content: 'Clapiers Volley Ball' },
                 { property: 'og:type', content: 'website' },
+                { property: 'og:locale', content: 'fr_FR' },
                 { name: 'twitter:card', content: 'summary_large_image' },
-                { property: 'og:image', content: 'https://clapiersvb.fr/logo.png' },
-                { name: 'twitter:image', content: 'https://clapiersvb.fr/logo.png' },
+                { property: 'og:image', content: 'https://clapiersvb.fr/og-image.png' },
+                { property: 'og:image:width', content: '1200' },
+                { property: 'og:image:height', content: '630' },
+                { property: 'og:image:alt', content: 'Clapiers Volley Ball' },
+                { name: 'twitter:image', content: 'https://clapiersvb.fr/og-image.png' },
             ],
             link: [
                 { rel: 'icon', type: 'image/x-icon', href: '/favicon.ico' },
@@ -56,6 +60,7 @@ export default defineNuxtConfig({
                         '@type': 'SportsOrganization',
                         name: 'Clapiers Volley Ball',
                         url: 'https://clapiersvb.fr',
+                        logo: 'https://clapiersvb.fr/og-image.png',
                         sport: 'Volleyball',
                         email: 'info@clapiersvb.fr',
                         telephone: '+33609851673',
@@ -115,7 +120,8 @@ export default defineNuxtConfig({
     },
     sitemap: {
         discoverImages: true,
-        exclude: ['/login', '/dashboard/**'],
+        // /tarifs est en préparation (noindex) → hors sitemap tant qu'elle est vide.
+        exclude: ['/login', '/dashboard/**', '/tarifs'],
     },
     primevue: {
         autoImport: true,
@@ -123,7 +129,7 @@ export default defineNuxtConfig({
             theme: {
                 preset: Aura,
                 options: {
-                    darkModeSelector: 'light',
+                    darkModeSelector: '.app-dark',
                     cssLayer: false
                 }
             },

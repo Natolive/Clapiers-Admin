@@ -3,6 +3,7 @@
 namespace App\Application\UseCase\Member\GetPaginatedMembers;
 
 use App\Common\Command\CommandInterface;
+use App\Validator\Season;
 
 class GetPaginatedMembersCommand implements CommandInterface
 {
@@ -14,7 +15,8 @@ class GetPaginatedMembersCommand implements CommandInterface
         public readonly ?string $search = null,
         public readonly ?int $teamId = null,
         public readonly ?bool $licensePaid = null,
-        public readonly ?bool $hasLicense = null,
+        #[Season]
+        public readonly ?string $season = null,
     ) {
     }
 }
