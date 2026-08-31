@@ -4,6 +4,7 @@ namespace App\Tests\Unit\Common\Service\HelloAsso;
 
 use App\Common\Exception\UseCaseException;
 use App\Common\Service\HelloAsso\HelloAssoClient;
+use App\Common\Service\HelloAsso\HelloAssoConfigProvider;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
 use Symfony\Component\Cache\Adapter\ArrayAdapter;
@@ -14,17 +15,17 @@ class HelloAssoClientTest extends TestCase
 {
     private function makeClient(MockHttpClient $http): HelloAssoClient
     {
-        return new HelloAssoClient(
-            $http,
-            new NullLogger(),
-            new ArrayAdapter(),
-            'https://api.helloasso-sandbox.com',
-            'client-id',
-            'client-secret',
-            'mon-asso',
-            'Membership',
-            'adhesion-2026',
-        );
+        $config = $this->createStub(HelloAssoConfigProvider::class);
+        $config->method('get')->willReturnMap([
+            ['baseUrl', 'https://api.helloasso-sandbox.com'],
+            ['clientId', 'client-id'],
+            ['clientSecret', 'client-secret'],
+            ['organizationSlug', 'mon-asso'],
+            ['membershipFormType', 'Membership'],
+            ['membershipFormSlug', 'adhesion-2026'],
+        ]);
+
+        return new HelloAssoClient($http, new NullLogger(), new ArrayAdapter(), $config);
     }
 
     private function jsonResponse(array $data, int $status = 200): MockResponse

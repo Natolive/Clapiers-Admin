@@ -103,7 +103,7 @@ class PublicController extends AbstractController
     #[Route('/inscriptions-status', name: 'inscriptions_status', methods: ['GET'])]
     public function inscriptionsStatus(InscriptionsStatusProvider $provider): Response
     {
-        return $this->json(['open' => $provider->isOpen()]);
+        return $this->json(['open' => $provider->isOpen(), 'formOpen' => $provider->isFormOpen()]);
     }
 
     #[Route('/nationalities', name: 'nationalities', methods: ['GET'])]

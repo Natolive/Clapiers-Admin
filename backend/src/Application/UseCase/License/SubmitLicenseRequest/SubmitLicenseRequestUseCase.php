@@ -4,6 +4,7 @@ namespace App\Application\UseCase\License\SubmitLicenseRequest;
 
 use App\Common\Command\CommandInterface;
 use App\Common\Exception\UseCaseException;
+use App\Common\Service\InscriptionsStatusProvider;
 use App\Common\Service\RecaptchaVerifier;
 use App\Common\Service\SeasonProvider;
 use App\Common\UseCase\AbstractUseCase;
@@ -14,6 +15,7 @@ use App\Entity\Member;
 use App\Entity\ValueObject\Address;
 use App\Entity\ValueObject\LegalRepresentative;
 use Doctrine\ORM\EntityManagerInterface;
+use Symfony\Component\HttpFoundation\Response;
 
 /**
  * @extends AbstractUseCase<SubmitLicenseRequestCommand>
@@ -24,6 +26,7 @@ class SubmitLicenseRequestUseCase extends AbstractUseCase
         private readonly EntityManagerInterface $entityManager,
         private readonly RecaptchaVerifier $recaptchaVerifier,
         private readonly SeasonProvider $seasonProvider,
+        private readonly InscriptionsStatusProvider $inscriptionsStatus,
     ) {
     }
 
@@ -31,6 +34,13 @@ class SubmitLicenseRequestUseCase extends AbstractUseCase
     {
         if (!$command instanceof SubmitLicenseRequestCommand) {
             throw new UseCaseException('Invalid command');
+        }
+
+        if (!$this->inscriptionsStatus->isFormOpen()) {
+            throw new UseCaseException(
+                'Les inscriptions en ligne sont fermées pour le moment.',
+                Response::HTTP_FORBIDDEN,
+            );
         }
 
         if (!$this->recaptchaVerifier->verify($command->recaptchaToken)) {

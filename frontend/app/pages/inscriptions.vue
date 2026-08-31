@@ -24,6 +24,19 @@
         </div>
       </div>
 
+      <!-- Réception des demandes fermée (réglage admin) -->
+      <div v-else-if="formOpen === false" class="card notice">
+        <i class="pi pi-lock"></i>
+        <div>
+          <h3>Inscriptions closes</h3>
+          <p>
+            Les demandes de licence en ligne ne sont pas ouvertes pour le moment.
+            Contactez le club pour connaître les modalités.
+          </p>
+          <NuxtLink to="/contact" class="back-link">Nous contacter →</NuxtLink>
+        </div>
+      </div>
+
       <Form
         v-else
         ref="form"
@@ -259,6 +272,9 @@ const recaptchaEnabled = !!config.public.recaptchaSiteKey
 const licenseRepo = new LicenseRepository()
 
 const { season } = useCurrentSeason()
+// Réglage admin : `false` seulement une fois la réponse reçue (défaut ouvert),
+// pour ne pas afficher « closes » le temps du chargement.
+const { formOpen } = useInscriptionsStatus()
 
 const genderOptions = MemberGenderOptions
 const pad = (n: number) => String(n).padStart(2, '0')
@@ -350,6 +366,11 @@ const stepError = ref('')
 const done = ref(false)
 const recaptchaToken = ref('')
 const recaptcha = ref<{ reset: () => void } | null>(null)
+// Reprise après échec : la demande n'est créée qu'une fois, et on ne renvoie
+// que les pièces qui n'ont pas encore été acceptées — sinon chaque nouvel essai
+// créerait un doublon de membre et de licence côté serveur.
+let submittedToken = ''
+const uploadedFiles = new Map<LicenseDocumentKey, File>()
 
 const fieldValue = (name: string) => form.value?.states?.[name]?.value
 const isMinor = computed(() => isMinorFromDate(fieldValue('birthDate')))
@@ -461,7 +482,9 @@ const onSubmit = async (e: FormSubmitEvent) => {
     stepError.value = `Le document « ${missing.label} » est requis.`
     return
   }
-  if (recaptchaEnabled && !recaptchaToken.value) {
+  // Le captcha ne protège que la création de la demande : inutile de le
+  // redemander pour un nouvel essai d'envoi des pièces.
+  if (recaptchaEnabled && !submittedToken && !recaptchaToken.value) {
     stepError.value = 'Veuillez valider le captcha.'
     return
   }
@@ -470,7 +493,7 @@ const onSubmit = async (e: FormSubmitEvent) => {
   stepError.value = ''
   const v = e.values as Record<string, any>
   try {
-    const license = await licenseRepo.submitRequest({
+    submittedToken ||= (await licenseRepo.submitRequest({
       firstName: v.firstName,
       lastName: v.lastName,
       phoneNumber: v.phoneNumber,
@@ -488,18 +511,19 @@ const onSubmit = async (e: FormSubmitEvent) => {
       legalRepLastName: isMinor.value ? v.legalRepLastName : null,
       legalRepEmail: isMinor.value ? v.legalRepEmail : null,
       legalRepPhone: isMinor.value ? v.legalRepPhone : null,
-    })
+    })).accessToken as string
 
-    const token = license.accessToken as string
     for (const key of Object.keys(files.value) as LicenseDocumentKey[]) {
       const file = files.value[key]
-      if (file) await licenseRepo.uploadDocument(token, key, file)
+      if (!file || uploadedFiles.get(key) === file) continue
+      await licenseRepo.uploadDocument(submittedToken, key, file)
+      uploadedFiles.set(key, file)
     }
 
     done.value = true
   } catch (err: any) {
     stepError.value = err?.data?.message || 'Une erreur est survenue. Veuillez réessayer.'
-    recaptcha.value?.reset()
+    if (!submittedToken) recaptcha.value?.reset()
   } finally {
     sending.value = false
   }
@@ -758,23 +782,31 @@ const onSubmit = async (e: FormSubmitEvent) => {
   margin-bottom: 1rem;
 }
 
-.success {
+.success,
+.notice {
   display: flex;
   align-items: center;
   gap: 1.5rem;
 }
 
-.success i {
+.success i,
+.notice i {
   font-size: 3rem;
   color: #22c55e;
 }
 
-.success h3 {
+.notice i {
+  color: #6b7280;
+}
+
+.success h3,
+.notice h3 {
   margin: 0 0 0.5rem;
   color: var(--club-dark);
 }
 
-.success p {
+.success p,
+.notice p {
   margin: 0 0 1rem;
   color: #666;
 }

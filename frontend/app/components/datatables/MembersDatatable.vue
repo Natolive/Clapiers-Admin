@@ -320,8 +320,10 @@ const openDialog = (member?: Member, initialTab: 'fiche' | 'media' = 'fiche') =>
   }
 };
 
-onMounted(() => {
-  loadSeasons();
+// La saison doit être connue avant le premier fetch : sinon la liste part
+// non filtrée puis se rescope, en affichant brièvement d'autres saisons.
+onMounted(async () => {
+  await loadSeasons();
   fetchData();
 });
 </script>

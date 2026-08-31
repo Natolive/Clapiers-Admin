@@ -4,7 +4,6 @@ namespace App\Common\Service\HelloAsso;
 
 use App\Common\Exception\UseCaseException;
 use Psr\Log\LoggerInterface;
-use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Contracts\Cache\CacheInterface;
 use Symfony\Contracts\Cache\ItemInterface;
@@ -14,6 +13,9 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
 /**
  * Thin client over the HelloAsso v5 API.
  *
+ * Credentials, organisation and membership-form come from
+ * {@see HelloAssoConfigProvider} (admin setting first, env as fallback).
+ *
  * Authentication uses the OAuth2 client-credentials grant; the access token
  * (valid 30 min on HelloAsso's side) is cached ~25 min to avoid re-authenticating
  * on every call. Network/HTTP failures are logged and surfaced as a
@@ -21,27 +23,18 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
  */
 class HelloAssoClient implements HelloAssoClientInterface
 {
-    private const TOKEN_CACHE_KEY = 'helloasso.access_token';
+    /** Publiques : le provider les purge quand la configuration change. */
+    public const TOKEN_CACHE_KEY = 'helloasso.access_token';
+    public const TIERS_CACHE_KEY = 'helloasso.form_tiers';
+
     private const TOKEN_TTL = 1500; // 25 min — safety margin under HelloAsso's 30 min
-    private const TIERS_CACHE_KEY = 'helloasso.form_tiers';
     private const TIERS_TTL = 600;  // 10 min
 
     public function __construct(
         private readonly HttpClientInterface $httpClient,
         private readonly LoggerInterface $logger,
         private readonly CacheInterface $cache,
-        #[Autowire(env: 'HELLOASSO_BASE_URL')]
-        private readonly string $baseUrl,
-        #[Autowire(env: 'HELLOASSO_CLIENT_ID')]
-        private readonly string $clientId,
-        #[Autowire(env: 'HELLOASSO_CLIENT_SECRET')]
-        private readonly string $clientSecret,
-        #[Autowire(env: 'HELLOASSO_ORGANIZATION_SLUG')]
-        private readonly string $organizationSlug,
-        #[Autowire(env: 'HELLOASSO_MEMBERSHIP_FORM_TYPE')]
-        private readonly string $membershipFormType,
-        #[Autowire(env: 'HELLOASSO_MEMBERSHIP_FORM_SLUG')]
-        private readonly string $membershipFormSlug,
+        private readonly HelloAssoConfigProvider $config,
     ) {
     }
 
@@ -54,7 +47,7 @@ class HelloAssoClient implements HelloAssoClientInterface
     {
         return $this->request(
             'POST',
-            sprintf('/v5/organizations/%s/checkout-intents', $this->organizationSlug),
+            sprintf('/v5/organizations/%s/checkout-intents', $this->config->get('organizationSlug')),
             ['json' => $body],
         );
     }
@@ -66,7 +59,7 @@ class HelloAssoClient implements HelloAssoClientInterface
     {
         return $this->request(
             'GET',
-            sprintf('/v5/organizations/%s/checkout-intents/%d', $this->organizationSlug, $checkoutIntentId),
+            sprintf('/v5/organizations/%s/checkout-intents/%d', $this->config->get('organizationSlug'), $checkoutIntentId),
         );
     }
 
@@ -78,7 +71,7 @@ class HelloAssoClient implements HelloAssoClientInterface
      */
     public function getFormTiers(): array
     {
-        return $this->cache->get(self::TIERS_CACHE_KEY, function (ItemInterface $item): array {
+        return $this->cache->get(self::TIERS_CACHE_KEY, function (ItemInterface $item) use (&$unused): array {
             $item->expiresAfter(self::TIERS_TTL);
 
             // Le catalogue des tarifs est exposé sous "tiers" par l'endpoint public
@@ -87,9 +80,9 @@ class HelloAssoClient implements HelloAssoClientInterface
                 'GET',
                 sprintf(
                     '/v5/organizations/%s/forms/%s/%s/public',
-                    $this->organizationSlug,
-                    $this->membershipFormType,
-                    $this->membershipFormSlug,
+                    $this->config->get('organizationSlug'),
+                    $this->config->get('membershipFormType'),
+                    $this->config->get('membershipFormSlug'),
                 ),
             );
 
@@ -113,7 +106,7 @@ class HelloAssoClient implements HelloAssoClientInterface
         $options['auth_bearer'] = $this->getAccessToken();
 
         try {
-            $response = $this->httpClient->request($method, $this->baseUrl.$path, $options);
+            $response = $this->httpClient->request($method, $this->config->get('baseUrl').$path, $options);
 
             return $response->toArray();
         } catch (HttpExceptionInterface $e) {
@@ -133,11 +126,11 @@ class HelloAssoClient implements HelloAssoClientInterface
             $item->expiresAfter(self::TOKEN_TTL);
 
             try {
-                $response = $this->httpClient->request('POST', $this->baseUrl.'/oauth2/token', [
+                $response = $this->httpClient->request('POST', $this->config->get('baseUrl').'/oauth2/token', [
                     'body' => [
                         'grant_type' => 'client_credentials',
-                        'client_id' => $this->clientId,
-                        'client_secret' => $this->clientSecret,
+                        'client_id' => $this->config->get('clientId'),
+                        'client_secret' => $this->config->get('clientSecret'),
                     ],
                 ]);
                 $data = $response->toArray();

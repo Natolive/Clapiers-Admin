@@ -39,6 +39,9 @@ Invariants / traps:
 ## Public submission
 
 - `POST /api/public/license-request` (`PublicController.php:43`, `PUBLIC_ACCESS`).
+- **Gated by the `inscriptions_form_open` setting** — closed → **403** avant
+  tout le reste (`SubmitLicenseRequestUseCase`). À ne pas confondre avec
+  `inscriptions_open`, purement indicatif (voir « Réglages d'inscription »).
 - **Recaptcha enforced** — but `RecaptchaVerifier` returns `true` when
   `RECAPTCHA_SECRET_KEY` is empty (dev/test bypass). Trap: an unset key in prod
   silently disables captcha.
@@ -74,10 +77,11 @@ Invariants / traps:
 - `GET /api/license/tiers` (admin) → `HelloAssoClient::getFormTiers()` reads the
   **`tiers`** key of the public HelloAsso form endpoint (not `items` = sold
   articles), maps to `{id, label, amount}` (amount = `price`), cached 10 min.
-- **Pricing is not derived** — at approval the admin picks a tier **and types
-  the amount manually** (`ApproveLicensePayload`, both `Assert\Positive`). Amount
-  (centimes) is frozen onto the licence. **No server-side check that the amount
-  matches the tier's price.**
+- **Pricing is not derived server-side** — le payload d'approbation porte le
+  tarif **et** le montant (`ApproveLicensePayload`, both `Assert\Positive`) ; la
+  modale admin envoie le prix du tarif choisi. Amount (centimes) is frozen onto
+  the licence. **No server-side check that the amount matches the tier's
+  price.**
 
 ## Approval / rejection
 
@@ -123,8 +127,10 @@ logged only). No token/media cleanup.
   — this is what the webhook filters on. Persists a `Payment` in state
   `WAITING`, flips licence to `EN_PAIEMENT`, returns `{redirectUrl}`.
 - **Every checkout call creates a NEW `Payment` row** — repeated attempts leave
-  multiple `WAITING` payments; reconciliation uses "most recent `WAITING`"
-  (`PaymentRepository.php:27-33`, `ORDER BY id DESC`).
+  multiple `WAITING` payments. The webhook ne prend pas « le plus récent » : il
+  demande à HelloAsso quel checkout-intent contient réellement le `paymentId`
+  réglé (`HandleHelloAssoWebhookUseCase::resolvePayment`), sinon un intent ancien
+  payé après un plus récent laisserait la licence encaissée en `EN_PAIEMENT`.
 
 ### Webhook (`HandleHelloAssoWebhookUseCase`)
 
@@ -153,6 +159,42 @@ logged only). No token/media cleanup.
   communication avec HelloAsso".
 - Interface methods: `createCheckoutIntent`, `getCheckoutIntent`,
   `getFormTiers`. **No refund method.**
+- **Toute sa configuration vient de `HelloAssoConfigProvider`**, c'est-à-dire de
+  la table `setting` — **il n'y a plus de variable `HELLOASSO_*`** et aucune
+  reprise automatique : la config se saisit dans Paramètres → Paiement en ligne
+  (tant qu'elle est vide, checkout et tarifs répondent 502). Réglage absent ou
+  vide = chaîne vide, sauf `baseUrl` qui retombe sur
+  `HelloAssoConfigProvider::DEFAULT_BASE_URL` (`https://api.helloasso.com`).
+
+| Champ API | Réglage (`setting.name`) |
+|-----------|--------------------------|
+| `baseUrl` | `helloasso_base_url` |
+| `clientId` | `helloasso_client_id` |
+| `clientSecret` | `helloasso_client_secret` |
+| `organizationSlug` | `helloasso_organization_slug` |
+| `membershipFormType` | `helloasso_membership_form_type` |
+| `membershipFormSlug` | `helloasso_membership_form_slug` |
+
+- `GET /api/settings/helloasso` (super-admin) renvoie tout **sauf le secret** —
+  seulement `clientSecretDefined`. `PUT` n'applique que les champs non vides
+  (secret vide = inchangé), refuse un corps vide (422), et **purge les caches
+  `helloasso.access_token` / `helloasso.form_tiers`** : sans ça un changement
+  d'identifiants resterait invisible ~25 min.
+
+## Réglages d'inscription (table `setting`)
+
+Deux drapeaux indépendants, ouverts par défaut (seule la valeur `'0'` ferme),
+lus via `InscriptionsStatusProvider` :
+
+| Clé | Effet |
+|-----|-------|
+| `inscriptions_open` | **Indicatif** : badge « inscriptions ouvertes / clôturées » de l'accueil (et son lien). N'empêche rien. |
+| `inscriptions_form_open` | **Effectif** : page `/inscriptions` remplacée par « Inscriptions closes » et **403** sur `POST /api/public/license-request`. |
+
+`GET /api/public/inscriptions-status` et `GET|PUT /api/settings/inscriptions`
+renvoient les deux (`{open, formOpen}`) ; le PUT n'applique que les champs
+fournis et refuse (422) un corps vide. L'upload de pièces reste ouvert quand le
+formulaire est fermé : une demande déjà créée doit pouvoir finir de se déposer.
 
 ## Security summary
 

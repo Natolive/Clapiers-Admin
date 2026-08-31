@@ -8,9 +8,13 @@ use Symfony\Component\Validator\Constraints as Assert;
 class SetInscriptionsStatusCommand implements CommandInterface
 {
     public function __construct(
-        #[Assert\NotNull]
+        /** Affichage indicatif sur le site public. */
         #[Assert\Type('bool')]
-        public readonly bool $open,
+        public readonly ?bool $open = null,
+
+        /** Réception réelle des demandes de licence. */
+        #[Assert\Type('bool')]
+        public readonly ?bool $formOpen = null,
     ) {
     }
 }

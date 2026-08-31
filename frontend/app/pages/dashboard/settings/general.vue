@@ -6,6 +6,7 @@
         <Tabs value="general">
           <TabList>
             <Tab value="general"><i class="pi pi-sliders-h mr-2" /> Générale</Tab>
+            <Tab value="helloasso"><i class="pi pi-credit-card mr-2" /> Paiement en ligne</Tab>
           </TabList>
 
           <TabPanels>
@@ -48,14 +49,82 @@
               <div class="setting-block">
                 <h3 class="setting-title">Inscriptions en ligne</h3>
                 <p class="setting-help">
-                  Affiche « inscriptions ouvertes / fermées » sur la page d'accueil.
+                  Deux réglages indépendants : l'annonce faite sur le site, et la
+                  réception effective des demandes de licence.
                 </p>
 
                 <div v-if="inscriptionsLoading" class="text-color-secondary">Chargement…</div>
-                <div v-else class="inscriptions-row">
-                  <ToggleSwitch v-model="inscriptionsOpen" :disabled="inscriptionsSaving" @update:model-value="saveInscriptions" />
-                  <span>{{ inscriptionsOpen ? 'Inscriptions ouvertes' : 'Inscriptions fermées' }}</span>
-                </div>
+                <template v-else>
+                  <div class="inscriptions-row">
+                    <ToggleSwitch v-model="inscriptionsOpen" :disabled="inscriptionsSaving" @update:model-value="saveInscriptions({ open: $event })" />
+                    <div>
+                      <span>Affichage : inscriptions {{ inscriptionsOpen ? 'ouvertes' : 'clôturées' }}</span>
+                      <small class="setting-note">Badge de la page d'accueil, purement indicatif.</small>
+                    </div>
+                  </div>
+                  <div class="inscriptions-row">
+                    <ToggleSwitch v-model="inscriptionsFormOpen" :disabled="inscriptionsSaving" @update:model-value="saveInscriptions({ formOpen: $event })" />
+                    <div>
+                      <span>Formulaire : demandes {{ inscriptionsFormOpen ? 'acceptées' : 'refusées' }}</span>
+                      <small class="setting-note">Ferme réellement le formulaire d'inscription et l'API publique.</small>
+                    </div>
+                  </div>
+                </template>
+              </div>
+            </TabPanel>
+
+            <TabPanel value="helloasso">
+              <div class="setting-block">
+                <h3 class="setting-title">Paiement en ligne (HelloAsso)</h3>
+                <p class="setting-help">
+                  Identifiants de l'API HelloAsso et formulaire d'adhésion utilisé
+                  pour les tarifs. Laissé vide, un champ garde sa valeur actuelle.
+                  Sans ces réglages, le paiement en ligne des licences ne fonctionne pas.
+                </p>
+
+                <div v-if="helloAssoLoading" class="text-color-secondary">Chargement…</div>
+
+                <template v-else>
+                  <Message v-if="helloAssoError" severity="error" :closable="false" class="mb-3">{{ helloAssoError }}</Message>
+
+                  <div class="helloasso-grid">
+                    <div class="field">
+                      <label for="ha-base-url">URL de l'API</label>
+                      <InputText id="ha-base-url" v-model="helloAsso.baseUrl" fluid placeholder="https://api.helloasso.com" />
+                      <small class="setting-note">Sandbox : <code>https://api.helloasso-sandbox.com</code></small>
+                    </div>
+                    <div class="field">
+                      <label for="ha-org">Slug de l'association</label>
+                      <InputText id="ha-org" v-model="helloAsso.organizationSlug" fluid placeholder="clapiers-volley" />
+                    </div>
+                    <div class="field">
+                      <label for="ha-client-id">Client ID</label>
+                      <InputText id="ha-client-id" v-model="helloAsso.clientId" fluid autocomplete="off" />
+                    </div>
+                    <div class="field">
+                      <label for="ha-secret">Client secret</label>
+                      <Password
+                        input-id="ha-secret"
+                        v-model="helloAssoSecret"
+                        :feedback="false"
+                        toggle-mask
+                        fluid
+                        autocomplete="new-password"
+                        :placeholder="helloAsso.clientSecretDefined ? '•••••••• (inchangé)' : 'Non renseigné'"
+                      />
+                    </div>
+                    <div class="field">
+                      <label for="ha-form-type">Type de formulaire</label>
+                      <InputText id="ha-form-type" v-model="helloAsso.membershipFormType" fluid placeholder="Event" />
+                    </div>
+                    <div class="field">
+                      <label for="ha-form-slug">Slug du formulaire</label>
+                      <InputText id="ha-form-slug" v-model="helloAsso.membershipFormSlug" fluid placeholder="adhesion-clapiers-volley-ball" />
+                    </div>
+                  </div>
+
+                  <Button label="Enregistrer" icon="pi pi-check" :loading="helloAssoSaving" class="mt-3" @click="saveHelloAsso" />
+                </template>
               </div>
             </TabPanel>
           </TabPanels>
@@ -66,7 +135,7 @@
 </template>
 
 <script setup lang="ts">
-import { SettingRepository } from '~/repository/setting-repository'
+import { SettingRepository, type HelloAssoConfig } from '~/repository/setting-repository'
 import { AppUserRole } from '~/types/entity/AppUser'
 
 definePageMeta({
@@ -89,8 +158,9 @@ const loading = ref(true)
 const saving = ref(false)
 const error = ref('')
 
-const { open: sharedInscriptionsOpen } = useInscriptionsStatus()
+const { open: sharedInscriptionsOpen, formOpen: sharedFormOpen } = useInscriptionsStatus()
 const inscriptionsOpen = ref(true)
+const inscriptionsFormOpen = ref(true)
 const inscriptionsLoading = ref(true)
 const inscriptionsSaving = ref(false)
 
@@ -103,24 +173,74 @@ onMounted(async () => {
     loading.value = false
   }
   try {
-    inscriptionsOpen.value = (await repo.getInscriptionsStatus()).open
+    const status = await repo.getInscriptionsStatus()
+    inscriptionsOpen.value = status.open
+    inscriptionsFormOpen.value = status.formOpen
   } finally {
     inscriptionsLoading.value = false
   }
+  try {
+    helloAsso.value = await repo.getHelloAssoConfig()
+  } finally {
+    helloAssoLoading.value = false
+  }
 })
 
-const saveInscriptions = async (value: boolean) => {
+const saveInscriptions = async (change: { open?: boolean; formOpen?: boolean }) => {
   inscriptionsSaving.value = true
   try {
-    const res = await repo.setInscriptionsStatus(value)
+    const res = await repo.setInscriptionsStatus(change)
     inscriptionsOpen.value = res.open
-    sharedInscriptionsOpen.value = res.open // propage l'affichage public sans rechargement
-    toast.add({ severity: 'success', summary: 'Inscriptions', detail: res.open ? 'Ouvertes' : 'Fermées', life: 3000 })
+    inscriptionsFormOpen.value = res.formOpen
+    // Propage l'affichage public sans rechargement.
+    sharedInscriptionsOpen.value = res.open
+    sharedFormOpen.value = res.formOpen
+    toast.add({
+      severity: 'success',
+      summary: 'Inscriptions',
+      detail: change.open !== undefined
+        ? (res.open ? 'Affichage : ouvertes' : 'Affichage : clôturées')
+        : (res.formOpen ? 'Formulaire ouvert' : 'Formulaire fermé'),
+      life: 3000,
+    })
   } catch {
-    inscriptionsOpen.value = !value // revient à l'état précédent en cas d'échec
+    // Revient à l'état précédent en cas d'échec.
+    if (change.open !== undefined) inscriptionsOpen.value = !change.open
+    if (change.formOpen !== undefined) inscriptionsFormOpen.value = !change.formOpen
     toast.add({ severity: 'error', summary: 'Inscriptions', detail: 'Enregistrement impossible.', life: 4000 })
   } finally {
     inscriptionsSaving.value = false
+  }
+}
+
+const helloAsso = ref<HelloAssoConfig>({
+  baseUrl: '', clientId: '', organizationSlug: '',
+  membershipFormType: '', membershipFormSlug: '', clientSecretDefined: false,
+})
+const helloAssoSecret = ref('')
+const helloAssoLoading = ref(true)
+const helloAssoSaving = ref(false)
+const helloAssoError = ref('')
+
+const saveHelloAsso = async () => {
+  helloAssoSaving.value = true
+  helloAssoError.value = ''
+  try {
+    // Le secret n'est envoyé que s'il a été saisi ; vide = on garde l'existant.
+    helloAsso.value = await repo.setHelloAssoConfig({
+      baseUrl: helloAsso.value.baseUrl,
+      clientId: helloAsso.value.clientId,
+      organizationSlug: helloAsso.value.organizationSlug,
+      membershipFormType: helloAsso.value.membershipFormType,
+      membershipFormSlug: helloAsso.value.membershipFormSlug,
+      clientSecret: helloAssoSecret.value || undefined,
+    })
+    helloAssoSecret.value = ''
+    toast.add({ severity: 'success', summary: 'HelloAsso', detail: 'Configuration enregistrée', life: 3000 })
+  } catch (e: any) {
+    helloAssoError.value = e?.data?.message || 'Enregistrement impossible.'
+  } finally {
+    helloAssoSaving.value = false
   }
 }
 
@@ -168,6 +288,27 @@ const save = async () => {
   display: flex;
   gap: 0.75rem;
   align-items: center;
+}
+
+.inscriptions-row + .inscriptions-row {
+  margin-top: 1rem;
+}
+
+.setting-note {
+  display: block;
+  color: var(--p-text-muted-color);
+}
+
+.helloasso-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1rem;
+}
+
+.helloasso-grid .field label {
+  display: block;
+  margin-bottom: 0.35rem;
+  font-weight: 500;
 }
 
 .season-input {
