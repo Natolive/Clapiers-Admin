@@ -151,4 +151,6 @@ Symfony's validator, not this class.
 - **Mandatory generic docblock** on UseCases: `@extends AbstractUseCase<Cmd>` —
   keep it accurate, it's what makes `TCommand` meaningful for static analysis.
 - Test-env overrides live inline under `when@test:` (cheap password hashing,
-  isolated `var/test-uploads`, silenced logging).
+  in-memory Bunny zone via `FakeBunnyStorageClient`, silenced logging). Note that
+  redefining a service there **drops the autowiring** inherited from the `App\`
+  resource — put `autowire: true` back when you only mean to swap one argument.

@@ -7,6 +7,7 @@
           <TabList>
             <Tab value="general"><i class="pi pi-sliders-h mr-2" /> Générale</Tab>
             <Tab value="helloasso"><i class="pi pi-credit-card mr-2" /> Paiement en ligne</Tab>
+            <Tab value="storage"><i class="pi pi-folder-open mr-2" /> Stockage des fichiers</Tab>
           </TabList>
 
           <TabPanels>
@@ -127,6 +128,45 @@
                 </template>
               </div>
             </TabPanel>
+            <TabPanel value="storage">
+              <div class="setting-block">
+                <h3 class="setting-title">Stockage des fichiers (Bunny Storage)</h3>
+                <p class="setting-help">
+                  Zone Bunny où sont rangées les pièces de la médiathèque (licences,
+                  certificats, photos). Laissée vide, la clé garde sa valeur actuelle.
+                  Sans ces réglages, aucun envoi ni téléchargement de fichier ne fonctionne.
+                </p>
+
+                <div v-if="bunnyLoading" class="text-color-secondary">Chargement…</div>
+
+                <template v-else>
+                  <Message v-if="bunnyError" severity="error" :closable="false" class="mb-3">{{ bunnyError }}</Message>
+
+                  <div class="helloasso-grid">
+                    <div class="field">
+                      <label for="bunny-url">URL de la zone</label>
+                      <InputText id="bunny-url" v-model="bunny.storageUrl" fluid placeholder="https://storage.bunnycdn.com/ma-zone" />
+                      <small class="setting-note">Région DE/Falkenstein : <code>https://storage.bunnycdn.com/&lt;zone&gt;</code></small>
+                    </div>
+                    <div class="field">
+                      <label for="bunny-key">Clé d'accès</label>
+                      <Password
+                        input-id="bunny-key"
+                        v-model="bunnyKey"
+                        :feedback="false"
+                        toggle-mask
+                        fluid
+                        autocomplete="new-password"
+                        :placeholder="bunny.storageKeyDefined ? '•••••••• (inchangée)' : 'Non renseignée'"
+                      />
+                      <small class="setting-note">Bunny → Storage → FTP &amp; API Access → Password</small>
+                    </div>
+                  </div>
+
+                  <Button label="Enregistrer" icon="pi pi-check" :loading="bunnySaving" class="mt-3" @click="saveBunny" />
+                </template>
+              </div>
+            </TabPanel>
           </TabPanels>
         </Tabs>
       </template>
@@ -135,7 +175,7 @@
 </template>
 
 <script setup lang="ts">
-import { SettingRepository, type HelloAssoConfig } from '~/repository/setting-repository'
+import { SettingRepository, type BunnyConfig, type HelloAssoConfig } from '~/repository/setting-repository'
 import { AppUserRole } from '~/types/entity/AppUser'
 
 definePageMeta({
@@ -183,6 +223,11 @@ onMounted(async () => {
     helloAsso.value = await repo.getHelloAssoConfig()
   } finally {
     helloAssoLoading.value = false
+  }
+  try {
+    bunny.value = await repo.getBunnyConfig()
+  } finally {
+    bunnyLoading.value = false
   }
 })
 
@@ -241,6 +286,30 @@ const saveHelloAsso = async () => {
     helloAssoError.value = e?.data?.message || 'Enregistrement impossible.'
   } finally {
     helloAssoSaving.value = false
+  }
+}
+
+const bunny = ref<BunnyConfig>({ storageUrl: '', storageKeyDefined: false })
+const bunnyKey = ref('')
+const bunnyLoading = ref(true)
+const bunnySaving = ref(false)
+const bunnyError = ref('')
+
+const saveBunny = async () => {
+  bunnySaving.value = true
+  bunnyError.value = ''
+  try {
+    // La clé n'est envoyée que si elle a été saisie ; vide = on garde l'existante.
+    bunny.value = await repo.setBunnyConfig({
+      storageUrl: bunny.value.storageUrl,
+      storageKey: bunnyKey.value || undefined,
+    })
+    bunnyKey.value = ''
+    toast.add({ severity: 'success', summary: 'Stockage', detail: 'Configuration enregistrée', life: 3000 })
+  } catch (e: any) {
+    bunnyError.value = e?.data?.message || 'Enregistrement impossible.'
+  } finally {
+    bunnySaving.value = false
   }
 }
 

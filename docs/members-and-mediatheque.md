@@ -69,10 +69,73 @@ they were current when someone opened the media.
 **Default nodes are `protected=true`** → not renamable, not deletable (but their
 file is still manageable — see below).
 
-**Physical storage** (`MemberMediaStorage`): files live under
-`%upload_directory%/member-media`. On-disk name is a fresh UUID v4 + guessed
-extension (`storedName`); the user-facing download name is `originalName`. Uploads
-are max **10M**, mimetypes `application/pdf`, `image/png`, `image/jpeg`.
+**Physical storage** (`MemberMediaStorage`) — single entry point for every
+write, read and delete. Files live on **Bunny Storage** (HTTP API, region
+DE/Falkenstein), laid out **one folder per member**:
+
+```
+/member-media/<member id>/<uuid v4>.<ext>
+```
+
+`storedName` holds that whole relative path, so reads and deletes need nothing
+else — and legacy flat names (`<uuid>.<ext>`) still resolve, no migration
+required for existing rows. The user-facing download name is `originalName`.
+Uploads are max **10M**, mimetypes `application/pdf`, `image/png`, `image/jpeg`.
+
+`store()` therefore takes the member id. The one place a file changes owner is
+`ApproveLicenseUseCase` merging a request into an existing member: it calls
+`copyTo()`, which GET+PUTs the object into the target member's folder (Bunny has
+no server-side copy) so the file follows instead of being orphaned under the
+duplicate record that is deleted right after.
+
+> **Never delete a stored file before the flush that records its new name.**
+> `ApproveLicenseUseCase` collects every file the merge makes obsolete — the
+> replaced piece on the target member, and the source copy — and deletes them
+> **after** `flush()`, swallowing storage errors (the licence is already
+> approved; an orphan object must not turn into a 502). Deleting earlier means a
+> later failure in the same request leaves the DB pointing at objects already
+> gone from the zone — files lost. Regression test:
+> `LicenseAdminApiTest::testApproveWithReplaceLosesNoFileWhenTheStorageFailsMidMerge`,
+> which fails a copy mid-merge via `FakeBunnyStorageClient::failPutsFromCall()`.
+
+**There is no local-disk fallback, on purpose.** The backend runs as several k8s
+pods, so a file written to one pod's disk 404s from the others.
+
+**Zone and key are admin settings, not env vars** — same pattern as HelloAsso.
+`BunnyConfigProvider` (`src/Common/Service/`) reads `bunny_storage_url` /
+`bunny_storage_key` from the `setting` table and is the only source
+`MemberMediaStorage` consults. They are edited under *Paramètres → Stockage des
+fichiers* (`GET`/`PUT /api/settings/bunny`, `ROLE_SUPER_ADMIN`); the key is
+write-only — the API returns `storageKeyDefined`, never the value. An unconfigured
+zone fails every upload and download with a 502 instead of losing files.
+
+In tests, `ApiTestCase::setUp()` writes a dummy zone into the `setting` table and
+`FakeBunnyStorageClient` (`when@test`, `config/services.yaml`) swaps only the HTTP
+transport for an in-memory zone — the real service stays under test, and nothing
+ever hits the network.
+
+**Files are never public.** No CDN pull zone is attached to the storage zone —
+the zone is only readable with the `AccessKey`, which lives in the backend. The
+only reads go through the authenticated routes below, all of which call
+`MemberMediaStorage::response()`:
+
+| Route | Guard |
+| --- | --- |
+| `GET /api/member/{id}/profile-picture` | `ROLE_ADMIN` |
+| `GET /api/member/{id}/media/node/{uuid}/download` | `ROLE_SUPER_ADMIN` |
+| `GET /api/team/my-team/license/{memberId}` | `ROLE_ADMIN` + shares a team |
+| `GET /api/team/my-team/member/{memberId}/profile-picture` | `ROLE_ADMIN` + shares a team |
+
+`response()` returns `null` when the file is missing (each caller keeps its own
+404 shape) and throws `UseCaseException(502)` on a Bunny outage. On the Bunny
+backend it streams (`StreamedResponse` over the HTTP client) and takes the
+`Content-Type` from the DB, since Bunny serves everything as octet-stream.
+`store()` uploads **before** the caller flushes, so a failed upload can't leave
+a DB row pointing at a missing file.
+
+The CSV game import (`POST /api/game/import`) does **not** use this service: it
+reads the multipart temp file in-memory within the same request and never stores
+it — already pod-safe.
 
 ## Media operations
 
@@ -81,16 +144,16 @@ are max **10M**, mimetypes `application/pdf`, `image/png`, `image/jpeg`.
   be an owned folder.
 - **Upload / replace file** — (re)attaches a file to any existing document node
   **including protected default slots**; rejects folders; **deletes the previous
-  file from disk first** (no orphan).
-- **Delete file only** — unlinks the disk file and nulls the metadata but
+  previous file from the storage zone first** (no orphan).
+- **Delete file only** — deletes the stored file and nulls the metadata but
   **keeps the node**; this is how you empty a protected default slot.
 - **Rename node** / **Delete node** — both blocked on protected nodes. Delete
-  recursively unlinks disk files of the node and all descendants **before** the
-  DB remove, because the DB cascade (`onDelete: CASCADE` + `orphanRemoval`) drops
-  rows but **never touches the filesystem**.
+  recursively deletes the stored files of the node and all descendants **before**
+  the DB remove, because the DB cascade (`onDelete: CASCADE` + `orphanRemoval`)
+  drops rows but **never touches the storage zone**.
 
 > **File-orphan cleanup is application-code responsibility.** Deleting a member
-> cascades the whole tree at DB level but **leaves files on disk** — no
+> cascades the whole tree at DB level but **leaves files in the storage zone** — no
 > application hook runs on member deletion.
 
 Children are ordered in PHP for serialization (folders before documents, then

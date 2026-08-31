@@ -57,6 +57,7 @@ class UseCaseGuardTest extends TestCase
             \App\Application\UseCase\Member\Media\RenameNode\RenameNodeUseCase::class,
             \App\Application\UseCase\Member\Media\UploadDocumentFile\UploadDocumentFileUseCase::class,
             \App\Application\UseCase\SalleClosure\CreateSalleClosure\CreateSalleClosureUseCase::class,
+            \App\Application\UseCase\Setting\SetBunnyConfig\SetBunnyConfigUseCase::class,
             \App\Application\UseCase\Setting\SetCurrentSeason\SetCurrentSeasonUseCase::class,
             \App\Application\UseCase\Setting\SetHelloAssoConfig\SetHelloAssoConfigUseCase::class,
             \App\Application\UseCase\Setting\SetInscriptionsStatus\SetInscriptionsStatusUseCase::class,

@@ -231,6 +231,82 @@ class SettingApiTest extends ApiTestCase
         $this->assertJsonResponse(403);
     }
 
+    public function testGetBunnyReturnsTheZoneAndHidesTheAccessKey(): void
+    {
+        $this->actingAsSuperAdmin();
+        $this->getJson('/api/settings/bunny');
+
+        $body = $this->assertJsonResponse(200);
+        // La zone est configurée par ApiTestCase::setUp().
+        $this->assertSame(self::TEST_BUNNY_URL, $body['storageUrl']);
+        $this->assertTrue($body['storageKeyDefined']);
+        $this->assertArrayNotHasKey('storageKey', $body);
+    }
+
+    public function testGetBunnyIsEmptyWhenNothingIsConfigured(): void
+    {
+        $this->configureBunny('', '');
+        $this->actingAsSuperAdmin();
+        $this->getJson('/api/settings/bunny');
+
+        $body = $this->assertJsonResponse(200);
+        $this->assertSame('', $body['storageUrl']);
+        $this->assertFalse($body['storageKeyDefined']);
+    }
+
+    public function testSetBunnyPersistsAndKeepsTheKeyWhenLeftEmpty(): void
+    {
+        $this->configureBunny('', '');
+        $this->actingAsSuperAdmin();
+
+        $this->putJson('/api/settings/bunny', [
+            'storageUrl' => 'https://storage.bunnycdn.com/clapiersvb',
+            'storageKey' => 'cle-secrete',
+        ]);
+        $body = $this->assertJsonResponse(200);
+        $this->assertSame('https://storage.bunnycdn.com/clapiersvb', $body['storageUrl']);
+        $this->assertTrue($body['storageKeyDefined']);
+
+        // Clé vide = on garde celle enregistrée.
+        $this->putJson('/api/settings/bunny', [
+            'storageUrl' => 'https://storage.bunnycdn.com/clapiersvb-preprod',
+            'storageKey' => '',
+        ]);
+        $body = $this->assertJsonResponse(200);
+        $this->assertSame('https://storage.bunnycdn.com/clapiersvb-preprod', $body['storageUrl']);
+        $this->assertTrue($body['storageKeyDefined']);
+
+        $this->getJson('/api/settings/bunny');
+        $this->assertSame(
+            'https://storage.bunnycdn.com/clapiersvb-preprod',
+            $this->assertJsonResponse(200)['storageUrl'],
+        );
+    }
+
+    public function testSetBunnyRejectsInvalidUrlAndEmptyPayload(): void
+    {
+        $this->actingAsSuperAdmin();
+
+        $this->putJson('/api/settings/bunny', ['storageUrl' => 'pas-une-url']);
+        $this->assertJsonResponse(422);
+
+        $this->putJson('/api/settings/bunny', []);
+        $this->assertJsonResponse(422);
+    }
+
+    public function testBunnyConfigRequiresSuperAdmin(): void
+    {
+        $this->getJson('/api/settings/bunny');
+        $this->assertJsonResponse(401);
+
+        $this->actingAsAdmin();
+        $this->getJson('/api/settings/bunny');
+        $this->assertJsonResponse(403);
+
+        $this->putJson('/api/settings/bunny', ['storageUrl' => 'https://storage.bunnycdn.com/x']);
+        $this->assertJsonResponse(403);
+    }
+
     public function testSubmittedLicenseUsesConfiguredSeason(): void
     {
         $this->actingAsSuperAdmin();

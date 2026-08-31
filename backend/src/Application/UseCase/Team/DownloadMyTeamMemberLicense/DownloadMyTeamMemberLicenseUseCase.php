@@ -9,8 +9,7 @@ use App\Common\Service\SeasonProvider;
 use App\Common\UseCase\AbstractUseCase;
 use App\Repository\MemberDocumentRepository;
 use App\Repository\MemberRepository;
-use Symfony\Component\HttpFoundation\BinaryFileResponse;
-use Symfony\Component\HttpFoundation\HeaderUtils;
+use Symfony\Component\HttpFoundation\Response;
 
 /**
  * Un coach télécharge la licence (saison courante) d'un membre de son équipe.
@@ -28,7 +27,7 @@ class DownloadMyTeamMemberLicenseUseCase extends AbstractUseCase
     ) {
     }
 
-    public function run(?CommandInterface $command = null): BinaryFileResponse
+    public function run(?CommandInterface $command = null): Response
     {
         if (!$command instanceof DownloadMyTeamMemberLicenseCommand) {
             throw new UseCaseException('Invalid command');
@@ -66,17 +65,15 @@ class DownloadMyTeamMemberLicenseUseCase extends AbstractUseCase
             throw new UseCaseException('No license file for this member', 404);
         }
 
-        $path = $this->storage->path((string) $slot->getStoredName());
-
-        if (!is_file($path)) {
-            throw new UseCaseException('License file not found on disk', 404);
-        }
-
-        $response = new BinaryFileResponse($path);
-        $response->setContentDisposition(
-            HeaderUtils::DISPOSITION_ATTACHMENT,
+        $response = $this->storage->response(
+            (string) $slot->getStoredName(),
+            $slot->getMimeType(),
             $slot->getOriginalName() ?? 'licence',
         );
+
+        if ($response === null) {
+            throw new UseCaseException('License file not found on disk', 404);
+        }
 
         return $response;
     }

@@ -57,6 +57,12 @@
           <template v-if="!isFolder(node)">
             <Button
               v-if="node.hasFile"
+              v-tooltip.top="'Voir'"
+              icon="pi pi-eye" size="small" text rounded
+              @click="view(node)"
+            />
+            <Button
+              v-if="node.hasFile"
               v-tooltip.top="'Télécharger'"
               icon="pi pi-download" size="small" text rounded
               @click="download(node)"
@@ -290,6 +296,15 @@ function clearFile(node: MemberDocument): void {
 
 async function download(node: MemberDocument): Promise<void> {
   await repo.download(props.memberId, node.id, node.originalName ?? node.name);
+}
+
+// Nouvel onglet : la visionneuse PDF / image du navigateur fait le rendu.
+async function view(node: MemberDocument): Promise<void> {
+  try {
+    await repo.view(props.memberId, node.id);
+  } catch (e: any) {
+    toast.add({ severity: 'error', summary: 'Aperçu impossible', detail: e?.message, life: 4000 });
+  }
 }
 
 // ── Renommer ────────────────────────────────────────────────────────────────

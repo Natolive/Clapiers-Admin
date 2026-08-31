@@ -8,7 +8,7 @@ use App\Common\Service\MemberMediaStorage;
 use App\Common\UseCase\AbstractUseCase;
 use App\Repository\MemberDocumentRepository;
 use App\Repository\MemberRepository;
-use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use Symfony\Component\HttpFoundation\Response;
 
 /**
  * Un coach affiche la photo de profil (médiathèque) d'un membre de son équipe.
@@ -25,7 +25,7 @@ class DownloadMyTeamMemberPhotoUseCase extends AbstractUseCase
     ) {
     }
 
-    public function run(?CommandInterface $command = null): BinaryFileResponse
+    public function run(?CommandInterface $command = null): Response
     {
         if (!$command instanceof DownloadMyTeamMemberPhotoCommand) {
             throw new UseCaseException('Invalid command');
@@ -59,12 +59,12 @@ class DownloadMyTeamMemberPhotoUseCase extends AbstractUseCase
             throw new UseCaseException('No profile picture for this member', 404);
         }
 
-        $path = $this->storage->path((string) $slot->getStoredName());
+        $response = $this->storage->response((string) $slot->getStoredName(), $slot->getMimeType());
 
-        if (!is_file($path)) {
+        if ($response === null) {
             throw new UseCaseException('Profile picture not found on disk', 404);
         }
 
-        return new BinaryFileResponse($path);
+        return $response;
     }
 }

@@ -71,16 +71,26 @@
                 <span v-else class="text-sm text-color-secondary">Non déposé</span>
               </div>
             </div>
-            <Button
-              v-if="doc.uploaded"
-              label="Télécharger"
-              icon="pi pi-download"
-              size="small"
-              severity="secondary"
-              outlined
-              :loading="downloading === doc.key"
-              @click="download(doc)"
-            />
+            <div v-if="doc.uploaded" class="flex gap-2">
+              <Button
+                label="Voir"
+                icon="pi pi-eye"
+                size="small"
+                severity="secondary"
+                outlined
+                :loading="viewing === doc.key"
+                @click="view(doc)"
+              />
+              <Button
+                label="Télécharger"
+                icon="pi pi-download"
+                size="small"
+                severity="secondary"
+                outlined
+                :loading="downloading === doc.key"
+                @click="download(doc)"
+              />
+            </div>
           </li>
         </ul>
       </section>
@@ -124,6 +134,7 @@ const memberId = ref<number>(props.license.member.id)
 const loading = ref(true)
 const error = ref('')
 const downloading = ref<string | null>(null)
+const viewing = ref<string | null>(null)
 
 const statusLabel = (status: LicenseStatus) => LicenseStatusLabels[status] ?? status
 const statusSeverity = (status: string): string => ({
@@ -167,6 +178,19 @@ const download = async (doc: LicenseReviewDocument) => {
     toast.add({ severity: 'error', summary: 'Téléchargement impossible', detail: doc.label, life: 4000 })
   } finally {
     downloading.value = null
+  }
+}
+
+// Nouvel onglet, même route authentifiée que le téléchargement.
+const view = async (doc: LicenseReviewDocument) => {
+  if (!doc.nodeId) return
+  viewing.value = doc.key
+  try {
+    await mediaRepo.view(memberId.value, doc.nodeId)
+  } catch (e: any) {
+    toast.add({ severity: 'error', summary: 'Aperçu impossible', detail: e?.message ?? doc.label, life: 4000 })
+  } finally {
+    viewing.value = null
   }
 }
 

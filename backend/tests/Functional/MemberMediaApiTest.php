@@ -3,6 +3,7 @@
 namespace App\Tests\Functional;
 
 use App\Entity\MemberDocument;
+use App\Tests\Support\Fake\FakeBunnyStorageClient;
 use App\Tests\Support\ApiTestCase;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 
@@ -259,9 +260,9 @@ class MemberMediaApiTest extends ApiTestCase
         $second = $this->storedNameOf($member->getId(), $slot['id']);
 
         $this->assertNotSame($first, $second);
-        $dir = static::getContainer()->getParameter('upload_directory').'/member-media';
-        $this->assertFileDoesNotExist($dir.'/'.$first, 'Le fichier remplacé doit disparaître du disque');
-        $this->assertFileExists($dir.'/'.$second);
+        $bunny = static::getContainer()->get(FakeBunnyStorageClient::class);
+        $this->assertFalse($bunny->has($first), 'Le fichier remplacé doit disparaître du stockage');
+        $this->assertTrue($bunny->has($second));
     }
 
     public function testUploadFileOnAFolderIsRejected(): void
@@ -371,8 +372,10 @@ class MemberMediaApiTest extends ApiTestCase
         );
         $doc = $this->assertJsonResponse(200);
         $stored = $this->storedNameOf($member->getId(), $doc['id']);
-        $dir = static::getContainer()->getParameter('upload_directory').'/member-media';
-        $this->assertFileExists($dir.'/'.$stored);
+        $bunny = static::getContainer()->get(FakeBunnyStorageClient::class);
+        $this->assertTrue($bunny->has($stored));
+        // Un dossier par membre dans la zone.
+        $this->assertStringStartsWith($member->getId().'/', $stored);
 
         $this->deleteJson('/api/member/'.$member->getId().'/media/node/'.$folder['id']);
         $body = $this->assertJsonResponse(200);
@@ -383,7 +386,7 @@ class MemberMediaApiTest extends ApiTestCase
         $repo = $this->em()->getRepository(MemberDocument::class);
         $this->assertNull($repo->findOneBy(['uuid' => $folder['id']]));
         $this->assertNull($repo->findOneBy(['uuid' => $doc['id']]));
-        $this->assertFileDoesNotExist($dir.'/'.$stored);
+        $this->assertFalse($bunny->has($stored));
     }
 
     public function testDeleteProtectedNodeIsRejected(): void

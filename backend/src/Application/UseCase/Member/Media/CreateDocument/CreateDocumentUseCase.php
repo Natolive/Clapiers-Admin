@@ -53,7 +53,7 @@ class CreateDocumentUseCase extends AbstractUseCase
             }
         }
 
-        $meta = $this->storage->store($command->file);
+        $meta = $this->storage->store($command->file, (int) $member->getId());
 
         $document = (new MemberDocument())
             ->setMember($member)

@@ -23,9 +23,7 @@ use App\Repository\MemberDocumentRepository;
 use App\Repository\MemberRepository;
 use App\Common\Service\MemberMediaStorage;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
-use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
-use Symfony\Component\HttpFoundation\HeaderUtils;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Attribute\MapRequestPayload;
@@ -130,16 +128,15 @@ class MemberMediaController extends AbstractController
             return $this->json(['error' => 'Document introuvable'], Response::HTTP_NOT_FOUND);
         }
 
-        $path = $storage->path((string) $node->getStoredName());
-        if (!is_file($path)) {
-            return $this->json(['error' => 'Document introuvable'], Response::HTTP_NOT_FOUND);
-        }
-
-        $response = new BinaryFileResponse($path);
-        $response->setContentDisposition(
-            HeaderUtils::DISPOSITION_ATTACHMENT,
+        $response = $storage->response(
+            (string) $node->getStoredName(),
+            $node->getMimeType(),
             $node->getOriginalName() ?? $node->getName(),
         );
+
+        if ($response === null) {
+            return $this->json(['error' => 'Document introuvable'], Response::HTTP_NOT_FOUND);
+        }
 
         return $response;
     }
