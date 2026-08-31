@@ -7,7 +7,8 @@ use App\Common\Service\InscriptionsStatusProvider;
 use App\Common\UseCase\AbstractUseCase;
 
 /**
- * Renvoie le statut d'ouverture des inscriptions. Aucune commande : lecture pure.
+ * Renvoie le statut des inscriptions : `open` (affichage indicatif) et
+ * `formOpen` (réception réelle des demandes). Aucune commande : lecture pure.
  *
  * @extends AbstractUseCase<null>
  */
@@ -20,6 +21,9 @@ class GetInscriptionsStatusUseCase extends AbstractUseCase
 
     public function run(?CommandInterface $command = null): array
     {
-        return ['open' => $this->provider->isOpen()];
+        return [
+            'open' => $this->provider->isOpen(),
+            'formOpen' => $this->provider->isFormOpen(),
+        ];
     }
 }

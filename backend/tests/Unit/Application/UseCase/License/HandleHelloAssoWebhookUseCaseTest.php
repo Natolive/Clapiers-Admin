@@ -31,7 +31,7 @@ class HandleHelloAssoWebhookUseCaseTest extends TestCase
 
         $paymentRepository = $this->createStub(PaymentRepository::class);
         $paymentRepository->method('findOneByHelloAssoPaymentId')->willReturn(null);
-        $paymentRepository->method('findWaitingByLicense')->willReturn($payment);
+        $paymentRepository->method('findWaitingByLicense')->willReturn([$payment]);
 
         $client = $this->createStub(HelloAssoClientInterface::class);
         $client->method('getCheckoutIntent')->willReturn([

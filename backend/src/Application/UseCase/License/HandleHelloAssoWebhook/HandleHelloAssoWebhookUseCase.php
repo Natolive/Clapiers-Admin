@@ -82,22 +82,12 @@ class HandleHelloAssoWebhookUseCase extends AbstractUseCase
             return ['status' => 'already_processed'];
         }
 
-        $payment = $this->paymentRepository->findWaitingByLicense($license);
-        if (!$payment || $payment->getHelloAssoCheckoutIntentId() === null) {
+        // Ne pas se fier au payload : reconfirmer l'état auprès de HelloAsso.
+        $resolved = $this->resolvePayment($license, $helloAssoPaymentId);
+        if ($resolved === null) {
             return ['status' => 'ignored'];
         }
-
-        // Ne pas se fier au payload : reconfirmer l'état auprès de HelloAsso.
-        // Le paiement vit dans order.payments[] (il n'y a pas de clé "payment" racine).
-        $intent = $this->helloAssoClient->getCheckoutIntent($payment->getHelloAssoCheckoutIntentId());
-        $order = $intent['order'] ?? [];
-        $intentPayment = [];
-        foreach ($order['payments'] ?? [] as $candidate) {
-            if (($candidate['id'] ?? null) === $helloAssoPaymentId) {
-                $intentPayment = $candidate;
-                break;
-            }
-        }
+        [$payment, $order, $intentPayment] = $resolved;
         $state = $intentPayment['state'] ?? null;
 
         $payment->setHelloAssoPaymentId($helloAssoPaymentId);
@@ -124,6 +114,34 @@ class HandleHelloAssoWebhookUseCase extends AbstractUseCase
         }
 
         return ['status' => 'ignored'];
+    }
+
+    /**
+     * Retrouve le paiement en attente dont le checkout-intent contient
+     * réellement ce paiement HelloAsso. Plusieurs tentatives laissent plusieurs
+     * paiements WAITING : le plus récent n'est pas forcément celui qui a été
+     * réglé, et se tromper laisserait une licence encaissée en « en paiement ».
+     * Le paiement vit dans order.payments[] (pas de clé "payment" racine).
+     *
+     * @return array{Payment, array<string, mixed>, array<string, mixed>}|null
+     */
+    private function resolvePayment(License $license, int $helloAssoPaymentId): ?array
+    {
+        foreach ($this->paymentRepository->findWaitingByLicense($license) as $payment) {
+            $intentId = $payment->getHelloAssoCheckoutIntentId();
+            if ($intentId === null) {
+                continue;
+            }
+
+            $order = $this->helloAssoClient->getCheckoutIntent($intentId)['order'] ?? [];
+            foreach ($order['payments'] ?? [] as $candidate) {
+                if (($candidate['id'] ?? null) === $helloAssoPaymentId) {
+                    return [$payment, $order, $candidate];
+                }
+            }
+        }
+
+        return null;
     }
 
     private function sendReceiptEmail(License $license): void

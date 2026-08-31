@@ -5,6 +5,7 @@ namespace App\Tests\Unit\Application\UseCase\License;
 use App\Application\UseCase\License\SubmitLicenseRequest\SubmitLicenseRequestCommand;
 use App\Application\UseCase\License\SubmitLicenseRequest\SubmitLicenseRequestUseCase;
 use App\Common\Exception\UseCaseException;
+use App\Common\Service\InscriptionsStatusProvider;
 use App\Common\Service\RecaptchaVerifier;
 use App\Common\Service\SeasonProvider;
 use App\Common\Service\SeasonResolver;
@@ -52,7 +53,10 @@ class SubmitLicenseRequestUseCaseTest extends TestCase
     {
         $seasonProvider = new SeasonProvider($this->createStub(SettingRepository::class), new SeasonResolver(), $this->createStub(SeasonRepository::class));
 
-        return new SubmitLicenseRequestUseCase($entityManager, $verifier, $seasonProvider);
+        $inscriptions = $this->createStub(InscriptionsStatusProvider::class);
+        $inscriptions->method('isFormOpen')->willReturn(true);
+
+        return new SubmitLicenseRequestUseCase($entityManager, $verifier, $seasonProvider, $inscriptions);
     }
 
     private function command(string $birthDate = '2000-05-01'): SubmitLicenseRequestCommand

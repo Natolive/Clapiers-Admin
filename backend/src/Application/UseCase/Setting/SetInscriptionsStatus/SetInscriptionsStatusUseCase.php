@@ -23,8 +23,21 @@ class SetInscriptionsStatusUseCase extends AbstractUseCase
             throw new UseCaseException('Invalid command');
         }
 
-        $this->provider->setOpen($command->open);
+        if ($command->open === null && $command->formOpen === null) {
+            throw new UseCaseException('Aucun réglage à enregistrer.', 422);
+        }
 
-        return ['open' => $command->open];
+        if ($command->open !== null) {
+            $this->provider->setOpen($command->open);
+        }
+
+        if ($command->formOpen !== null) {
+            $this->provider->setFormOpen($command->formOpen);
+        }
+
+        return [
+            'open' => $this->provider->isOpen(),
+            'formOpen' => $this->provider->isFormOpen(),
+        ];
     }
 }

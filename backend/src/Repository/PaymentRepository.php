@@ -23,10 +23,16 @@ class PaymentRepository extends ServiceEntityRepository
         return $this->findOneBy(['helloAssoPaymentId' => $helloAssoPaymentId]);
     }
 
-    /** Le paiement en attente créé lors du checkout (le plus récent). */
-    public function findWaitingByLicense(License $license): ?Payment
+    /**
+     * Les paiements encore en attente pour cette licence, le plus récent
+     * d'abord. Chaque clic sur « Payer » crée un checkout : il peut y en avoir
+     * plusieurs, et le plus récent n'est pas forcément celui qui a été réglé.
+     *
+     * @return Payment[]
+     */
+    public function findWaitingByLicense(License $license): array
     {
-        return $this->findOneBy(
+        return $this->findBy(
             ['license' => $license, 'state' => PaymentState::WAITING],
             ['id' => 'DESC'],
         );

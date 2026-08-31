@@ -150,6 +150,37 @@ class LicenseWebhookApiTest extends ApiTestCase
         $this->assertSame('ignored', $this->assertJsonResponse(200)['status']);
     }
 
+    public function testWebhookResolvesThePaymentOfThePaidCheckoutIntent(): void
+    {
+        // Deux tentatives de paiement : le WAITING le plus récent (999002) n'est
+        // pas celui qui a été réglé (999001).
+        $license = $this->makeEnPaiement('wh-two-attempts');
+        $abandoned = (new Payment())
+            ->setLicense($license)
+            ->setAmount(12000)
+            ->setState(PaymentState::WAITING)
+            ->setHelloAssoCheckoutIntentId(999002);
+        $this->em()->persist($abandoned);
+        $this->em()->flush();
+
+        $this->fake()->checkoutIntentResults[999002] = [
+            'id' => 999002,
+            'order' => ['id' => 888002, 'payments' => [['id' => 777009, 'state' => 'Waiting']]],
+        ];
+
+        $this->postJson(self::URL, $this->paymentPayload($license->getId()));
+
+        $this->assertSame('processed', $this->assertJsonResponse(200)['status']);
+
+        $this->em()->clear();
+        $reloaded = $this->em()->getRepository(License::class)->find($license->getId());
+        $this->assertSame(LicenseStatus::PAYEE, $reloaded->getStatus());
+
+        $paid = $this->em()->getRepository(Payment::class)->findOneByHelloAssoPaymentId(777001);
+        $this->assertSame(PaymentState::AUTHORIZED, $paid->getState());
+        $this->assertSame(999001, $paid->getHelloAssoCheckoutIntentId());
+    }
+
     private function fake(): FakeHelloAssoClient
     {
         return static::getContainer()->get(FakeHelloAssoClient::class);

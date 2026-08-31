@@ -2,6 +2,7 @@
 
 namespace App\Tests\Functional;
 
+use App\Common\Service\InscriptionsStatusProvider;
 use App\Entity\Enum\LicenseStatus;
 use App\Entity\Enum\MemberStatus;
 use App\Entity\License;
@@ -46,6 +47,16 @@ class LicenseRequestApiTest extends ApiTestCase
         $this->assertSame(LicenseStatus::SOUMISE, $license->getStatus());
         $this->assertSame(MemberStatus::PENDING_VALIDATION, $license->getMember()->getStatus());
         $this->assertMatchesRegularExpression('/^\d{4}-\d{4}$/', $license->getSeason());
+    }
+
+    public function testSubmitIsRefusedWhenFormIsClosed(): void
+    {
+        static::getContainer()->get(InscriptionsStatusProvider::class)->setFormOpen(false);
+
+        $this->postJson('/api/public/license-request', $this->validPayload());
+
+        $this->assertJsonResponse(403);
+        $this->assertCount(0, $this->em()->getRepository(License::class)->findAll());
     }
 
     public function testSubmitWithInvalidEmailIsRejected(): void

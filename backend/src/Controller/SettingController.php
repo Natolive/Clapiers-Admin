@@ -3,9 +3,12 @@
 namespace App\Controller;
 
 use App\Application\UseCase\Setting\GetCurrentSeason\GetCurrentSeasonUseCase;
+use App\Application\UseCase\Setting\GetHelloAssoConfig\GetHelloAssoConfigUseCase;
 use App\Application\UseCase\Setting\GetInscriptionsStatus\GetInscriptionsStatusUseCase;
 use App\Application\UseCase\Setting\SetCurrentSeason\SetCurrentSeasonCommand;
 use App\Application\UseCase\Setting\SetCurrentSeason\SetCurrentSeasonUseCase;
+use App\Application\UseCase\Setting\SetHelloAssoConfig\SetHelloAssoConfigCommand;
+use App\Application\UseCase\Setting\SetHelloAssoConfig\SetHelloAssoConfigUseCase;
 use App\Application\UseCase\Setting\SetInscriptionsStatus\SetInscriptionsStatusCommand;
 use App\Application\UseCase\Setting\SetInscriptionsStatus\SetInscriptionsStatusUseCase;
 use App\Entity\Enum\AppUserRole;
@@ -29,6 +32,20 @@ class SettingController extends AbstractController
     public function setSeason(
         #[MapRequestPayload] SetCurrentSeasonCommand $command,
         SetCurrentSeasonUseCase $useCase
+    ): Response {
+        return $useCase->execute($command);
+    }
+
+    #[Route('/helloasso', name: 'get_helloasso', methods: ['GET'])]
+    public function getHelloAsso(GetHelloAssoConfigUseCase $useCase): Response
+    {
+        return $useCase->execute();
+    }
+
+    #[Route('/helloasso', name: 'set_helloasso', methods: ['PUT'])]
+    public function setHelloAsso(
+        #[MapRequestPayload] SetHelloAssoConfigCommand $command,
+        SetHelloAssoConfigUseCase $useCase
     ): Response {
         return $useCase->execute($command);
     }

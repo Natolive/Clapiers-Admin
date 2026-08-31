@@ -207,7 +207,9 @@ const openReview = (license: License) => show({ component: LicenseReviewDialog, 
 const openApprove = (license: License) => show({ component: ApproveLicenseDialog, props: { license, onSaved: fetchData } })
 const openReject = (license: License) => show({ component: RejectLicenseDialog, props: { license, onSaved: fetchData } })
 
-onMounted(() => { loadSeasons(); fetchData() })
+// La saison doit être connue avant le premier fetch : sinon la liste part
+// non filtrée puis se rescope, en affichant brièvement d'autres saisons.
+onMounted(async () => { await loadSeasons(); fetchData() })
 defineExpose({ refresh: fetchData })
 </script>
 

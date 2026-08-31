@@ -38,6 +38,14 @@ class FakeHelloAssoClient implements HelloAssoClientInterface
         ],
     ];
 
+    /**
+     * Réponses par checkout-intent (id => payload), pour les scénarios à
+     * plusieurs tentatives. À défaut, $checkoutIntentResult sert de réponse.
+     *
+     * @var array<int, array<string, mixed>>
+     */
+    public array $checkoutIntentResults = [];
+
     /** @var array<string, mixed> */
     public array $tiers = [
         'data' => [
@@ -55,7 +63,7 @@ class FakeHelloAssoClient implements HelloAssoClientInterface
 
     public function getCheckoutIntent(int $checkoutIntentId): array
     {
-        return $this->checkoutIntentResult;
+        return $this->checkoutIntentResults[$checkoutIntentId] ?? $this->checkoutIntentResult;
     }
 
     public function getFormTiers(): array
