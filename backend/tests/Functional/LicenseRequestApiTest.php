@@ -161,6 +161,15 @@ class LicenseRequestApiTest extends ApiTestCase
         $this->assertNotSame($first, $second);
     }
 
+    public function testUploadWithExpiredTokenReturns410(): void
+    {
+        $this->aLicense()->withToken('tok-upload-expire')->withTokenExpiringAt('-1 day')->persist();
+
+        $this->uploadFile('/api/public/license-request/tok-upload-expire/document/id_card', $this->fakePdf());
+
+        $this->assertJsonResponse(410);
+    }
+
     public function testUploadWithUnknownTokenReturns404(): void
     {
         $this->uploadFile('/api/public/license-request/does-not-exist/document/medical_certificate', $this->fakePdf());

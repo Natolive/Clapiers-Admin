@@ -290,6 +290,65 @@ class LicenseAdminApiTest extends ApiTestCase
         $this->assertJsonResponse(422);
     }
 
+    public function testResendPaymentLinkRenewsTheTokenAndEmailsIt(): void
+    {
+        $license = $this->aLicense()
+            ->withToken('tok-perime')
+            ->withStatus(LicenseStatus::VALIDEE)
+            ->withAmount(12000)
+            ->withTokenExpiringAt('-1 day')
+            ->persist();
+        $id = $license->getId();
+        $this->actingAsSuperAdmin();
+
+        $this->postJson("/api/license/{$id}/resend-link", []);
+
+        $body = $this->assertJsonResponse(200);
+        $this->assertNotSame('tok-perime', $body['accessToken']);
+        $this->assertSame('validee', $body['status']);
+        $this->assertEmailCount(1);
+
+        $this->em()->clear();
+        $reloaded = $this->em()->getRepository(License::class)->find($id);
+        $this->assertGreaterThan(new \DateTimeImmutable('now'), $reloaded->getTokenExpiresAt());
+
+        // L'ancien lien ne donne plus rien.
+        $this->getJson('/api/public/license/tok-perime');
+        $this->assertJsonResponse(404);
+    }
+
+    public function testResendPaymentLinkOnUnpayableLicenseReturns409(): void
+    {
+        $submitted = $this->aLicense()->withStatus(LicenseStatus::SOUMISE)->persist();
+        $paid = $this->aLicense()->withStatus(LicenseStatus::PAYEE)->withAmount(12000)->persist();
+        $this->actingAsSuperAdmin();
+
+        $this->postJson("/api/license/{$submitted->getId()}/resend-link", []);
+        $this->assertJsonResponse(409);
+
+        $this->postJson("/api/license/{$paid->getId()}/resend-link", []);
+        $this->assertJsonResponse(409);
+    }
+
+    public function testResendPaymentLinkUnknownReturns404(): void
+    {
+        $this->actingAsSuperAdmin();
+        $this->postJson('/api/license/999999/resend-link', []);
+        $this->assertJsonResponse(404);
+    }
+
+    public function testResendPaymentLinkRequiresSuperAdmin(): void
+    {
+        $license = $this->aLicense()->withStatus(LicenseStatus::VALIDEE)->withAmount(12000)->persist();
+
+        $this->postJson("/api/license/{$license->getId()}/resend-link", []);
+        $this->assertJsonResponse(401);
+
+        $this->actingAsAdmin();
+        $this->postJson("/api/license/{$license->getId()}/resend-link", []);
+        $this->assertJsonResponse(403);
+    }
+
     public function testRejectSetsStatusAndEmails(): void
     {
         $license = $this->aLicense()->persist();

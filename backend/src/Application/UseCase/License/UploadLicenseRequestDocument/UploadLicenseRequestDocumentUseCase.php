@@ -58,6 +58,13 @@ class UploadLicenseRequestDocumentUseCase extends AbstractUseCase
             throw new UseCaseException('Licence introuvable', Response::HTTP_NOT_FOUND);
         }
 
+        if ($license->isTokenExpired()) {
+            throw new UseCaseException(
+                'Ce lien a expiré. Contactez le club pour en recevoir un nouveau.',
+                Response::HTTP_GONE,
+            );
+        }
+
         $member = $license->getMember();
 
         // Garantit l'existence des slots par défaut, puis flush : le seeder ne

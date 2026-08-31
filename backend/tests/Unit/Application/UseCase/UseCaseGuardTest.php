@@ -44,6 +44,7 @@ class UseCaseGuardTest extends TestCase
             \App\Application\UseCase\License\GetPaginatedLicenses\GetPaginatedLicensesUseCase::class,
             \App\Application\UseCase\License\HandleHelloAssoWebhook\HandleHelloAssoWebhookUseCase::class,
             \App\Application\UseCase\License\RejectLicense\RejectLicenseUseCase::class,
+            \App\Application\UseCase\License\ResendPaymentLink\ResendPaymentLinkUseCase::class,
             \App\Application\UseCase\License\SubmitLicenseRequest\SubmitLicenseRequestUseCase::class,
             \App\Application\UseCase\License\UploadLicenseRequestDocument\UploadLicenseRequestDocumentUseCase::class,
             \App\Application\UseCase\Log\GetPaginatedLogs\GetPaginatedLogsUseCase::class,

@@ -69,6 +69,34 @@ class LicensePaymentApiTest extends ApiTestCase
         $this->assertSame($licenseId, $fake->createdCheckoutBodies[0]['metadata']['licenseId']);
     }
 
+    public function testGetForPaymentWithExpiredTokenReturns410(): void
+    {
+        $this->aLicense()
+            ->withToken('tok-expire')
+            ->withStatus(LicenseStatus::VALIDEE)
+            ->withAmount(12000)
+            ->withTokenExpiringAt('-1 day')
+            ->persist();
+
+        $this->getJson('/api/public/license/tok-expire');
+
+        $this->assertJsonResponse(410);
+    }
+
+    public function testCheckoutWithExpiredTokenReturns410(): void
+    {
+        $this->aLicense()
+            ->withToken('tok-expire-checkout')
+            ->withStatus(LicenseStatus::VALIDEE)
+            ->withAmount(12000)
+            ->withTokenExpiringAt('-1 minute')
+            ->persist();
+
+        $this->postJson('/api/public/license/tok-expire-checkout/checkout', []);
+
+        $this->assertJsonResponse(410);
+    }
+
     public function testCheckoutUnknownTokenReturns404(): void
     {
         $this->postJson('/api/public/license/nope/checkout');
