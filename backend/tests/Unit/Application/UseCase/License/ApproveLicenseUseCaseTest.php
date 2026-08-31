@@ -6,6 +6,7 @@ use App\Application\UseCase\License\ApproveLicense\ApproveLicenseCommand;
 use App\Application\UseCase\License\ApproveLicense\ApproveLicenseUseCase;
 use App\Entity\Enum\LicenseStatus;
 use App\Entity\Enum\MemberStatus;
+use App\Common\Service\LicensePaymentLinkMailer;
 use App\Common\Service\MemberMediaSeeder;
 use App\Common\Service\MemberMediaStorage;
 use App\Entity\License;
@@ -45,10 +46,7 @@ class ApproveLicenseUseCaseTest extends TestCase
             $this->createStub(MemberMediaSeeder::class),
             $this->createStub(MemberMediaStorage::class),
             $this->createStub(EntityManagerInterface::class),
-            $mailer,
-            new NullLogger(),
-            'club@test.fr',
-            'http://localhost:3000',
+            new LicensePaymentLinkMailer($mailer, new NullLogger(), 'club@test.fr', 'http://localhost:3000'),
         );
 
         $result = $useCase->run(new ApproveLicenseCommand(1, 102, 12000));

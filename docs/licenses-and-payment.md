@@ -50,8 +50,8 @@ Invariants / traps:
   merge below).
 - `accessToken` (magic-link) is generated at submission
   (`bin2hex(random_bytes(32))` = 64 hex, unique) but **`tokenExpiresAt` is set
-  only at approval** — the token has no expiry during the upload phase, and in
-  fact **is never checked anywhere** (see security).
+  only at approval** — `tokenExpiresAt = null` means « pas d'échéance », ce qui
+  laisse la phase de dépôt des pièces ouverte juste après la soumission.
 - `healthDeclaration = true` means "answered NO to all health questions → no
   medical certificate needed" (defaults `false`).
 - Legal representative is always stored (empty strings when adult); "required if
@@ -88,9 +88,10 @@ Invariants / traps:
 Whole `LicenseController` is `#[IsGranted(ROLE_SUPER_ADMIN)]` — approve, reject,
 review, tiers and the paginated list are **super-admin only**.
 
-**Approve** (`ApproveLicenseUseCase.php:74-88`): freeze `helloAssoTierId` +
-`amount`; status → `VALIDEE`; `approvedAt`; ensure `accessToken`; set
-`tokenExpiresAt = now + 30 days`; member → `ACTIVE`; send payment-link email.
+**Approve** (`ApproveLicenseUseCase`): freeze `helloAssoTierId` + `amount`;
+status → `VALIDEE`; `approvedAt`; ensure `accessToken`; `extendTokenValidity()`
+(= now + `License::TOKEN_VALIDITY`, 30 j); member → `ACTIVE`; send payment-link
+email (via `LicensePaymentLinkMailer`, partagé avec le renvoi de lien).
 
 - Magic link = `{APP_FRONTEND_URL}/licence/{accessToken}`. Note **`/licence/`
   (French)** here and in the checkout `backUrl`/`returnUrl`, whereas the API
@@ -121,8 +122,8 @@ logged only). No token/media cleanup.
 ### Checkout (`CreateCheckoutUseCase`)
 
 - `POST /api/public/license/{token}/checkout` (public).
-- Guards: licence found by `accessToken`; status `VALIDEE` or `EN_PAIEMENT`;
-  amount set & > 0. **No `tokenExpiresAt` check** — an expired token still works.
+- Guards: licence found by `accessToken`; **token non périmé (410)**; status
+  `VALIDEE` or `EN_PAIEMENT`; amount set & > 0.
 - Builds a HelloAsso checkout-intent with **`metadata: {licenseId, memberId}`**
   — this is what the webhook filters on. Persists a `Payment` in state
   `WAITING`, flips licence to `EN_PAIEMENT`, returns `{redirectUrl}`.
@@ -200,7 +201,11 @@ formulaire est fermé : une demande déjà créée doit pouvoir finir de se dép
 
 - Admin surface (`/api/license/*`) is `ROLE_SUPER_ADMIN` (not `ADMIN`).
 - Payment portal / checkout / document upload are gated **only by the opaque
-  64-char `accessToken`** — no auth, and the token **never expires in practice**
-  (`tokenExpiresAt` is stored but checked nowhere).
+  64-char `accessToken`** — no auth, mais l'échéance est appliquée : les trois
+  entrées publiques répondent **410 Gone** dès que `License::isTokenExpired()`
+  (règle : `tokenExpiresAt !== null && < now`). Seul recours, côté admin :
+  **`POST /api/license/{id}/resend-link`** (super-admin) qui régénère un token
+  neuf + 30 j et renvoie l'e-mail — l'ancien lien meurt aussitôt. Refusé en
+  **409** si la licence n'est pas `VALIDEE`/`EN_PAIEMENT`.
 - `GetLicenseForPayment` returns a **minimal projection** (status, season,
   amount, first/last name) — no address/PII.

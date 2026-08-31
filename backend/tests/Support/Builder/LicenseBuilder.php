@@ -18,6 +18,7 @@ final class LicenseBuilder
     private ?string $accessToken = null;
     private ?string $medicalCertificateFileName = null;
     private ?int $amount = null;
+    private ?\DateTimeImmutable $tokenExpiresAt = null;
 
     public function __construct(private readonly EntityManagerInterface $em)
     {
@@ -33,6 +34,13 @@ final class LicenseBuilder
     public function withToken(string $token): self
     {
         $this->accessToken = $token;
+
+        return $this;
+    }
+
+    public function withTokenExpiringAt(string $when): self
+    {
+        $this->tokenExpiresAt = new \DateTimeImmutable($when);
 
         return $this;
     }
@@ -79,6 +87,7 @@ final class LicenseBuilder
         $license->setAccessToken($this->accessToken ?? sprintf('token-%03d-%s', $n, bin2hex(random_bytes(4))));
         $license->setMedicalCertificateFileName($this->medicalCertificateFileName);
         $license->setAmount($this->amount);
+        $license->setTokenExpiresAt($this->tokenExpiresAt);
 
         return $license;
     }

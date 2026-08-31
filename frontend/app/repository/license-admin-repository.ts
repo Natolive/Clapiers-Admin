@@ -78,6 +78,11 @@ export class LicenseAdminRepository {
         });
     }
 
+    /** Nouveau magic link (30 j) + e-mail : recours quand le lien a expiré. */
+    async resendPaymentLink(id: number): Promise<License> {
+        return await this.api<License>(`/license/${id}/resend-link`, { method: 'POST' });
+    }
+
     async reject(id: number, reason: string): Promise<License> {
         return await this.api<License>(`/license/${id}/reject`, {
             method: 'POST',

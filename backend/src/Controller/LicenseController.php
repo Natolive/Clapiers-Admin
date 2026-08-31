@@ -10,6 +10,8 @@ use App\Application\UseCase\License\GetLicenseReview\GetLicenseReviewUseCase;
 use App\Application\UseCase\License\GetLicenseTiers\GetLicenseTiersUseCase;
 use App\Application\UseCase\License\GetPaginatedLicenses\GetPaginatedLicensesCommand;
 use App\Application\UseCase\License\GetPaginatedLicenses\GetPaginatedLicensesUseCase;
+use App\Application\UseCase\License\ResendPaymentLink\ResendPaymentLinkCommand;
+use App\Application\UseCase\License\ResendPaymentLink\ResendPaymentLinkUseCase;
 use App\Application\UseCase\License\RejectLicense\RejectLicenseCommand;
 use App\Application\UseCase\License\RejectLicense\RejectLicensePayload;
 use App\Application\UseCase\License\RejectLicense\RejectLicenseUseCase;
@@ -54,6 +56,14 @@ class LicenseController extends AbstractController
         ApproveLicenseUseCase $useCase
     ): Response {
         return $useCase->execute(new ApproveLicenseCommand($id, $payload->helloAssoTierId, $payload->amount, $payload->replaceMemberId));
+    }
+
+    #[Route('/{id}/resend-link', name: 'resend_link', methods: ['POST'])]
+    public function resendPaymentLink(
+        int $id,
+        ResendPaymentLinkUseCase $useCase
+    ): Response {
+        return $useCase->execute(new ResendPaymentLinkCommand($id));
     }
 
     #[Route('/{id}/reject', name: 'reject', methods: ['POST'])]

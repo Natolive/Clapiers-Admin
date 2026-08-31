@@ -15,6 +15,9 @@ class License
     use IdTrait;
     use TimestampableTrait;
 
+    /** Durée de validité du magic link (paiement / dépôt de pièces). */
+    public const TOKEN_VALIDITY = 'P30D';
+
     #[ORM\ManyToOne(targetEntity: Member::class)]
     #[ORM\JoinColumn(nullable: false)]
     private Member $member;
@@ -124,6 +127,23 @@ class License
     public function setAccessToken(?string $accessToken): static
     {
         $this->accessToken = $accessToken;
+
+        return $this;
+    }
+
+    /**
+     * Le magic link est-il périmé ? Une licence encore en attente de validation
+     * n'a pas d'échéance (`null`) : le dépôt des pièces suit la soumission.
+     */
+    public function isTokenExpired(): bool
+    {
+        return $this->tokenExpiresAt !== null && $this->tokenExpiresAt < new \DateTimeImmutable('now');
+    }
+
+    /** Repousse la validité du magic link. */
+    public function extendTokenValidity(): static
+    {
+        $this->tokenExpiresAt = (new \DateTimeImmutable('now'))->add(new \DateInterval(self::TOKEN_VALIDITY));
 
         return $this;
     }

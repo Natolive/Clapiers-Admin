@@ -44,6 +44,13 @@ class CreateCheckoutUseCase extends AbstractUseCase
             throw new UseCaseException('Licence introuvable', Response::HTTP_NOT_FOUND);
         }
 
+        if ($license->isTokenExpired()) {
+            throw new UseCaseException(
+                'Ce lien a expiré. Contactez le club pour en recevoir un nouveau.',
+                Response::HTTP_GONE,
+            );
+        }
+
         if (!in_array($license->getStatus(), [LicenseStatus::VALIDEE, LicenseStatus::EN_PAIEMENT], true)) {
             throw new UseCaseException("Cette licence n'est pas disponible au paiement.", Response::HTTP_CONFLICT);
         }

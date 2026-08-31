@@ -4,6 +4,7 @@ namespace App\Application\UseCase\License\ApproveLicense;
 
 use App\Common\Command\CommandInterface;
 use App\Common\Exception\UseCaseException;
+use App\Common\Service\LicensePaymentLinkMailer;
 use App\Common\Service\MemberMediaSeeder;
 use App\Common\Service\MemberMediaStorage;
 use App\Common\UseCase\AbstractUseCase;
@@ -16,21 +17,13 @@ use App\Repository\LicenseRepository;
 use App\Repository\MemberDocumentRepository;
 use App\Repository\MemberRepository;
 use Doctrine\ORM\EntityManagerInterface;
-use Psr\Log\LoggerInterface;
-use Symfony\Bridge\Twig\Mime\TemplatedEmail;
-use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\Mailer\Exception\TransportExceptionInterface;
-use Symfony\Component\Mailer\MailerInterface;
-use Symfony\Component\Mime\Address;
 
 /**
  * @extends AbstractUseCase<ApproveLicenseCommand>
  */
 class ApproveLicenseUseCase extends AbstractUseCase
 {
-    private const TOKEN_VALIDITY = 'P30D';
-
     /** Pièces déplaçables lors d'une fusion (par portée médiathèque). */
     private const ROOT_KEYS = ['identity_photo', 'id_card'];
     private const SEASON_KEYS = ['medical_certificate', 'attestation'];
@@ -42,12 +35,7 @@ class ApproveLicenseUseCase extends AbstractUseCase
         private readonly MemberMediaSeeder $seeder,
         private readonly MemberMediaStorage $storage,
         private readonly EntityManagerInterface $entityManager,
-        private readonly MailerInterface $mailer,
-        private readonly LoggerInterface $logger,
-        #[Autowire(env: 'CONTACT_SENDER_EMAIL')]
-        private readonly string $senderEmail,
-        #[Autowire(env: 'APP_FRONTEND_URL')]
-        private readonly string $frontendUrl,
+        private readonly LicensePaymentLinkMailer $mailer,
     ) {
     }
 
@@ -79,13 +67,13 @@ class ApproveLicenseUseCase extends AbstractUseCase
         if ($license->getAccessToken() === null) {
             $license->setAccessToken(bin2hex(random_bytes(32)));
         }
-        $license->setTokenExpiresAt((new \DateTimeImmutable('now'))->add(new \DateInterval(self::TOKEN_VALIDITY)));
+        $license->extendTokenValidity();
 
         $license->getMember()->setStatus(MemberStatus::ACTIVE);
 
         $this->entityManager->flush();
 
-        $this->sendPaymentLinkEmail($license);
+        $this->mailer->send($license);
 
         return $license;
     }
@@ -180,30 +168,5 @@ class ApproveLicenseUseCase extends AbstractUseCase
         $target->setNationality($source->getNationality());
         $target->setLicenseNumber($source->getLicenseNumber());
         $target->setLegalRepresentative($source->getLegalRepresentative());
-    }
-
-    private function sendPaymentLinkEmail(License $license): void
-    {
-        $member = $license->getMember();
-        $paymentUrl = rtrim($this->frontendUrl, '/').'/licence/'.$license->getAccessToken();
-        $amountEuros = number_format(($license->getAmount() ?? 0) / 100, 2, ',', ' ');
-
-        $email = (new TemplatedEmail())
-            ->from(new Address($this->senderEmail, 'Clapiers Volley-Ball'))
-            ->to(new Address($member->getEmail(), trim($member->getFirstName().' '.$member->getLastName())))
-            ->subject('Votre licence est validée — réglez votre adhésion')
-            ->htmlTemplate('emails/license_approved.html.twig')
-            ->context([
-                'firstName' => $member->getFirstName(),
-                'season' => $license->getSeason(),
-                'amount' => $amountEuros,
-                'paymentUrl' => $paymentUrl,
-            ]);
-
-        try {
-            $this->mailer->send($email);
-        } catch (TransportExceptionInterface $e) {
-            $this->logger->error('Failed to send license approval email', ['exception' => $e, 'licenseId' => $license->getId()]);
-        }
     }
 }

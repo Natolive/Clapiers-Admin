@@ -66,15 +66,25 @@
               <Button label="Valider" icon="pi pi-check" size="small" severity="success" @click="openApprove(data)" />
               <Button icon="pi pi-times" size="small" severity="danger" outlined v-tooltip.top="'Refuser'" @click="openReject(data)" />
             </template>
-            <Button
-              v-else-if="canCopyLink(data)"
-              label="Copier le lien"
-              icon="pi pi-copy"
-              size="small"
-              severity="secondary"
-              outlined
-              @click="copyPaymentLink(data)"
-            />
+            <template v-else-if="canCopyLink(data)">
+              <Button
+                label="Copier le lien"
+                icon="pi pi-copy"
+                size="small"
+                severity="secondary"
+                outlined
+                @click="copyPaymentLink(data)"
+              />
+              <Button
+                icon="pi pi-envelope"
+                size="small"
+                severity="secondary"
+                outlined
+                :loading="resending === data.id"
+                v-tooltip.top="'Renvoyer le lien par e-mail (nouveau lien, 30 jours)'"
+                @click="resendPaymentLink(data)"
+              />
+            </template>
           </div>
         </template>
       </Column>
@@ -103,7 +113,10 @@
               <Button label="Valider" icon="pi pi-check" size="small" severity="success" class="flex-1" @click="openApprove(license)" />
               <Button label="Refuser" icon="pi pi-times" size="small" severity="danger" outlined class="flex-1" @click="openReject(license)" />
             </template>
-            <Button v-else-if="canCopyLink(license)" label="Copier le lien" icon="pi pi-copy" size="small" severity="secondary" outlined class="flex-1" @click="copyPaymentLink(license)" />
+            <template v-else-if="canCopyLink(license)">
+              <Button label="Copier le lien" icon="pi pi-copy" size="small" severity="secondary" outlined class="flex-1" @click="copyPaymentLink(license)" />
+              <Button label="Renvoyer" icon="pi pi-envelope" size="small" severity="secondary" outlined class="flex-1" :loading="resending === license.id" @click="resendPaymentLink(license)" />
+            </template>
           </div>
         </div>
       </template>
@@ -139,6 +152,22 @@ const isMobile = useIsMobile()
 // Le lien de paiement reste utile tant que la licence n'est pas réglée.
 const canCopyLink = (license: License): boolean =>
   !!license.accessToken && ['validee', 'en_paiement'].includes(license.status)
+
+// Renvoi : régénère le lien côté serveur, donc l'ancien cesse de fonctionner.
+const resending = ref<number | null>(null)
+const resendPaymentLink = async (license: License) => {
+  resending.value = license.id
+  try {
+    const updated = await repo.resendPaymentLink(license.id)
+    const index = items.value.findIndex((l) => l.id === updated.id)
+    if (index !== -1) items.value[index] = updated
+    toast.add({ severity: 'success', summary: 'Lien renvoyé', detail: `E-mail envoyé à ${license.member.email}`, life: 4000 })
+  } catch (e: any) {
+    toast.add({ severity: 'error', summary: 'Renvoi impossible', detail: e?.data?.message || 'Réessayez plus tard.', life: 5000 })
+  } finally {
+    resending.value = null
+  }
+}
 
 const copyPaymentLink = async (license: License) => {
   const url = `${window.location.origin}/licence/${license.accessToken}`

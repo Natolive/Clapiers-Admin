@@ -32,6 +32,13 @@ class GetLicenseForPaymentUseCase extends AbstractUseCase
             throw new UseCaseException('Licence introuvable', Response::HTTP_NOT_FOUND);
         }
 
+        if ($license->isTokenExpired()) {
+            throw new UseCaseException(
+                'Ce lien a expiré. Contactez le club pour en recevoir un nouveau.',
+                Response::HTTP_GONE,
+            );
+        }
+
         $member = $license->getMember();
 
         return [
