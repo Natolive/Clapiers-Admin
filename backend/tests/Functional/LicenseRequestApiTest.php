@@ -49,6 +49,21 @@ class LicenseRequestApiTest extends ApiTestCase
         $this->assertMatchesRegularExpression('/^\d{4}-\d{4}$/', $license->getSeason());
     }
 
+    /**
+     * Le formulaire public envoie le numéro tel qu'il est saisi, donc au format
+     * national français. Le front le valide contre la région FR : le back doit
+     * s'accorder avec lui, sous peine d'un 422 sur un numéro pourtant valide.
+     */
+    public function testSubmitAcceptsAFrenchNationalPhoneNumber(): void
+    {
+        $this->postJson('/api/public/license-request', $this->validPayload([
+            'phoneNumber' => '0769987177',
+        ]));
+
+        $body = $this->assertJsonResponse(200);
+        $this->assertSame('0769987177', $body['member']['phoneNumber']);
+    }
+
     public function testSubmitIsRefusedWhenFormIsClosed(): void
     {
         static::getContainer()->get(InscriptionsStatusProvider::class)->setFormOpen(false);
