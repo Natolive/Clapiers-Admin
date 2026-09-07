@@ -8,6 +8,7 @@ use App\Entity\Enum\LicenseStatus;
 use App\Entity\Enum\MemberStatus;
 use App\Entity\Member;
 use App\Repository\MemberDocumentRepository;
+use App\Tests\Support\Fake\FakeBunnyStorageClient;
 use App\Tests\Support\ApiTestCase;
 
 /**
@@ -397,11 +398,7 @@ class MemberApiTest extends ApiTestCase
             ->findRootDocumentSlot($member, 'identity_photo');
         $this->assertNotNull($slot);
 
-        $dir = static::getContainer()->getParameter('upload_directory').'/member-media';
-        if (!is_dir($dir)) {
-            mkdir($dir, 0775, true);
-        }
-        file_put_contents($dir.'/pp.png', 'PNGDATA');
+        static::getContainer()->get(FakeBunnyStorageClient::class)->seed('pp.png', 'PNGDATA');
         $slot->setFile('pp.png', 'photo.png', 'image/png', 7);
         $this->em()->flush();
 

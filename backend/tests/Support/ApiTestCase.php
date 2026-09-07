@@ -19,6 +19,9 @@ use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
+use App\Tests\Support\Fake\FakeBunnyStorageClient;
+use App\Common\Service\BunnyConfigProvider;
+use App\Repository\SettingRepository;
 
 /**
  * Base class for API integration tests.
@@ -34,11 +37,27 @@ use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
  */
 abstract class ApiTestCase extends WebTestCase
 {
+    protected const TEST_BUNNY_URL = 'https://storage.bunnycdn.test/zone-test';
+
     protected KernelBrowser $client;
 
     protected function setUp(): void
     {
         $this->client = static::createClient();
+        FakeBunnyStorageClient::clear();
+
+        // Le stockage médiathèque se configure en base : sans zone, tout upload
+        // ou téléchargement répond 502. FakeBunnyStorageClient intercepte les
+        // appels, donc l'URL n'a pas besoin d'exister.
+        $this->configureBunny(self::TEST_BUNNY_URL);
+    }
+
+    /** Zone Bunny en base ; chaîne vide = « non configuré ». */
+    protected function configureBunny(string $url, string $key = 'test-key'): void
+    {
+        $settings = static::getContainer()->get(SettingRepository::class);
+        $settings->set(BunnyConfigProvider::KEYS['storageUrl'], $url);
+        $settings->set(BunnyConfigProvider::KEYS['storageKey'], $key);
     }
 
     protected function em(): EntityManagerInterface

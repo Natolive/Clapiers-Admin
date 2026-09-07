@@ -57,17 +57,15 @@ export class MemberMediaRepository {
 
     /** Télécharge le fichier d'un document via un blob authentifié. */
     async download(memberId: number, nodeId: string, fileName: string): Promise<void> {
-        const config = useRuntimeConfig();
-        const token = useCookie('auth_token').value;
-        const res = await fetch(`${config.public.apiBase}/member/${memberId}/media/node/${nodeId}/download`, {
-            headers: { Authorization: `Bearer ${token}` },
-        });
-        const blob = await res.blob();
-        const blobUrl = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = blobUrl;
-        a.download = fileName;
-        a.click();
-        URL.revokeObjectURL(blobUrl);
+        await useAuthenticatedFile().download(this.filePath(memberId, nodeId), fileName);
+    }
+
+    /** Ouvre le fichier dans un onglet (même route authentifiée). */
+    async view(memberId: number, nodeId: string): Promise<void> {
+        await useAuthenticatedFile().view(this.filePath(memberId, nodeId));
+    }
+
+    private filePath(memberId: number, nodeId: string): string {
+        return `/member/${memberId}/media/node/${nodeId}/download`;
     }
 }

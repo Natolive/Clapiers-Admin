@@ -2,14 +2,34 @@
 
 namespace App\Common\Service;
 
-use Symfony\Component\DependencyInjection\Attribute\Autowire;
+use App\Common\Exception\UseCaseException;
+use Psr\Log\LoggerInterface;
+use Symfony\Component\HttpFoundation\HeaderUtils;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
+use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 use Symfony\Component\Uid\Uuid;
+use Symfony\Contracts\HttpClient\Exception\ExceptionInterface as HttpExceptionInterface;
+use Symfony\Contracts\HttpClient\HttpClientInterface;
+use Symfony\Contracts\HttpClient\ResponseInterface;
 
 /**
- * Stockage physique des fichiers de la médiathèque, sous
- * %upload_directory%/member-media. Centralise nommage UUID, déplacement et
- * suppression (même logique que les uploads licence / certificat).
+ * Stockage physique des fichiers de la médiathèque sur Bunny Storage, sous
+ * /member-media/<id du membre>/<uuid>.<ext> : un dossier par membre, ce qui
+ * rend la zone lisible depuis le tableau de bord Bunny. Le chemin relatif
+ * complet est ce qui est enregistré en `storedName`, donc lecture et
+ * suppression n'ont besoin de rien d'autre (les anciens noms à plat restent
+ * résolus tels quels). Centralise nommage UUID, écriture, lecture et
+ * suppression — pour les uploads licence / certificat comme pour l'arbre
+ * médiathèque. Zone et clé viennent de l'administration
+ * ({@see BunnyConfigProvider}), pas de l'environnement.
+ *
+ * Pas de stockage local : le backend tourne en plusieurs pods k8s, et un
+ * fichier écrit sur le disque d'un pod est introuvable depuis les autres.
+ *
+ * Les fichiers ne sont JAMAIS exposés publiquement : aucune pull zone CDN sur
+ * la zone, qui n'est lisible qu'avec l'AccessKey ; les seuls accès en lecture
+ * passent par les routes authentifiées qui appellent {@see self::response()}.
  *
  * @phpstan-type FileMeta array{storedName: string, originalName: string, mimeType: ?string, size: ?int}
  */
@@ -17,44 +37,111 @@ class MemberMediaStorage
 {
     private const SUBDIR = '/member-media';
 
+    /** Un pod ne doit pas rester bloqué sur un incident Bunny. */
+    private const TIMEOUT = 30;
+
     public function __construct(
-        #[Autowire('%upload_directory%')]
-        private readonly string $uploadDirectory,
+        private readonly HttpClientInterface $httpClient,
+        private readonly LoggerInterface $logger,
+        private readonly BunnyConfigProvider $config,
     ) {
     }
 
-    public function directory(): string
-    {
-        return $this->uploadDirectory.self::SUBDIR;
-    }
-
-    public function path(string $storedName): string
-    {
-        return $this->directory().'/'.$storedName;
-    }
-
     /**
-     * Déplace l'upload dans le répertoire médiathèque.
+     * Envoie l'upload dans le dossier du membre, sous un nom UUID (le nom
+     * d'origine reste en base).
      *
      * @return FileMeta
      */
-    public function store(UploadedFile $file): array
+    public function store(UploadedFile $file, int $memberId): array
     {
         $extension = $file->guessExtension() ?? $file->getClientOriginalExtension();
-        $storedName = Uuid::v4()->toRfc4122().($extension !== '' ? '.'.$extension : '');
+        $storedName = $memberId.'/'.Uuid::v4()->toRfc4122().($extension !== '' ? '.'.$extension : '');
 
-        $originalName = $file->getClientOriginalName();
-        $mimeType = $file->getMimeType();
         $size = $file->getSize();
-
-        $file->move($this->directory(), $storedName);
-
-        return [
+        $meta = [
             'storedName' => $storedName,
-            'originalName' => $originalName,
-            'mimeType' => $mimeType,
+            'originalName' => $file->getClientOriginalName(),
+            'mimeType' => $file->getMimeType(),
             'size' => $size !== false ? $size : null,
         ];
+
+        $handle = fopen($file->getPathname(), 'r');
+        if ($handle === false) {
+            throw new UseCaseException('Fichier uploadé illisible', 400);
+        }
+
+        // Corps en flux : un PDF de 10 Mo ne passe pas par la mémoire du pod.
+        // L'appelant persiste l'entité APRÈS ce retour : un échec ici (502) ne
+        // laisse donc pas de ligne en base sans fichier.
+        $this->bunny('PUT', $storedName, ['body' => $handle]);
+
+        return $meta;
+    }
+
+    /**
+     * Réponse de téléchargement du fichier, ou null s'il n'existe pas — chaque
+     * appelant garde sa propre forme de 404.
+     */
+    public function response(string $storedName, ?string $mimeType = null, ?string $downloadName = null): ?Response
+    {
+        $bunny = $this->bunny('GET', $storedName, ['buffer' => false]);
+        if ($bunny->getStatusCode() === 404) {
+            return null;
+        }
+
+        $response = new StreamedResponse(function () use ($bunny): void {
+            foreach ($this->httpClient->stream($bunny) as $chunk) {
+                echo $chunk->getContent();
+            }
+        });
+
+        // Bunny renvoie tout en octet-stream : le vrai type vient de la base.
+        $response->headers->set('Content-Type', $mimeType ?? 'application/octet-stream');
+
+        $length = $bunny->getHeaders(false)['content-length'][0] ?? null;
+        if ($length !== null) {
+            $response->headers->set('Content-Length', $length);
+        }
+
+        if ($downloadName !== null) {
+            $response->headers->set(
+                'Content-Disposition',
+                HeaderUtils::makeDisposition(HeaderUtils::DISPOSITION_ATTACHMENT, $downloadName),
+            );
+        }
+
+        return $response;
+    }
+
+    /**
+     * Recopie un fichier dans le dossier d'un autre membre — utilisé quand une
+     * demande de licence est rattachée à une fiche existante. Renvoie le
+     * nouveau `storedName` (l'ancien si rien n'a bougé).
+     *
+     * Copie et non déplacement : l'original ne doit disparaître qu'une fois le
+     * nouveau nom commité en base, sinon un échec plus loin dans la requête
+     * laisserait la base pointer sur un objet déjà supprimé. C'est à l'appelant
+     * de supprimer l'ancien, après son flush ({@see self::delete()}).
+     */
+    public function copyTo(string $storedName, int $memberId): string
+    {
+        $target = $memberId.'/'.basename($storedName);
+        if ($target === $storedName) {
+            return $storedName;
+        }
+
+        $source = $this->bunny('GET', $storedName);
+        if ($source->getStatusCode() === 404) {
+            // Rien à copier : le nom en base reste tel quel, comme avant.
+            return $storedName;
+        }
+
+        // Bunny n'a pas d'API de copie côté serveur : relire puis réécrire. Les
+        // pièces sont plafonnées à 10 Mo à l'upload, donc ça tient en mémoire.
+        $this->bunny('PUT', $target, ['body' => $source->getContent()]);
+
+        return $target;
     }
 
     public function delete(?string $storedName): void
@@ -63,9 +150,53 @@ class MemberMediaStorage
             return;
         }
 
-        $path = $this->path($storedName);
-        if (is_file($path)) {
-            unlink($path);
+        // 404 toléré : supprimer un fichier déjà absent n'est pas une erreur.
+        $this->bunny('DELETE', $storedName);
+    }
+
+    /**
+     * Un appel à la zone Bunny. Renvoie la réponse pour les 2xx et les 404 ;
+     * tout le reste (réseau, 401, 5xx) devient un 502 propre côté appelant.
+     *
+     * @param array<string, mixed> $options
+     */
+    private function bunny(string $method, string $storedName, array $options = []): ResponseInterface
+    {
+        $zone = $this->config->get('storageUrl');
+        if ($zone === '') {
+            $this->logger->error('Zone Bunny Storage non configurée', ['method' => $method]);
+
+            throw new UseCaseException('Stockage de fichiers non configuré', 502);
         }
+
+        $url = rtrim($zone, '/').self::SUBDIR.'/'.$storedName;
+
+        try {
+            $response = $this->httpClient->request($method, $url, $options + [
+                'headers' => ['AccessKey' => $this->config->get('storageKey')],
+                'timeout' => self::TIMEOUT,
+            ]);
+            $status = $response->getStatusCode();
+        } catch (HttpExceptionInterface $e) {
+            $this->logger->error('Bunny Storage injoignable', [
+                'method' => $method,
+                'storedName' => $storedName,
+                'exception' => $e,
+            ]);
+
+            throw new UseCaseException('Stockage de fichiers indisponible', 502);
+        }
+
+        if ($status >= 400 && $status !== 404) {
+            $this->logger->error('Bunny Storage a répondu en erreur', [
+                'method' => $method,
+                'storedName' => $storedName,
+                'status' => $status,
+            ]);
+
+            throw new UseCaseException('Stockage de fichiers indisponible', 502);
+        }
+
+        return $response;
     }
 }

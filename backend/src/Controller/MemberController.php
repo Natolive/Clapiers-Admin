@@ -17,7 +17,6 @@ use App\Repository\MemberRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
-use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Attribute\MapQueryString;
 use Symfony\Component\HttpKernel\Attribute\MapRequestPayload;
@@ -73,9 +72,9 @@ class MemberController extends AbstractController
         // La médiathèque est la source unique : slot « Photo d'identité ».
         $slot = $documentRepository->findRootDocumentSlot($member, 'identity_photo');
         if ($slot && $slot->hasFile()) {
-            $path = $mediaStorage->path((string) $slot->getStoredName());
-            if (is_file($path)) {
-                return new BinaryFileResponse($path);
+            $response = $mediaStorage->response((string) $slot->getStoredName(), $slot->getMimeType());
+            if ($response !== null) {
+                return $response;
             }
         }
 

@@ -49,7 +49,7 @@ class UploadDocumentFileUseCase extends AbstractUseCase
         // Remplace l'éventuel fichier précédent.
         $this->storage->delete($node->getStoredName());
 
-        $meta = $this->storage->store($command->file);
+        $meta = $this->storage->store($command->file, (int) $member->getId());
         $node->setFile($meta['storedName'], $meta['originalName'], $meta['mimeType'], $meta['size']);
 
         $this->entityManager->flush();

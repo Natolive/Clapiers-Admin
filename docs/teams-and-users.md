@@ -76,11 +76,11 @@ coaches (not limited to members he personally linked). Files come from the médi
 library: licence = current-season `license` slot (season-scoped); photo = root
 `identity_photo` slot (season-agnostic). Missing slot/file → 404.
 
-- These return `BinaryFileResponse`, so they **bypass the JSON `execute()`
-  wrapper** and call `run()` directly, catching `UseCaseException` → JSON and
-  `\Throwable` → 500 by hand in the controller. The catch-all specifically
-  covers the TOCTOU window where the file is deleted between the `is_file` check
-  and the response.
+- These return a file response (a `StreamedResponse` piping the Bunny object),
+  so they **bypass the JSON `execute()` wrapper** and call `run()` directly,
+  catching `UseCaseException` → JSON and `\Throwable` → 500 by hand in the
+  controller. A Bunny outage surfaces as `UseCaseException(502)`; a file missing
+  from the zone is a 404.
 - Licence is served as an attachment (filename fallback `'licence'`); photo is
   served inline.
 

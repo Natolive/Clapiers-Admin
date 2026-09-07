@@ -2,9 +2,12 @@
 
 namespace App\Controller;
 
+use App\Application\UseCase\Setting\GetBunnyConfig\GetBunnyConfigUseCase;
 use App\Application\UseCase\Setting\GetCurrentSeason\GetCurrentSeasonUseCase;
 use App\Application\UseCase\Setting\GetHelloAssoConfig\GetHelloAssoConfigUseCase;
 use App\Application\UseCase\Setting\GetInscriptionsStatus\GetInscriptionsStatusUseCase;
+use App\Application\UseCase\Setting\SetBunnyConfig\SetBunnyConfigCommand;
+use App\Application\UseCase\Setting\SetBunnyConfig\SetBunnyConfigUseCase;
 use App\Application\UseCase\Setting\SetCurrentSeason\SetCurrentSeasonCommand;
 use App\Application\UseCase\Setting\SetCurrentSeason\SetCurrentSeasonUseCase;
 use App\Application\UseCase\Setting\SetHelloAssoConfig\SetHelloAssoConfigCommand;
@@ -46,6 +49,20 @@ class SettingController extends AbstractController
     public function setHelloAsso(
         #[MapRequestPayload] SetHelloAssoConfigCommand $command,
         SetHelloAssoConfigUseCase $useCase
+    ): Response {
+        return $useCase->execute($command);
+    }
+
+    #[Route('/bunny', name: 'get_bunny', methods: ['GET'])]
+    public function getBunny(GetBunnyConfigUseCase $useCase): Response
+    {
+        return $useCase->execute();
+    }
+
+    #[Route('/bunny', name: 'set_bunny', methods: ['PUT'])]
+    public function setBunny(
+        #[MapRequestPayload] SetBunnyConfigCommand $command,
+        SetBunnyConfigUseCase $useCase
     ): Response {
         return $useCase->execute($command);
     }

@@ -7,6 +7,7 @@ use App\Common\Service\SeasonProvider;
 use App\Entity\Member;
 use App\Entity\Team;
 use App\Repository\MemberDocumentRepository;
+use App\Tests\Support\Fake\FakeBunnyStorageClient;
 use App\Tests\Support\ApiTestCase;
 
 /**
@@ -434,11 +435,7 @@ class TeamApiTest extends ApiTestCase
     private function attachFile(?object $slot, string $storedName, string $originalName): void
     {
         $this->assertNotNull($slot);
-        $dir = static::getContainer()->getParameter('upload_directory').'/member-media';
-        if (!is_dir($dir)) {
-            mkdir($dir, 0777, true);
-        }
-        file_put_contents($dir.'/'.$storedName, "%PDF-1.4\n%%EOF\n");
+        static::getContainer()->get(FakeBunnyStorageClient::class)->seed($storedName, "%PDF-1.4\n%%EOF\n");
         $slot->setFile($storedName, $originalName, 'application/octet-stream', 12);
         $this->em()->flush();
     }
