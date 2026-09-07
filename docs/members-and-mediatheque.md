@@ -10,7 +10,11 @@
   transitions live in the **licence** domain (submit → `PENDING_VALIDATION`,
   approve → `ACTIVE`, reject → `REJECTED`).
 - Only `ACTIVE` members appear in licencié lists; the others stay in the
-  "Demandes de licence" flow.
+  "Demandes de licence" flow. This now holds for **every** query:
+  `findAllWithTeams()` (behind `GET /api/member`, which feeds the "Associer un
+  licencié" picker) used to be the one exception and would offer pending and
+  rejected requests for account linking. Pinned by
+  `MemberApiTest::testListAllMembersReturnsOnlyActiveOnes`.
 
 Fields worth knowing:
 
@@ -92,8 +96,16 @@ Both cascades fix an observed **HTTP 500**, not a theoretical one:
   request) and a password login returns 401
   (`testTheLinkedAccountCanNoLongerAuthenticate`).
 
+The **join tables are actually emptied**, not stamped: `member_team` and
+`app_user_team` are link tables, not entities, so neither the filter nor the
+`deleted_at` stamp reaches them. Reads don't leak either way — Doctrine applies
+the filter to collection loading too, so `Team::$coaches` already came back
+without the deleted account — but leaving the rows would assert a team
+membership that no longer holds, and any raw-SQL count over those tables would
+over-count. Regression test: `MemberApiTest::testDeleteClearsTeamJoinRows`.
+
 The `app_user.member` link is **kept**, not nulled, so the pair stays
-restorable. Note the account's email stays taken by the hidden row under the
+restorable (its teams, however, are not — they would have to be re-assigned). Note the account's email stays taken by the hidden row under the
 unique index: re-creating an account with the same address fails until the old
 one is restored.
 

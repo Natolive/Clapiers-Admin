@@ -27,6 +27,13 @@ use Symfony\Component\HttpFoundation\Response;
  * un licencié supprimé ne doit plus pouvoir se connecter. Le lien membre est
  * conservé, ce qui rend la restauration du couple possible.
  *
+ * Les jointures `member_team` et `app_user_team` sont en revanche réellement
+ * effacées : ce sont des tables de liaison, pas des entités, donc ni le filtre
+ * ni l'horodatage ne les atteignent. Les lectures ne fuitent pas pour autant
+ * (Doctrine filtre aussi le chargement des collections), mais laisser ces
+ * lignes affirmerait une appartenance qui n'existe plus, et tout comptage en
+ * SQL brut sur ces tables surcompterait.
+ *
  * Le filtre `softdeleteable` masquant les lignes supprimées, `find()` ne
  * retrouve pas un membre déjà supprimé : une seconde suppression répond 404.
  *
@@ -68,6 +75,15 @@ class DeleteMemberUseCase extends AbstractUseCase
         // le filtre le masque et l'authentification échoue — y compris avec un
         // JWT déjà émis, l'utilisateur étant rechargé à chaque requête.
         $account = $this->userRepository->findOneBy(['member' => $member]);
+
+        // Les tables de jointure, elles, ne sont couvertes par rien : ni par le
+        // filtre (ce ne sont pas des entités), ni par la suppression douce (qui
+        // n'efface aucune ligne). On les vide explicitement — un supprimé n'est
+        // plus dans une équipe, et n'en encadre plus aucune.
+        $member->setTeams([]);
+        $account?->setTeams([]);
+        $this->entityManager->flush();
+
         if ($account) {
             $this->entityManager->remove($account);
         }

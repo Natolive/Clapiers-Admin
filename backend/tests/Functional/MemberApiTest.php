@@ -35,6 +35,29 @@ class MemberApiTest extends ApiTestCase
         $this->assertCount(2, $body);
     }
 
+    /**
+     * GET /api/member alimente le sélecteur « Associer un licencié ». Il ne doit
+     * proposer que des ACTIVE : une demande en attente ou refusée n'est pas un
+     * licencié à qui rattacher un compte.
+     */
+    public function testListAllMembersReturnsOnlyActiveOnes(): void
+    {
+        $team = $this->aTeam()->persist();
+        $this->aMember()->inTeams($team)->named('Alice', 'Active')->persist();
+        $pending = $this->aMember()->inTeams($team)->named('Bob', 'Attente')->persist();
+        $rejected = $this->aMember()->inTeams($team)->named('Carl', 'Refuse')->persist();
+
+        $pending->setStatus(MemberStatus::PENDING_VALIDATION);
+        $rejected->setStatus(MemberStatus::REJECTED);
+        $this->em()->flush();
+
+        $this->actingAsSuperAdmin();
+        $this->getJson('/api/member');
+
+        $body = $this->assertJsonResponse(200);
+        $this->assertSame(['Alice'], array_column($body, 'firstName'));
+    }
+
     public function testAdminIsForbiddenOnEveryMemberRoute(): void
     {
         // Class-level IsGranted(SUPER_ADMIN) applies even to methods that
@@ -188,6 +211,36 @@ class MemberApiTest extends ApiTestCase
         $this->getJson('/api/user/paginated?page=1&limit=50');
         $emails = array_column($this->assertJsonResponse(200)['data'], 'email');
         $this->assertNotContains('parti@test.fr', $emails);
+    }
+
+    /**
+     * Les tables de liaison ne sont couvertes ni par le filtre (ce ne sont pas
+     * des entités) ni par l'horodatage (qui n'efface rien) : elles doivent être
+     * vidées explicitement, sinon elles affirment une appartenance à une équipe
+     * qui n'existe plus et tout comptage en SQL brut surcompterait.
+     */
+    public function testDeleteClearsTeamJoinRows(): void
+    {
+        $team = $this->aTeam()->persist();
+        $member = $this->aMember()->inTeams($team)->persist();
+        $this->aUser()->admin()->managing($team)->linkedTo($member)->persist();
+
+        $conn = $this->em()->getConnection();
+        $this->assertSame(1, (int) $conn->fetchOne('SELECT COUNT(*) FROM member_team'));
+        $this->assertSame(1, (int) $conn->fetchOne('SELECT COUNT(*) FROM app_user_team'));
+
+        $this->actingAsSuperAdmin();
+        $this->deleteJson('/api/member/'.$member->getId());
+        $this->assertJsonResponse(200);
+
+        $this->assertSame(0, (int) $conn->fetchOne('SELECT COUNT(*) FROM member_team'));
+        $this->assertSame(0, (int) $conn->fetchOne('SELECT COUNT(*) FROM app_user_team'));
+
+        // L'équipe elle-même n'est pas touchée, et n'affiche plus le coach.
+        $this->getJson('/api/team');
+        $teams = $this->assertJsonResponse(200);
+        $this->assertCount(1, $teams);
+        $this->assertSame([], $teams[0]['coaches']);
     }
 
     /** Le filtre masque aussi le membre à la suppression : rejouer donne 404. */
