@@ -7,12 +7,20 @@ use App\Entity\Trait\IdTrait;
 use App\Entity\Trait\TimestampableTrait;
 use App\Repository\LicenseRepository;
 use Doctrine\ORM\Mapping as ORM;
+use Gedmo\Mapping\Annotation as Gedmo;
+use Gedmo\SoftDeleteable\Traits\SoftDeleteableEntity;
 
 #[ORM\Entity(repositoryClass: LicenseRepository::class)]
 #[ORM\HasLifecycleCallbacks]
+// Suppression douce, en cascade depuis le membre : une licence qui survivrait à
+// son membre pointerait vers une ligne masquée, et getMember() — non nullable —
+// jetterait une EntityNotFoundException. C'est ce qui faisait répondre 500 au
+// magic link public de paiement.
+#[Gedmo\SoftDeleteable(fieldName: 'deletedAt')]
 class License
 {
     use IdTrait;
+    use SoftDeleteableEntity;
     use TimestampableTrait;
 
     /** Durée de validité du magic link (paiement / dépôt de pièces). */

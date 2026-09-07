@@ -93,6 +93,34 @@ class StatsApiTest extends ApiTestCase
             ->execute(['d' => new \DateTimeImmutable($date), 'id' => $member->getId()]);
     }
 
+    /**
+     * Les agrégats par sexe et par âge sont en SQL brut, où le filtre Doctrine
+     * `softdeleteable` ne s'applique pas : sans le `deleted_at IS NULL` posé à
+     * la main dans MemberRepository::getStats(), le tableau de bord afficherait
+     * un total à 0 tout en comptant encore le supprimé dans les répartitions.
+     */
+    public function testSoftDeletedMemberLeavesEveryAggregate(): void
+    {
+        $season = static::getContainer()->get(SeasonProvider::class)->current();
+        $team = $this->aTeam()->persist();
+        $member = $this->aMember()->inTeams($team)->licensedFor($season, LicenseStatus::VALIDEE)->persist();
+
+        $this->actingAsSuperAdmin();
+        $this->getJson('/api/stats/dashboard');
+        $before = $this->assertJsonResponse(200)['members'];
+        $this->assertSame(1, $before['total']);
+        $this->assertSame(1, array_sum($before['byGender']));
+
+        $this->deleteJson('/api/member/'.$member->getId());
+        $this->assertJsonResponse(200);
+
+        $this->getJson('/api/stats/dashboard');
+        $after = $this->assertJsonResponse(200)['members'];
+        $this->assertSame(0, $after['total'], 'Agrégat DQL');
+        $this->assertSame(0, array_sum($after['byGender']), 'Agrégat SQL brut');
+        $this->assertSame(0, $after['age']['average'], 'Agrégat SQL brut');
+    }
+
     public function testAdminIsForbidden(): void
     {
         $this->actingAsAdmin();

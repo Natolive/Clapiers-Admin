@@ -131,6 +131,15 @@
             @click="openDialog(slotProps.data, 'media')"
             v-tooltip.top="'Médiathèque'"
           />
+          <Button
+            v-if="isSuperAdmin"
+            icon="pi pi-trash"
+            severity="danger"
+            text
+            rounded
+            @click="confirmDelete(slotProps.data)"
+            v-tooltip.top="'Supprimer'"
+          />
         </div>
       </template>
     </Column>
@@ -181,6 +190,15 @@
           @click.stop="openDialog(member, 'media')"
           v-tooltip.left="'Médiathèque'"
         />
+        <Button
+          v-if="isSuperAdmin"
+          icon="pi pi-trash"
+          severity="danger"
+          text
+          rounded
+          @click.stop="confirmDelete(member)"
+          v-tooltip.left="'Supprimer'"
+        />
         <i class="pi pi-chevron-right member-card__chevron" />
       </div>
     </template>
@@ -205,6 +223,7 @@
 
 <script setup lang="ts">
 import type { DataTableSortEvent } from 'primevue/datatable';
+import ConfirmDeleteDialog from '~/components/dialogs/ConfirmDeleteDialog.vue';
 import CreateUpdateMemberDialog from '~/components/dialogs/CreateUpdateMemberDialog.vue';
 import MemberDetailsDialog from '~/components/dialogs/MemberDetailsDialog.vue';
 import MemberAvatar from '~/components/common/MemberAvatar.vue';
@@ -318,6 +337,23 @@ const openDialog = (member?: Member, initialTab: 'fiche' | 'media' = 'fiche') =>
       }
     });
   }
+};
+
+// Suppression douce : la fiche sort des listes mais rien n'est détruit. Le
+// message le dit, sinon on effraie l'utilisateur pour une action réversible.
+const confirmDelete = (member: Member) => {
+  show({
+    component: ConfirmDeleteDialog,
+    props: {
+      header: 'Supprimer le licencié',
+      message: `Retirer ${member.firstName} ${member.lastName} des licenciés ?`
+        + ' Ses licences, paiements et documents sont conservés en base.',
+      onConfirm: async () => {
+        await memberRepository.delete(member.id);
+        fetchData();
+      },
+    },
+  });
 };
 
 // La saison doit être connue avant le premier fetch : sinon la liste part

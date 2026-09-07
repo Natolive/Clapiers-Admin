@@ -13,12 +13,16 @@ use App\Repository\MemberRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
+use Gedmo\Mapping\Annotation as Gedmo;
+use Gedmo\SoftDeleteable\Traits\SoftDeleteableEntity;
 
 #[ORM\Entity(repositoryClass: MemberRepository::class)]
 #[ORM\HasLifecycleCallbacks]
+#[Gedmo\SoftDeleteable]
 class Member
 {
     use IdTrait;
+    use SoftDeleteableEntity;
     use TimestampableTrait;
 
     #[ORM\Column(length: 255)]
@@ -70,6 +74,7 @@ class Member
     /** Représentant légal (mineur) — champs vides quand le membre est majeur. */
     #[ORM\Embedded(class: LegalRepresentative::class, columnPrefix: 'legal_rep_')]
     private LegalRepresentative $legalRepresentative;
+
 
     public function __construct()
     {
