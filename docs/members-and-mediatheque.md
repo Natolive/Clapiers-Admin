@@ -97,6 +97,11 @@ duplicate record that is deleted right after.
 > gone from the zone — files lost. Regression test:
 > `LicenseAdminApiTest::testApproveWithReplaceLosesNoFileWhenTheStorageFailsMidMerge`,
 > which fails a copy mid-merge via `FakeBunnyStorageClient::failPutsFromCall()`.
+>
+> The same ordering applies to the two upload paths — `UploadDocumentFileUseCase`
+> (médiathèque) and `UploadLicenseRequestDocumentUseCase` (public inscription):
+> both keep the old `storedName` aside, store, flush, then delete. Regression
+> test: `MemberMediaApiTest::testAFailedReplacementKeepsThePreviousFile`.
 
 **There is no local-disk fallback, on purpose.** The backend runs as several k8s
 pods, so a file written to one pod's disk 404s from the others.
@@ -133,6 +138,10 @@ backend it streams (`StreamedResponse` over the HTTP client) and takes the
 `store()` uploads **before** the caller flushes, so a failed upload can't leave
 a DB row pointing at a missing file.
 
+The download name is the user's original filename, so `response()` always passes
+`makeDisposition()` an explicit ASCII fallback — given none, Symfony reuses the
+name itself and throws `InvalidArgumentException` on the first accent.
+
 The CSV game import (`POST /api/game/import`) does **not** use this service: it
 reads the multipart temp file in-memory within the same request and never stores
 it — already pod-safe.
@@ -144,7 +153,8 @@ it — already pod-safe.
   be an owned folder.
 - **Upload / replace file** — (re)attaches a file to any existing document node
   **including protected default slots**; rejects folders; **deletes the previous
-  previous file from the storage zone first** (no orphan).
+  file from the storage zone after the flush** (no orphan, no loss — see the
+  invariant above).
 - **Delete file only** — deletes the stored file and nulls the metadata but
   **keeps the node**; this is how you empty a protected default slot.
 - **Rename node** / **Delete node** — both blocked on protected nodes. Delete

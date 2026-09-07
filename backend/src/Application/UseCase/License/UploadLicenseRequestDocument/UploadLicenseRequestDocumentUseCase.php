@@ -85,7 +85,7 @@ class UploadLicenseRequestDocumentUseCase extends AbstractUseCase
             throw new UseCaseException('Slot médiathèque introuvable', Response::HTTP_NOT_FOUND);
         }
 
-        $this->storage->delete($slot->getStoredName());
+        $previous = $slot->getStoredName();
         $meta = $this->storage->store($command->file, (int) $member->getId());
         $slot->setFile($meta['storedName'], $meta['originalName'], $meta['mimeType'], $meta['size']);
 
@@ -95,6 +95,11 @@ class UploadLicenseRequestDocumentUseCase extends AbstractUseCase
         }
 
         $this->entityManager->flush();
+
+        // L'ancien fichier ne part qu'une fois le nouveau nom commité : le
+        // supprimer avant laisserait la base pointer sur un objet déjà effacé
+        // si le store (502 Bunny) ou le flush échouait.
+        $this->storage->delete($previous);
 
         return $license;
     }

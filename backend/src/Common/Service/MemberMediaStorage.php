@@ -105,9 +105,20 @@ class MemberMediaStorage
         }
 
         if ($downloadName !== null) {
+            // Le nom d'origine vient de l'utilisateur : « Certificat médical.pdf »
+            // passe très bien en UTF-8 dans `filename*`, mais makeDisposition()
+            // exige en plus un repli ASCII pour les vieux clients et jette si on
+            // ne lui en donne pas. Substitution octet par octet (un caractère
+            // accentué donne donc deux « _ ») : sans le modificateur `/u`,
+            // preg_replace ne peut pas rendre null sur de l'UTF-8 invalide, et
+            // un repli vide relancerait l'exception qu'on cherche à éviter.
             $response->headers->set(
                 'Content-Disposition',
-                HeaderUtils::makeDisposition(HeaderUtils::DISPOSITION_ATTACHMENT, $downloadName),
+                HeaderUtils::makeDisposition(
+                    HeaderUtils::DISPOSITION_ATTACHMENT,
+                    $downloadName,
+                    (string) preg_replace('/[^\x20-\x7e]|%/', '_', $downloadName),
+                ),
             );
         }
 
