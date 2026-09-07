@@ -10,7 +10,11 @@
   transitions live in the **licence** domain (submit → `PENDING_VALIDATION`,
   approve → `ACTIVE`, reject → `REJECTED`).
 - Only `ACTIVE` members appear in licencié lists; the others stay in the
-  "Demandes de licence" flow.
+  "Demandes de licence" flow. This now holds for **every** query:
+  `findAllWithTeams()` (behind `GET /api/member`, which feeds the "Associer un
+  licencié" picker) used to be the one exception and would offer pending and
+  rejected requests for account linking. Pinned by
+  `MemberApiTest::testListAllMembersReturnsOnlyActiveOnes`.
 
 Fields worth knowing:
 

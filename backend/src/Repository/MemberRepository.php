@@ -286,6 +286,14 @@ class MemberRepository extends ServiceEntityRepository
     }
 
     /**
+     * Licenciés proposables au rattachement d'un compte (seul appelant :
+     * GET /api/member, qui alimente LinkMemberDialog).
+     *
+     * Restreint aux ACTIVE, comme toutes les listes de licenciés : les
+     * PENDING_VALIDATION sont des demandes en attente de validation et les
+     * REJECTED des demandes refusées — rattacher un compte à l'une ou l'autre
+     * n'a pas de sens. Cette requête était la seule à ne pas suivre la règle.
+     *
      * @return Member[]
      */
     public function findAllWithTeams(): array
@@ -293,6 +301,8 @@ class MemberRepository extends ServiceEntityRepository
         return $this->createQueryBuilder('m')
             ->leftJoin('m.teams', 't')
             ->addSelect('t')
+            ->where('m.status = :active')
+            ->setParameter('active', MemberStatus::ACTIVE)
             ->orderBy('m.lastName', 'ASC')
             ->addOrderBy('m.firstName', 'ASC')
             ->getQuery()

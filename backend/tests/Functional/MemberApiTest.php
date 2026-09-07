@@ -35,6 +35,29 @@ class MemberApiTest extends ApiTestCase
         $this->assertCount(2, $body);
     }
 
+    /**
+     * GET /api/member alimente le sélecteur « Associer un licencié ». Il ne doit
+     * proposer que des ACTIVE : une demande en attente ou refusée n'est pas un
+     * licencié à qui rattacher un compte.
+     */
+    public function testListAllMembersReturnsOnlyActiveOnes(): void
+    {
+        $team = $this->aTeam()->persist();
+        $this->aMember()->inTeams($team)->named('Alice', 'Active')->persist();
+        $pending = $this->aMember()->inTeams($team)->named('Bob', 'Attente')->persist();
+        $rejected = $this->aMember()->inTeams($team)->named('Carl', 'Refuse')->persist();
+
+        $pending->setStatus(MemberStatus::PENDING_VALIDATION);
+        $rejected->setStatus(MemberStatus::REJECTED);
+        $this->em()->flush();
+
+        $this->actingAsSuperAdmin();
+        $this->getJson('/api/member');
+
+        $body = $this->assertJsonResponse(200);
+        $this->assertSame(['Alice'], array_column($body, 'firstName'));
+    }
+
     public function testAdminIsForbiddenOnEveryMemberRoute(): void
     {
         // Class-level IsGranted(SUPER_ADMIN) applies even to methods that
