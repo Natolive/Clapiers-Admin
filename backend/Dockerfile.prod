@@ -18,6 +18,7 @@ RUN docker-php-ext-install \
     pgsql
 
 RUN cp $PHP_INI_DIR/php.ini-production $PHP_INI_DIR/php.ini
+COPY docker/prod/php.ini $PHP_INI_DIR/conf.d/app.ini
 
 WORKDIR /app
 

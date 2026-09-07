@@ -47,12 +47,17 @@ class UploadDocumentFileUseCase extends AbstractUseCase
         }
 
         // Remplace l'éventuel fichier précédent.
-        $this->storage->delete($node->getStoredName());
+        $previous = $node->getStoredName();
 
         $meta = $this->storage->store($command->file, (int) $member->getId());
         $node->setFile($meta['storedName'], $meta['originalName'], $meta['mimeType'], $meta['size']);
 
         $this->entityManager->flush();
+
+        // L'ancien fichier ne part qu'une fois le nouveau nom commité : le
+        // supprimer avant laisserait la base pointer sur un objet déjà effacé
+        // si le store (502 Bunny) ou le flush échouait.
+        $this->storage->delete($previous);
 
         return $node;
     }
