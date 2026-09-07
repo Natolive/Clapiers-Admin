@@ -244,6 +244,29 @@ class MemberMediaApiTest extends ApiTestCase
         $this->assertJsonResponse(404);
     }
 
+    public function testDownloadOfAnAccentedFilename(): void
+    {
+        $member = $this->aMember()->persist();
+        $this->actingAsSuperAdmin();
+        $slot = $this->slot($this->tree($member->getId()), 'license');
+
+        $this->uploadFile(
+            '/api/member/'.$member->getId().'/media/node/'.$slot['id'].'/file',
+            $this->fakePdf('Certificat médical 100%.pdf'),
+        );
+        $this->assertJsonResponse(200);
+
+        $this->getJson('/api/member/'.$member->getId().'/media/node/'.$slot['id'].'/download');
+        $this->assertSame(200, $this->response()->getStatusCode());
+
+        // Le nom réel passe en UTF-8 dans `filename*`, le repli ASCII substitue
+        // accents et « % » — sans lui, makeDisposition() jette une 500. La
+        // substitution est faite octet par octet, d'où deux « _ » pour le « é ».
+        $disposition = (string) $this->response()->headers->get('Content-Disposition');
+        $this->assertStringContainsString('filename="Certificat m__dical 100_.pdf"', $disposition);
+        $this->assertStringContainsString("filename*=utf-8''", $disposition);
+    }
+
     public function testReuploadReplacesTheOldFileOnDisk(): void
     {
         $member = $this->aMember()->persist();
@@ -263,6 +286,28 @@ class MemberMediaApiTest extends ApiTestCase
         $bunny = static::getContainer()->get(FakeBunnyStorageClient::class);
         $this->assertFalse($bunny->has($first), 'Le fichier remplacé doit disparaître du stockage');
         $this->assertTrue($bunny->has($second));
+    }
+
+    public function testAFailedReplacementKeepsThePreviousFile(): void
+    {
+        $member = $this->aMember()->persist();
+        $this->actingAsSuperAdmin();
+        $slot = $this->slot($this->tree($member->getId()), 'license');
+        $uri = '/api/member/'.$member->getId().'/media/node/'.$slot['id'].'/file';
+
+        $this->uploadFile($uri, $this->fakePdf('a.pdf'));
+        $this->assertJsonResponse(200);
+        $first = $this->storedNameOf($member->getId(), $slot['id']);
+
+        // Le PUT du remplaçant échoue : sans suppression anticipée, la base doit
+        // toujours pointer sur un fichier qui existe encore dans la zone.
+        FakeBunnyStorageClient::failPutsFromCall(2);
+        $this->uploadFile($uri, $this->fakePdf('b.pdf'));
+        $this->assertJsonResponse(502);
+
+        $bunny = static::getContainer()->get(FakeBunnyStorageClient::class);
+        $this->assertTrue($bunny->has($first), "L'ancien fichier doit survivre à un store en échec");
+        $this->assertSame($first, $this->storedNameOf($member->getId(), $slot['id']));
     }
 
     public function testUploadFileOnAFolderIsRejected(): void
