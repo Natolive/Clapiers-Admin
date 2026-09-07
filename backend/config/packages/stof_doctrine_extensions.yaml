@@ -1,0 +1,21 @@
+# Comportement SoftDeleteable de gedmo/doctrine-extensions.
+#
+# Active deux choses d'un coup :
+#  - l'écouteur qui transforme un `remove()` en horodatage de `deletedAt` ;
+#  - le filtre `softdeleteable`, qui masque les lignes supprimées de toutes les
+#    requêtes (jointures comprises).
+#
+# Le filtre n'est PAS activé par défaut par le bundle : on l'allume ici, sinon
+# les membres supprimés continueraient d'apparaître partout.
+stof_doctrine_extensions:
+    default_locale: fr_FR
+    orm:
+        default:
+            softdeleteable: true
+
+doctrine:
+    orm:
+        filters:
+            softdeleteable:
+                class: Gedmo\SoftDeleteable\Filter\SoftDeleteableFilter
+                enabled: true

@@ -158,7 +158,13 @@ class MemberRepository extends ServiceEntityRepository
             static fn (string $v) => "'".$v."'",
             LicenseStatus::activeMembershipValues()
         ));
-        $popSql = "EXISTS (SELECT 1 FROM license l WHERE l.member_id = member.id"
+        // `member.deleted_at IS NULL` en dur : le filtre Doctrine `softdeleteable`
+        // ne s'applique qu'au DQL. Sans lui, les trois agrégats bruts ci-dessous
+        // continueraient de compter les licenciés supprimés, alors que le total
+        // (DQL) les exclut — tableau de bord incohérent.
+        $popSql = "member.deleted_at IS NULL"
+            ." AND EXISTS (SELECT 1 FROM license l WHERE l.member_id = member.id"
+            ." AND l.deleted_at IS NULL"
             ." AND l.season = :season AND l.status IN ($statusList))";
 
         // Répartition par sexe

@@ -4,6 +4,8 @@ namespace App\Controller;
 
 use App\Application\UseCase\Member\CreateUpdateMember\CreateUpdateMemberCommand;
 use App\Application\UseCase\Member\CreateUpdateMember\CreateUpdateMemberUseCase;
+use App\Application\UseCase\Member\DeleteMember\DeleteMemberCommand;
+use App\Application\UseCase\Member\DeleteMember\DeleteMemberUseCase;
 use App\Application\UseCase\Member\GetAllMembersUseCase;
 use App\Application\UseCase\Member\GetMembersByTeam\GetMembersByTeamCommand;
 use App\Application\UseCase\Member\GetMembersByTeam\GetMembersByTeamUseCase;
@@ -39,6 +41,12 @@ class MemberController extends AbstractController
         CreateUpdateMemberUseCase $useCase
     ): Response {
         return $useCase->execute($command);
+    }
+
+    #[Route('/{id}', name: 'delete', methods: ['DELETE'], requirements: ['id' => '\d+'])]
+    public function delete(int $id, DeleteMemberUseCase $useCase): Response
+    {
+        return $useCase->execute(new DeleteMemberCommand($id));
     }
 
     #[Route('/paginated', name: 'get_paginated', methods: ['GET'])]

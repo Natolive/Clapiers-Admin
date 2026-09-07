@@ -4,9 +4,15 @@ namespace App\Tests\Functional;
 
 use App\Common\Service\MemberMediaSeeder;
 use App\Common\Service\SeasonProvider;
+use App\Entity\AppUser;
 use App\Entity\Enum\LicenseStatus;
 use App\Entity\Enum\MemberStatus;
+use App\Entity\Enum\PaymentState;
+use App\Entity\License;
 use App\Entity\Member;
+use App\Entity\MemberDocument;
+use App\Entity\Payment;
+use App\Entity\Team;
 use App\Repository\MemberDocumentRepository;
 use App\Tests\Support\Fake\FakeBunnyStorageClient;
 use App\Tests\Support\ApiTestCase;
@@ -40,6 +46,9 @@ class MemberApiTest extends ApiTestCase
 
         $this->getJson('/api/member/1/profile-picture');
         $this->assertJsonResponse(403);
+
+        $this->deleteJson('/api/member/1');
+        $this->assertJsonResponse(403);
     }
 
     public function testUnauthenticatedIsRejected(): void
@@ -47,6 +56,159 @@ class MemberApiTest extends ApiTestCase
         $this->getJson('/api/member');
 
         $this->assertJsonResponse(401);
+
+        $this->deleteJson('/api/member/1');
+        $this->assertJsonResponse(401);
+    }
+
+    // ── DELETE /api/member/{id} ─────────────────────────────────────────────
+
+    /**
+     * Suppression douce : la fiche est datée, rien n'est détruit. Licences,
+     * paiements, médiathèque et fichiers stockés doivent survivre intacts — la
+     * valeur d'un soft delete tient entièrement à cette garantie.
+     */
+    public function testDeleteKeepsLicensesPaymentsAndMedia(): void
+    {
+        $team = $this->aTeam()->persist();
+        $member = $this->aMember()->inTeams($team)->persist();
+        $license = $this->aLicense()->forMember($member)->persist();
+        $account = $this->aUser()->admin()->linkedTo($member)->persist();
+
+        $payment = (new Payment())
+            ->setLicense($license)
+            ->setAmount(12000)
+            ->setState(PaymentState::AUTHORIZED);
+        $this->em()->persist($payment);
+
+        static::getContainer()->get(MemberMediaSeeder::class)->ensureRootFolders($member);
+        $this->em()->flush();
+        $slot = static::getContainer()->get(MemberDocumentRepository::class)
+            ->findRootDocumentSlot($member, 'identity_photo');
+        $this->assertNotNull($slot);
+        $bunny = static::getContainer()->get(FakeBunnyStorageClient::class);
+        $bunny->seed('pp.png', 'PNGDATA');
+        $slot->setFile('pp.png', 'photo.png', 'image/png', 7);
+        $this->em()->flush();
+
+        [$memberId, $licenseId, $paymentId, $accountId, $teamId] =
+            [$member->getId(), $license->getId(), $payment->getId(), $account->getId(), $team->getId()];
+        $mediaCount = count($this->em()->getRepository(MemberDocument::class)->findAll());
+
+        $this->actingAsSuperAdmin();
+        $this->deleteJson('/api/member/'.$memberId);
+
+        $body = $this->assertJsonResponse(200);
+        $this->assertSame($memberId, $body['id']);
+        $this->assertTrue($body['deleted']);
+
+        $this->em()->clear();
+
+        // Rien n'est détruit. La licence est masquée avec son membre (cascade),
+        // le paiement et la médiathèque restent visibles — ils ne sont
+        // atteignables qu'à travers leur parent, déjà masqué.
+        $this->assertNull($this->em()->getRepository(License::class)->find($licenseId));
+        $this->assertNotNull($this->em()->getRepository(Payment::class)->find($paymentId));
+        $this->assertCount($mediaCount, $this->em()->getRepository(MemberDocument::class)->findAll());
+        $this->assertTrue($bunny->has('pp.png'), 'Le fichier stocké doit survivre');
+        $this->assertNotNull($this->em()->getRepository(Team::class)->find($teamId));
+
+        // Le compte lié est masqué lui aussi, mais garde son lien vers le
+        // membre : le couple reste restaurable.
+        $this->assertNull($this->em()->getRepository(AppUser::class)->find($accountId));
+
+        // Mais le membre est invisible : le filtre Doctrine le masque partout.
+        // clear() obligatoire — getMember() vient de charger un proxy, et find()
+        // le rendrait depuis l'identity map sans jamais interroger la base.
+        $this->em()->clear();
+        $this->assertNull($this->em()->getRepository(Member::class)->find($memberId));
+
+        $this->getJson('/api/member');
+        $this->assertCount(0, $this->assertJsonResponse(200));
+
+        // Il n'est masqué que par le filtre : la ligne est bien en base, datée.
+        $this->em()->getFilters()->disable('softdeleteable');
+        $stillThere = $this->em()->getRepository(Member::class)->find($memberId);
+        $this->assertNotNull($stillThere);
+        $this->assertTrue($stillThere->isDeleted());
+
+        $licence = $this->em()->getRepository(License::class)->find($licenseId);
+        $this->assertNotNull($licence, 'La licence est masquée, pas supprimée');
+        $this->assertTrue($licence->isDeleted());
+    }
+
+    /**
+     * Une licence est atteignable par son propre `accessToken`, sans passer par
+     * le membre. Sans suppression douce en cascade elle survivrait en pointant
+     * vers une ligne masquée, et `getMember()` — non nullable — ferait répondre
+     * 500 au parcours public de paiement au lieu d'un 404 lisible.
+     */
+    public function testDeleteAlsoHidesTheLicenceFromItsPublicMagicLink(): void
+    {
+        $member = $this->aMember()->persist();
+        $this->aLicense()->forMember($member)->withToken('tok-supprime')
+            ->withStatus(LicenseStatus::VALIDEE)->persist();
+
+        $this->actingAsSuperAdmin();
+        $this->deleteJson('/api/member/'.$member->getId());
+        $this->assertJsonResponse(200);
+
+        $this->getJson('/api/public/license/tok-supprime');
+        $body = $this->assertJsonResponse(404);
+        $this->assertSame('Licence introuvable', $body['message']);
+    }
+
+    /**
+     * Un licencié supprimé ne doit plus retrouver son compte. Le provider de
+     * sécurité étant un provider `entity`, il passe par l'ORM et le filtre le
+     * masque : ni un JWT déjà émis, ni une reconnexion par mot de passe ne
+     * doivent passer.
+     */
+    public function testTheLinkedAccountCanNoLongerAuthenticate(): void
+    {
+        $member = $this->aMember()->persist();
+        $account = $this->aUser()->superAdmin()->withEmail('parti@test.fr')
+            ->withPassword('secret123')->linkedTo($member)->persist();
+
+        $this->actingAsSuperAdmin();
+        $this->deleteJson('/api/member/'.$member->getId());
+        $this->assertJsonResponse(200);
+
+        // Le jeton émis avant la suppression ne vaut plus rien : l'utilisateur
+        // est rechargé depuis le provider à chaque requête.
+        $this->actingAs($account);
+        $this->getJson('/api/user/me');
+        $this->assertSame(401, $this->response()->getStatusCode());
+
+        $this->postJson('/api/login', ['email' => 'parti@test.fr', 'password' => 'secret123']);
+        $this->assertSame(401, $this->response()->getStatusCode());
+
+        // Et il sort de l'administration des utilisateurs.
+        $this->actingAsSuperAdmin();
+        $this->getJson('/api/user/paginated?page=1&limit=50');
+        $emails = array_column($this->assertJsonResponse(200)['data'], 'email');
+        $this->assertNotContains('parti@test.fr', $emails);
+    }
+
+    /** Le filtre masque aussi le membre à la suppression : rejouer donne 404. */
+    public function testDeletingTwiceReturns404(): void
+    {
+        $member = $this->aMember()->persist();
+
+        $this->actingAsSuperAdmin();
+        $this->deleteJson('/api/member/'.$member->getId());
+        $this->assertJsonResponse(200);
+
+        $this->deleteJson('/api/member/'.$member->getId());
+        $this->assertJsonResponse(404);
+    }
+
+    public function testDeleteUnknownMemberReturns404(): void
+    {
+        $this->actingAsSuperAdmin();
+        $this->deleteJson('/api/member/999999');
+
+        $this->assertJsonResponse(404);
     }
 
     // ── POST/PUT /api/member ────────────────────────────────────────────────
