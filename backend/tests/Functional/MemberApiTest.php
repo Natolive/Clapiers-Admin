@@ -190,6 +190,36 @@ class MemberApiTest extends ApiTestCase
         $this->assertNotContains('parti@test.fr', $emails);
     }
 
+    /**
+     * Les tables de liaison ne sont couvertes ni par le filtre (ce ne sont pas
+     * des entités) ni par l'horodatage (qui n'efface rien) : elles doivent être
+     * vidées explicitement, sinon elles affirment une appartenance à une équipe
+     * qui n'existe plus et tout comptage en SQL brut surcompterait.
+     */
+    public function testDeleteClearsTeamJoinRows(): void
+    {
+        $team = $this->aTeam()->persist();
+        $member = $this->aMember()->inTeams($team)->persist();
+        $this->aUser()->admin()->managing($team)->linkedTo($member)->persist();
+
+        $conn = $this->em()->getConnection();
+        $this->assertSame(1, (int) $conn->fetchOne('SELECT COUNT(*) FROM member_team'));
+        $this->assertSame(1, (int) $conn->fetchOne('SELECT COUNT(*) FROM app_user_team'));
+
+        $this->actingAsSuperAdmin();
+        $this->deleteJson('/api/member/'.$member->getId());
+        $this->assertJsonResponse(200);
+
+        $this->assertSame(0, (int) $conn->fetchOne('SELECT COUNT(*) FROM member_team'));
+        $this->assertSame(0, (int) $conn->fetchOne('SELECT COUNT(*) FROM app_user_team'));
+
+        // L'équipe elle-même n'est pas touchée, et n'affiche plus le coach.
+        $this->getJson('/api/team');
+        $teams = $this->assertJsonResponse(200);
+        $this->assertCount(1, $teams);
+        $this->assertSame([], $teams[0]['coaches']);
+    }
+
     /** Le filtre masque aussi le membre à la suppression : rejouer donne 404. */
     public function testDeletingTwiceReturns404(): void
     {
