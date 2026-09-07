@@ -23,6 +23,22 @@ class PhoneNumberValidatorTest extends ConstraintValidatorTestCase
         $this->assertNoViolation();
     }
 
+    /** Format national français, celui que le formulaire d'inscription envoie. */
+    public function testValidFrenchNationalNumberPasses(): void
+    {
+        $this->validator->validate('0769987177', new PhoneNumber());
+
+        $this->assertNoViolation();
+    }
+
+    /** La région par défaut ne doit pas écraser un indicatif explicite. */
+    public function testForeignInternationalNumberPasses(): void
+    {
+        $this->validator->validate('+3227920000', new PhoneNumber());
+
+        $this->assertNoViolation();
+    }
+
     public function testNullAndEmptyAreValid(): void
     {
         $this->validator->validate(null, new PhoneNumber());
@@ -43,7 +59,18 @@ class PhoneNumberValidatorTest extends ConstraintValidatorTestCase
 
     public function testUnparseableValueIsRejected(): void
     {
-        // No country prefix: parsing itself fails (NumberParseException)
+        // Aucun chiffre exploitable : le parsing lui-même échoue
+        // (NumberParseException), même avec une région par défaut.
+        $this->validator->validate('pas un numéro', new PhoneNumber());
+
+        $this->buildViolation('Le numéro de téléphone "{{ value }}" n\'est pas valide.')
+            ->setParameter('{{ value }}', 'pas un numéro')
+            ->assertRaised();
+    }
+
+    public function testTooShortNumberIsRejected(): void
+    {
+        // S'analyse comme français, mais n'est pas un numéro valide
         $this->validator->validate('12', new PhoneNumber());
 
         $this->buildViolation('Le numéro de téléphone "{{ value }}" n\'est pas valide.')
