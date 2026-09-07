@@ -9,15 +9,26 @@ use App\Repository\UserRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
+use Gedmo\Mapping\Annotation as Gedmo;
+use Gedmo\SoftDeleteable\Traits\SoftDeleteableEntity;
 use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
 use Symfony\Component\Security\Core\User\UserInterface;
 
 #[ORM\Entity(repositoryClass: UserRepository::class)]
 #[ORM\HasLifecycleCallbacks]
 #[ORM\UniqueConstraint(name: 'UNIQ_IDENTIFIER_EMAIL', fields: ['email'])]
+// Suppression douce, en cascade depuis le licencié lié. Le provider de sécurité
+// est un provider `entity` : il passe par l'ORM, donc le filtre `softdeleteable`
+// s'y applique et un compte supprimé ne peut plus s'authentifier — ni par mot de
+// passe, ni avec un JWT déjà émis, l'utilisateur étant rechargé à chaque requête.
+//
+// L'email reste occupé par la ligne masquée (contrainte d'unicité en base) :
+// recréer un compte avec la même adresse imposera de restaurer l'ancien.
+#[Gedmo\SoftDeleteable(fieldName: 'deletedAt')]
 class AppUser implements UserInterface, PasswordAuthenticatedUserInterface
 {
     use IdTrait;
+    use SoftDeleteableEntity;
     use TimestampableTrait;
 
     #[ORM\Column(length: 180)]

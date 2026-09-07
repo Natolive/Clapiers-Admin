@@ -48,6 +48,17 @@ return await this.api<Member>('/member', {
         });
     }
 
+    /**
+     * Suppression douce : la fiche est datée côté serveur et disparaît de
+     * toutes les listes, mais licences, paiements et médiathèque restent en
+     * base. Aucune route de restauration pour l'instant (voir le back).
+     */
+    async delete(id: number): Promise<{ id: number; deleted: boolean }> {
+        return await this.api<{ id: number; deleted: boolean }>(`/member/${id}`, {
+            method: 'DELETE'
+        });
+    }
+
     async getByTeam(teamId: number, season?: string): Promise<Member[]> {
         return await this.api<Member[]>(`/member/team/${teamId}`, {
             method: 'GET',

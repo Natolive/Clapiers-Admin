@@ -41,6 +41,92 @@ the whole op 404s); `setTeams` is a full replace.
 exists but is used only by the licence-review flow to flag a re-inscription
 duplicate. The admin can create two members with the same email.
 
+**Deletion** (`DELETE /api/member/{id}`, `ROLE_SUPER_ADMIN`,
+`DeleteMemberUseCase`) is a **soft delete**: nothing is destroyed, rows are
+stamped with `deleted_at` and hidden. Payments, the médiathèque tree and the
+Bunny objects survive untouched and stay visible —
+`MemberApiTest::testDeleteKeepsLicensesPaymentsAndMedia` pins that down.
+
+The mechanism is **`gedmo/doctrine-extensions`** (via
+`stof/doctrine-extensions-bundle`), not hand-written code. Each participating
+entity carries `#[Gedmo\SoftDeleteable(fieldName: 'deletedAt')]` and the
+`Gedmo\SoftDeleteable\Traits\SoftDeleteableEntity` trait. Two pieces do the work:
+
+- the **listener** turns `$em->remove($x)` into a `deletedAt` stamp — which is
+  why the use case is an ordinary `remove()` + `flush()`;
+- the **`softdeleteable` SQL filter** appends `deleted_at IS NULL` to every DQL
+  query touching the entity, joins included.
+
+Both are wired in `config/packages/stof_doctrine_extensions.yaml`. Note the
+bundle enables the *listener* but **not the filter** — the `doctrine.orm.filters`
+block in that same file is what turns the filter on. Drop it and deletion still
+stamps the row, but deleted members reappear everywhere, silently.
+
+### What cascades, and why
+
+Gedmo does **not** cascade a soft delete, so `DeleteMemberUseCase` stamps three
+entities explicitly. The rule that decides membership: **an entity needs soft
+delete when it is reachable by a key of its own**, without going through the
+member. Anything only reachable *through* the member is already unreachable once
+the member is hidden.
+
+| Entity | Soft-deleted? | Reachable on its own by… |
+| --- | --- | --- |
+| `Member` | yes | its id |
+| `License` | yes | its `access_token` (public payment magic link) |
+| `AppUser` | yes | its login email |
+| `Payment` | **no** | only via its licence (webhook resolves the licence first) |
+| `MemberDocument` | **no** | only via `/api/member/{id}/media/...` |
+
+Both cascades fix an observed **HTTP 500**, not a theoretical one:
+
+- a surviving licence pointed at a hidden member, and `License::getMember()` is
+  non-nullable → `EntityNotFoundException` on proxy init. The public payment
+  link now answers a clean `404 Licence introuvable`
+  (`testDeleteAlsoHidesTheLicenceFromItsPublicMagicLink`).
+- a surviving account did the same through `AppUser::toArray()` on
+  `GET /api/user/me` — and, worse, **kept working**: the person could still log
+  in. Deleting the account closes both. The security provider is an `entity`
+  provider, so it goes through the ORM and the filter applies: an already-issued
+  JWT stops working immediately (the user is reloaded from the provider on every
+  request) and a password login returns 401
+  (`testTheLinkedAccountCanNoLongerAuthenticate`).
+
+The `app_user.member` link is **kept**, not nulled, so the pair stays
+restorable. Note the account's email stays taken by the hidden row under the
+unique index: re-creating an account with the same address fails until the old
+one is restored.
+
+> ### ⚠️ The filter covers DQL only — never raw SQL
+>
+> `MemberRepository::getStats()` builds three aggregates through
+> `getConnection()`, and those bypass the filter entirely. They carry an
+> explicit `member.deleted_at IS NULL` in the shared `$popSql` predicate
+> (`MemberRepository.php:165`). Without it the dashboard reported `total: 0`
+> while `byGender` still counted the deleted member and `age.average` stayed at
+> its old value — a real, observed inconsistency, not a hypothetical.
+> The predicate also carries `l.deleted_at IS NULL` for the licence sub-select.
+> **Any future query going through `getConnection()` on these tables must carry
+> those conditions itself.** Regression test:
+> `StatsApiTest::testSoftDeletedMemberLeavesEveryAggregate`.
+
+Two more consequences, both verified against the running app rather than
+assumed:
+
+- **Admin lists**: the licence list INNER JOINs the member and the user list
+  LEFT JOINs it; on the LEFT JOIN Doctrine puts the condition in the `ON`
+  clause, so a *live* account linked to nothing still lists fine. Deleted
+  licences and accounts simply drop out.
+- **`find()` and the identity map**: the filter guards queries, not the identity
+  map. A deleted row still surfaces through an association loaded earlier in the
+  *same* request. In a fresh request the delete use case's own `find()` is
+  filtered, so **deleting twice returns 404** — that is intended.
+
+To reach deleted rows (restoration, admin task):
+`$em->getFilters()->disable('softdeleteable')`. **There is no restore route or
+UI yet** — the Gedmo trait exposes `setDeletedAt(null)`, nothing else, and
+restoring a member means restoring its licences and account too.
+
 ## Médiathèque tree
 
 A **self-referential tree** on one entity `MemberDocument`, two natures via
@@ -127,6 +213,7 @@ only reads go through the authenticated routes below, all of which call
 | Route | Guard |
 | --- | --- |
 | `GET /api/member/{id}/profile-picture` | `ROLE_ADMIN` |
+| `DELETE /api/member/{id}` | `ROLE_SUPER_ADMIN` |
 | `GET /api/member/{id}/media/node/{uuid}/download` | `ROLE_SUPER_ADMIN` |
 | `GET /api/team/my-team/license/{memberId}` | `ROLE_ADMIN` + shares a team |
 | `GET /api/team/my-team/member/{memberId}/profile-picture` | `ROLE_ADMIN` + shares a team |
