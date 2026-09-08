@@ -65,6 +65,11 @@ jobs:
           extensions: pdo_pgsql, pgsql, intl
           coverage: xdebug
           tools: composer:v2
+          # Aligné sur docker/prod/php.ini : le runner est à 2M par défaut, et
+          # BrowserKit remplace tout fichier au-dessus de upload_max_filesize
+          # par une erreur UPLOAD_ERR_INI_SIZE — les tests de plafond d'upload
+          # (pièces d'inscription à 6Mi) ne seraient jamais réellement exercés.
+          ini-values: upload_max_filesize=20M, post_max_size=30M
 
       - name: Get composer cache directory
         id: composer-cache
