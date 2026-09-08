@@ -8,6 +8,7 @@ use App\Entity\Enum\MemberStatus;
 use App\Entity\License;
 use App\Entity\MemberDocument;
 use App\Tests\Support\ApiTestCase;
+use Symfony\Component\HttpFoundation\File\UploadedFile;
 
 /**
  * Demande de licence publique : POST /api/public/license-request (+ upload du
@@ -199,6 +200,87 @@ class LicenseRequestApiTest extends ApiTestCase
         $this->uploadFile('/api/public/license-request/tok-bad-key/document/passport', $this->fakePdf());
 
         $this->assertJsonResponse(404);
+    }
+
+    /**
+     * Le formulaire public plafonne les pièces à 5 * 1024 * 1024 octets et
+     * annonce « 5 Mo » ; la route garde un cran de marge à 6Mi. Le piège est
+     * l'unité : `maxSize: '5M'` valait 5 000 000 octets pour Symfony, donc une
+     * photo de 5,1 Mo passait le contrôle client puis se faisait refuser ici —
+     * la demande était créée sans aucune pièce.
+     */
+    public function testUploadAcceptsAFileAboveTheFormLimitButRejectsAboveItsOwn(): void
+    {
+        $this->aLicense()->withToken('tok-size-limit')->persist();
+
+        // Au-delà du plafond du formulaire (5 MiB), sous celui de la route.
+        $this->uploadFile(
+            '/api/public/license-request/tok-size-limit/document/medical_certificate',
+            $this->fakePdfOfSize(6 * 1024 * 1024),
+        );
+        $this->assertJsonResponse(200);
+
+        $this->uploadFile(
+            '/api/public/license-request/tok-size-limit/document/medical_certificate',
+            $this->fakePdfOfSize(6 * 1024 * 1024 + 1024),
+        );
+        $this->assertJsonResponse(422);
+    }
+
+    /**
+     * webp (Android, captures d'écran) et heic/heif (photos iPhone d'origine)
+     * font partie des formats acceptés : c'est le type détecté par fileinfo qui
+     * est comparé, pas celui annoncé par le navigateur.
+     */
+    public function testUploadAcceptsWebpAndHeic(): void
+    {
+        $this->aLicense()->withToken('tok-formats')->persist();
+        $member = $this->em()->getRepository(License::class)
+            ->findOneByAccessToken('tok-formats')->getMember();
+
+        $this->uploadFile(
+            '/api/public/license-request/tok-formats/document/identity_photo',
+            $this->fakeWebp(),
+        );
+        $this->assertJsonResponse(200);
+
+        $this->uploadFile(
+            '/api/public/license-request/tok-formats/document/id_card',
+            $this->fakeHeic(),
+        );
+        $this->assertJsonResponse(200);
+
+        $this->em()->clear();
+        $this->assertSame('image/webp', $this->documentRepo()->findRootDocumentSlot($member, 'identity_photo')->getMimeType());
+        $this->assertSame('image/heic', $this->documentRepo()->findRootDocumentSlot($member, 'id_card')->getMimeType());
+    }
+
+    /** WebP minimal : conteneur RIFF + marque WEBP. */
+    private function fakeWebp(): UploadedFile
+    {
+        $path = tempnam(sys_get_temp_dir(), 'test_webp_');
+        file_put_contents($path, 'RIFF'.pack('V', 20).'WEBPVP8 '.pack('V', 8).str_repeat("\x00", 8));
+
+        return new UploadedFile($path, 'photo.webp', 'image/webp', test: true);
+    }
+
+    /** HEIC minimal : boîte `ftyp` ISOBMFF portant la marque heic. */
+    private function fakeHeic(): UploadedFile
+    {
+        $path = tempnam(sys_get_temp_dir(), 'test_heic_');
+        file_put_contents($path, pack('N', 24).'ftypheic'.pack('N', 0).'heicmif1miaf');
+
+        return new UploadedFile($path, 'carte.heic', 'image/heic', test: true);
+    }
+
+    /** PDF valide (pour la détection de type) complété jusqu'à la taille voulue. */
+    private function fakePdfOfSize(int $bytes): UploadedFile
+    {
+        $header = "%PDF-1.4\n";
+        $path = tempnam(sys_get_temp_dir(), 'test_pdf_size_');
+        file_put_contents($path, $header.str_repeat('x', $bytes - \strlen($header)));
+
+        return new UploadedFile($path, 'gros.pdf', 'application/pdf', test: true);
     }
 
     public function testUploadRejectsDisallowedMimeType(): void

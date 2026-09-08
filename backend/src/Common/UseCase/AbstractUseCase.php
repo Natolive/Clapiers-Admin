@@ -4,6 +4,7 @@ namespace App\Common\UseCase;
 
 use App\Common\Command\CommandInterface;
 use App\Common\Exception\UseCaseException;
+use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
@@ -15,6 +16,7 @@ use Symfony\Contracts\Service\Attribute\Required;
 abstract class AbstractUseCase
 {
     private string $environment = 'prod';
+    private ?LoggerInterface $logger = null;
 
     /**
      * Autowired by the container. Defaults to 'prod' so use cases built
@@ -24,6 +26,12 @@ abstract class AbstractUseCase
     public function setEnvironment(#[Autowire('%kernel.environment%')] string $environment): void
     {
         $this->environment = $environment;
+    }
+
+    #[Required]
+    public function setLogger(LoggerInterface $logger): void
+    {
+        $this->logger = $logger;
     }
 
     /**
@@ -51,6 +59,17 @@ abstract class AbstractUseCase
                 $e->getCode() ?? Response::HTTP_BAD_REQUEST
             );
         } catch (\Throwable $e) {
+            // Seul endroit où cette exception est visible : `execute()` l'avale,
+            // donc le listener d'exception du kernel — qui journalise
+            // d'habitude — ne la voit jamais. Sans cette ligne une 500 ne
+            // laisse aucune trace (ni stderr, ni table `log`) et le client ne
+            // reçoit qu'« Unknown Error ».
+            $this->logger?->error('Use case failure', [
+                'useCase' => static::class,
+                'command' => $command !== null ? $command::class : null,
+                'exception' => $e,
+            ]);
+
             $isDev = 'dev' === $this->environment;
 
             return new JsonResponse(
