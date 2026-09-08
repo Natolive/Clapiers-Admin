@@ -77,6 +77,15 @@ Invariants / traps:
   (`UseCaseException`) le sont par `AbstractUseCase` en `warning`
   (`Use case refused`, avec `reason` et `status`) — sans ça un refus métier ne
   laissait aucune trace, `execute()` avalant l'exception.
+- **Si les logs sont vides, la requête n'a jamais atteint PHP** : le plafond de
+  corps de l'ingress est alors le suspect (`ingress-nginx` refuse à **1 Mo** par
+  défaut, `nginx.ingress.kubernetes.io/proxy-body-size`), et son 413 arrive en
+  HTML — donc sans `message` ni `detail`. `apiErrorMessage()`
+  (`frontend/app/composables/useApiError.ts`) nomme désormais ce cas au lieu de
+  « Une erreur est survenue » : 413 = trop lourd, aucun statut = envoi coupé.
+  Toute la chaîne doit rester au-dessus du plafond des routes : ingress ≥
+  `post_max_size` (30M) ≥ `upload_max_filesize` (20M) ≥ contrainte de route
+  (6Mi public, 10M médiathèque) ≥ plafond du formulaire (5 MiB).
 - **Routes into the member's médiathèque** (there is no separate "request
   document" store): `identity_photo`/`id_card` → root "Identité" folder
   (season-independent); `medical_certificate`/`attestation` → the licence's

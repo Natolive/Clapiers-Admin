@@ -372,9 +372,6 @@ const recaptcha = ref<{ reset: () => void } | null>(null)
 let submittedToken = ''
 const uploadedFiles = new Map<LicenseDocumentKey, File>()
 
-const apiErrorMessage = (err: any): string =>
-  err?.data?.message || err?.data?.detail || 'Une erreur est survenue. Veuillez réessayer.'
-
 const fieldValue = (name: string) => form.value?.states?.[name]?.value
 const isMinor = computed(() => isMinorFromDate(fieldValue('birthDate')))
 
