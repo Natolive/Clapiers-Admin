@@ -66,6 +66,26 @@ Invariants / traps:
   marge), mimetypes = `MemberMediaStorage::MIME_TYPES` (`application/pdf`,
   `image/png`, `image/jpeg`, `image/webp`, `image/heic`, `image/heif`).
   `identity_photo` must be an image (PDF rejected).
+- **Le front n'abandonne plus à la première pièce refusée** : les quatre sont
+  tentées, l'écran nomme celles qui ont échoué, et un nouvel envoi ne renvoie
+  que celles-là (jamais de doublon de demande). Avant, un refus sur
+  `identity_photo` — premier slot de la boucle — faisait arriver la demande
+  sans le moindre document.
+- **Où chercher quand une demande arrive sans ses pièces** :
+  `/dashboard/settings/logs`. Un refus 422 du validateur (taille/mimetype) est
+  journalisé par Symfony avec le type *détecté* ; tous les autres refus
+  (`UseCaseException`) le sont par `AbstractUseCase` en `warning`
+  (`Use case refused`, avec `reason` et `status`) — sans ça un refus métier ne
+  laissait aucune trace, `execute()` avalant l'exception.
+- **Si les logs sont vides, la requête n'a jamais atteint PHP** : le plafond de
+  corps de l'ingress est alors le suspect (`ingress-nginx` refuse à **1 Mo** par
+  défaut, `nginx.ingress.kubernetes.io/proxy-body-size`), et son 413 arrive en
+  HTML — donc sans `message` ni `detail`. `apiErrorMessage()`
+  (`frontend/app/composables/useApiError.ts`) nomme désormais ce cas au lieu de
+  « Une erreur est survenue » : 413 = trop lourd, aucun statut = envoi coupé.
+  Toute la chaîne doit rester au-dessus du plafond des routes : ingress ≥
+  `post_max_size` (30M) ≥ `upload_max_filesize` (20M) ≥ contrainte de route
+  (6Mi public, 10M médiathèque) ≥ plafond du formulaire (5 MiB).
 - **Routes into the member's médiathèque** (there is no separate "request
   document" store): `identity_photo`/`id_card` → root "Identité" folder
   (season-independent); `medical_certificate`/`attestation` → the licence's

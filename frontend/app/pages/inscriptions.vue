@@ -372,9 +372,6 @@ const recaptcha = ref<{ reset: () => void } | null>(null)
 let submittedToken = ''
 const uploadedFiles = new Map<LicenseDocumentKey, File>()
 
-const apiErrorMessage = (err: any): string =>
-  err?.data?.message || err?.data?.detail || 'Une erreur est survenue. Veuillez réessayer.'
-
 const fieldValue = (name: string) => form.value?.states?.[name]?.value
 const isMinor = computed(() => isMinorFromDate(fieldValue('birthDate')))
 
@@ -498,7 +495,6 @@ const onSubmit = async (e: FormSubmitEvent) => {
 
   sending.value = true
   stepError.value = ''
-  let failingDoc: LicenseDocumentKey | null = null
   const v = e.values as Record<string, any>
   try {
     submittedToken ||= (await licenseRepo.submitRequest({
@@ -520,26 +516,34 @@ const onSubmit = async (e: FormSubmitEvent) => {
       legalRepEmail: isMinor.value ? v.legalRepEmail : null,
       legalRepPhone: isMinor.value ? v.legalRepPhone : null,
     })).accessToken as string
+  } catch (err: any) {
+    stepError.value = apiErrorMessage(err)
+    recaptcha.value?.reset()
+    sending.value = false
+    return
+  }
 
-    for (const key of Object.keys(files.value) as LicenseDocumentKey[]) {
-      const file = files.value[key]
-      if (!file || uploadedFiles.get(key) === file) continue
-      failingDoc = key
+  const failed: { label: string; err: any }[] = []
+  for (const key of Object.keys(files.value) as LicenseDocumentKey[]) {
+    const file = files.value[key]
+    if (!file || uploadedFiles.get(key) === file) continue
+    try {
       await licenseRepo.uploadDocument(submittedToken, key, file)
       uploadedFiles.set(key, file)
+    } catch (err: any) {
+      failed.push({ label: docItems.value.find((d) => d.key === key)?.label ?? key, err })
     }
-    failingDoc = null
-
-    done.value = true
-  } catch (err: any) {
-    // La demande est déjà enregistrée si le token existe : dire quelle pièce a
-    // été refusée, sinon la personne ne peut pas savoir quoi corriger.
-    const label = failingDoc ? docItems.value.find((d) => d.key === failingDoc)?.label : null
-    stepError.value = (label ? `Pièce « ${label} » refusée : ` : '') + apiErrorMessage(err)
-    if (!submittedToken) recaptcha.value?.reset()
-  } finally {
-    sending.value = false
   }
+  sending.value = false
+
+  if (failed.length) {
+    stepError.value = `Pièce${failed.length > 1 ? 's' : ''} refusée${failed.length > 1 ? 's' : ''} : `
+      + `${failed.map((f) => f.label).join(', ')} — ${apiErrorMessage(failed[0]!.err)} `
+      + 'Vos informations sont enregistrées : remplacez cette pièce et renvoyez le formulaire.'
+    return
+  }
+
+  done.value = true
 }
 </script>
 
