@@ -211,6 +211,16 @@ class LicenseRequestApiTest extends ApiTestCase
      */
     public function testUploadAcceptsAFileAboveTheFormLimitButRejectsAboveItsOwn(): void
     {
+        // BrowserKit remplace tout fichier au-dessus de `upload_max_filesize`
+        // par une erreur UPLOAD_ERR_INI_SIZE : sous cette limite, le test
+        // n'éprouve plus la contrainte de la route mais le php.ini local.
+        if (UploadedFile::getMaxFilesize() < 6 * 1024 * 1024 + 1024) {
+            self::markTestSkipped(sprintf(
+                'upload_max_filesize=%s : trop bas pour éprouver le plafond de 6Mi de la route.',
+                ini_get('upload_max_filesize'),
+            ));
+        }
+
         $this->aLicense()->withToken('tok-size-limit')->persist();
 
         // Au-delà du plafond du formulaire (5 MiB), sous celui de la route.
