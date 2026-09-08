@@ -15,6 +15,7 @@ use App\Application\UseCase\License\SubmitLicenseRequest\SubmitLicenseRequestUse
 use App\Application\UseCase\License\UploadLicenseRequestDocument\UploadLicenseRequestDocumentCommand;
 use App\Application\UseCase\License\UploadLicenseRequestDocument\UploadLicenseRequestDocumentUseCase;
 use App\Common\Service\InscriptionsStatusProvider;
+use App\Common\Service\MemberMediaStorage;
 use App\Common\Service\SeasonProvider;
 use App\Entity\Enum\MemberNationality;
 use App\Repository\GameRepository;
@@ -53,7 +54,7 @@ class PublicController extends AbstractController
     public function uploadLicenseRequestDocument(
         string $token,
         string $systemKey,
-        #[MapUploadedFile([new Assert\File(maxSize: '5M', mimeTypes: ['application/pdf', 'image/png', 'image/jpeg'])])]
+        #[MapUploadedFile([new Assert\File(maxSize: '6Mi', mimeTypes: MemberMediaStorage::MIME_TYPES)])]
         UploadedFile $file,
         UploadLicenseRequestDocumentUseCase $useCase
     ): Response {

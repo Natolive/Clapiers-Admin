@@ -77,6 +77,9 @@ const formatSize = (bytes: number) => {
 
 const isAccepted = (file: File) => {
   if (!acceptList.value.length) return true
+  // Certains navigateurs (gestionnaires de fichiers Android, vieux Windows)
+  // renvoient un type vide : laisser passer, le serveur valide le contenu.
+  if (!file.type) return true
   return acceptList.value.some((a) =>
     a.startsWith('.')
       ? file.name.toLowerCase().endsWith(a.toLowerCase())

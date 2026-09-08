@@ -372,6 +372,9 @@ const recaptcha = ref<{ reset: () => void } | null>(null)
 let submittedToken = ''
 const uploadedFiles = new Map<LicenseDocumentKey, File>()
 
+const apiErrorMessage = (err: any): string =>
+  err?.data?.message || err?.data?.detail || 'Une erreur est survenue. Veuillez réessayer.'
+
 const fieldValue = (name: string) => form.value?.states?.[name]?.value
 const isMinor = computed(() => isMinorFromDate(fieldValue('birthDate')))
 
@@ -416,9 +419,13 @@ const steps = computed(() => {
 const stepIndex = ref(0)
 const currentStep = computed(() => steps.value[stepIndex.value] as string)
 
-const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5 Mo, aligné sur la contrainte backend
-const IMG = 'image/png,image/jpeg'
-const PDF_IMG = 'application/pdf,image/png,image/jpeg'
+const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5 Mo ; la route publique plafonne un cran plus haut (6Mi)
+// Mêmes types que MemberMediaStorage::MIME_TYPES. heic/heif : photos iPhone
+// d'origine, que Safari ne convertit pas toujours en JPEG au dépôt.
+// image/jpg et image/pjpeg n'existent pas côté serveur (fileinfo dit toujours
+// image/jpeg) : ils ne sont ici que pour tolérer un navigateur qui les annonce.
+const IMG = 'image/png,image/jpeg,image/jpg,image/pjpeg,image/webp,image/heic,image/heif'
+const PDF_IMG = `application/pdf,${IMG}`
 const docItems = computed<{ key: LicenseDocumentKey; label: string; accept: string; required: boolean }[]>(() => [
   { key: 'identity_photo', label: "Photo d'identité", accept: IMG, required: true },
   { key: 'id_card', label: "Pièce d'identité", accept: PDF_IMG, required: true },
@@ -491,6 +498,7 @@ const onSubmit = async (e: FormSubmitEvent) => {
 
   sending.value = true
   stepError.value = ''
+  let failingDoc: LicenseDocumentKey | null = null
   const v = e.values as Record<string, any>
   try {
     submittedToken ||= (await licenseRepo.submitRequest({
@@ -516,13 +524,18 @@ const onSubmit = async (e: FormSubmitEvent) => {
     for (const key of Object.keys(files.value) as LicenseDocumentKey[]) {
       const file = files.value[key]
       if (!file || uploadedFiles.get(key) === file) continue
+      failingDoc = key
       await licenseRepo.uploadDocument(submittedToken, key, file)
       uploadedFiles.set(key, file)
     }
+    failingDoc = null
 
     done.value = true
   } catch (err: any) {
-    stepError.value = err?.data?.message || 'Une erreur est survenue. Veuillez réessayer.'
+    // La demande est déjà enregistrée si le token existe : dire quelle pièce a
+    // été refusée, sinon la personne ne peut pas savoir quoi corriger.
+    const label = failingDoc ? docItems.value.find((d) => d.key === failingDoc)?.label : null
+    stepError.value = (label ? `Pièce « ${label} » refusée : ` : '') + apiErrorMessage(err)
     if (!submittedToken) recaptcha.value?.reset()
   } finally {
     sending.value = false

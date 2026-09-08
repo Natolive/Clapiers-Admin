@@ -178,7 +178,12 @@ DE/Falkenstein), laid out **one folder per member**:
 `storedName` holds that whole relative path, so reads and deletes need nothing
 else — and legacy flat names (`<uuid>.<ext>`) still resolve, no migration
 required for existing rows. The user-facing download name is `originalName`.
-Uploads are max **10M**, mimetypes `application/pdf`, `image/png`, `image/jpeg`.
+Uploads are max **10M**; the accepted mimetypes are the single list
+`MemberMediaStorage::MIME_TYPES` (`application/pdf`, `image/png`, `image/jpeg`,
+`image/webp`, `image/heic`, `image/heif`), shared by the médiathèque routes and
+the public inscription route. `Assert\File` compares the type **detected by
+fileinfo**, never the one the browser declares — so `image/jpg` (which does not
+exist) has no business being in that list.
 
 `store()` therefore takes the member id. The one place a file changes owner is
 `ApproveLicenseUseCase` merging a request into an existing member: it calls

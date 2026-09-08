@@ -61,7 +61,10 @@ Invariants / traps:
 
 - `POST /api/public/license-request/{token}/document/{systemKey}`, `systemKey ∈
   {identity_photo, id_card, medical_certificate, attestation}` (regex-constrained).
-- Constraint: max **5M**, mimetypes `application/pdf`, `image/png`, `image/jpeg`.
+- Constraint: max **6Mi** (unité binaire — Symfony lit `6M` comme 6 000 000
+  octets, or le formulaire plafonne à 5 MiB ; le serveur garde un cran de
+  marge), mimetypes = `MemberMediaStorage::MIME_TYPES` (`application/pdf`,
+  `image/png`, `image/jpeg`, `image/webp`, `image/heic`, `image/heif`).
   `identity_photo` must be an image (PDF rejected).
 - **Routes into the member's médiathèque** (there is no separate "request
   document" store): `identity_photo`/`id_card` → root "Identité" folder

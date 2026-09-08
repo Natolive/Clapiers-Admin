@@ -12,7 +12,9 @@ export function useApi() {
             if (token) options.headers.set('Authorization', `Bearer ${token}`)
         },
         onResponseError({ request, response }) {
-            const message = response._data?.message || response.statusText || 'An error occurred'
+            // `detail` : forme des 422 de validation Symfony, qui n'ont pas de
+            // clé `message` — sans ce repli on affichait « Unprocessable Content ».
+            const message = response._data?.message || response._data?.detail || response.statusText || 'An error occurred'
             toast.add({
                 severity: 'error',
                 summary: 'Error',

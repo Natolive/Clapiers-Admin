@@ -98,8 +98,8 @@
     </div>
 
     <!-- Entrées fichier cachées -->
-    <input ref="uploadInput" type="file" class="hidden" accept=".pdf,.jpg,.jpeg,.png" @change="onUploadFile" />
-    <input ref="newDocInput" type="file" class="hidden" accept=".pdf,.jpg,.jpeg,.png" @change="onNewDocFile" />
+    <input ref="uploadInput" type="file" class="hidden" accept=".pdf,.jpg,.jpeg,.png,.webp,.heic,.heif" @change="onUploadFile" />
+    <input ref="newDocInput" type="file" class="hidden" accept=".pdf,.jpg,.jpeg,.png,.webp,.heic,.heif" @change="onNewDocFile" />
 
     <!-- Dialog nouveau dossier -->
     <Dialog v-model:visible="folderDialog" modal header="Nouveau dossier" :style="{ width: '24rem' }">

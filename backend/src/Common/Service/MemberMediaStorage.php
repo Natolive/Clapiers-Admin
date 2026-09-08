@@ -35,6 +35,28 @@ use Symfony\Contracts\HttpClient\ResponseInterface;
  */
 class MemberMediaStorage
 {
+    /**
+     * Formats acceptés, partout où un fichier entre (inscription publique et
+     * médiathèque). Ce sont les types **détectés** par fileinfo qui comptent,
+     * pas ceux annoncés par le navigateur : `Assert\File` compare le contenu.
+     * heic/heif sont admis pour les photos d'iPhone d'origine — Chrome et
+     * Firefox ne savent pas les prévisualiser, l'aperçu admin les téléchargera.
+     *
+     * Les plafonds de taille restent portés par chaque route, en unités
+     * **binaires** (`6Mi`, pas `6M`) : pour Symfony `6M` vaut 6 000 000 octets
+     * alors que le formulaire public compte en 1024. Le serveur doit rester
+     * au-dessus du contrôle client, sinon la pièce est refusée après la
+     * création de la demande — vécu avec `5M` face à un plafond de 5 MiB.
+     */
+    public const MIME_TYPES = [
+        'application/pdf',
+        'image/png',
+        'image/jpeg',
+        'image/webp',
+        'image/heic',
+        'image/heif',
+    ];
+
     private const SUBDIR = '/member-media';
 
     /** Un pod ne doit pas rester bloqué sur un incident Bunny. */

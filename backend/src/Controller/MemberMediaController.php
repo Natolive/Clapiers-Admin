@@ -58,7 +58,7 @@ class MemberMediaController extends AbstractController
     public function createDocument(
         int $id,
         Request $request,
-        #[MapUploadedFile([new Assert\File(maxSize: '10M', mimeTypes: ['application/pdf', 'image/png', 'image/jpeg'])])] UploadedFile $file,
+        #[MapUploadedFile([new Assert\File(maxSize: '10M', mimeTypes: MemberMediaStorage::MIME_TYPES)])] UploadedFile $file,
         CreateDocumentUseCase $useCase,
     ): Response {
         $name = (string) $request->request->get('name', '');
@@ -76,7 +76,7 @@ class MemberMediaController extends AbstractController
     public function uploadFile(
         int $id,
         string $uuid,
-        #[MapUploadedFile([new Assert\File(maxSize: '10M', mimeTypes: ['application/pdf', 'image/png', 'image/jpeg'])])] UploadedFile $file,
+        #[MapUploadedFile([new Assert\File(maxSize: '10M', mimeTypes: MemberMediaStorage::MIME_TYPES)])] UploadedFile $file,
         UploadDocumentFileUseCase $useCase,
     ): Response {
         return $useCase->execute(new UploadDocumentFileCommand($id, $uuid, $file));
