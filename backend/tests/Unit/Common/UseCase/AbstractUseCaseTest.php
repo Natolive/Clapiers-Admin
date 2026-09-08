@@ -6,6 +6,7 @@ use App\Common\Command\CommandInterface;
 use App\Common\Exception\UseCaseException;
 use App\Common\UseCase\AbstractUseCase;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\LoggerInterface;
 use Symfony\Component\HttpFoundation\Response;
 
 class AbstractUseCaseTest extends TestCase
@@ -94,6 +95,40 @@ class AbstractUseCaseTest extends TestCase
         $this->assertSame('détail interne', $body['message']);
         $this->assertSame(\RuntimeException::class, $body['error']['class']);
         $this->assertArrayHasKey('trace', $body['error']);
+    }
+
+    public function testUnexpectedExceptionIsLoggedWithItsContext(): void
+    {
+        $exception = new \RuntimeException('secret interne');
+        $command = new class implements CommandInterface {};
+        $useCase = $this->useCaseThrowing($exception);
+
+        $logger = $this->createMock(LoggerInterface::class);
+        $logger->expects($this->once())
+            ->method('error')
+            ->with('Use case failure', $this->callback(
+                fn (array $context) => $context['exception'] === $exception
+                    && $context['command'] === $command::class
+                    && $context['useCase'] === $useCase::class,
+            ));
+        $useCase->setLogger($logger);
+
+        // Le message reste masqué côté client : le log est la seule trace.
+        $response = $useCase->execute($command);
+
+        $this->assertSame(Response::HTTP_INTERNAL_SERVER_ERROR, $response->getStatusCode());
+        $this->assertSame('Unknown Error', json_decode($response->getContent(), true)['message']);
+    }
+
+    public function testBusinessExceptionIsNotLogged(): void
+    {
+        $useCase = $this->useCaseThrowing(new UseCaseException('Introuvable', Response::HTTP_NOT_FOUND));
+
+        $logger = $this->createMock(LoggerInterface::class);
+        $logger->expects($this->never())->method($this->anything());
+        $useCase->setLogger($logger);
+
+        $this->assertSame(Response::HTTP_NOT_FOUND, $useCase->execute()->getStatusCode());
     }
 
     private function useCaseReturning(mixed $result): AbstractUseCase
