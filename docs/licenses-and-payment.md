@@ -66,6 +66,17 @@ Invariants / traps:
   marge), mimetypes = `MemberMediaStorage::MIME_TYPES` (`application/pdf`,
   `image/png`, `image/jpeg`, `image/webp`, `image/heic`, `image/heif`).
   `identity_photo` must be an image (PDF rejected).
+- **Le front n'abandonne plus à la première pièce refusée** : les quatre sont
+  tentées, l'écran nomme celles qui ont échoué, et un nouvel envoi ne renvoie
+  que celles-là (jamais de doublon de demande). Avant, un refus sur
+  `identity_photo` — premier slot de la boucle — faisait arriver la demande
+  sans le moindre document.
+- **Où chercher quand une demande arrive sans ses pièces** :
+  `/dashboard/settings/logs`. Un refus 422 du validateur (taille/mimetype) est
+  journalisé par Symfony avec le type *détecté* ; tous les autres refus
+  (`UseCaseException`) le sont par `AbstractUseCase` en `warning`
+  (`Use case refused`, avec `reason` et `status`) — sans ça un refus métier ne
+  laissait aucune trace, `execute()` avalant l'exception.
 - **Routes into the member's médiathèque** (there is no separate "request
   document" store): `identity_photo`/`id_card` → root "Identité" folder
   (season-independent); `medical_certificate`/`attestation` → the licence's

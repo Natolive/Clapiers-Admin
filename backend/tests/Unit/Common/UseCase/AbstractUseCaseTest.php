@@ -120,15 +120,24 @@ class AbstractUseCaseTest extends TestCase
         $this->assertSame('Unknown Error', json_decode($response->getContent(), true)['message']);
     }
 
-    public function testBusinessExceptionIsNotLogged(): void
+    public function testBusinessExceptionIsLoggedAsAWarning(): void
     {
+        $command = new class implements CommandInterface {};
         $useCase = $this->useCaseThrowing(new UseCaseException('Introuvable', Response::HTTP_NOT_FOUND));
 
         $logger = $this->createMock(LoggerInterface::class);
-        $logger->expects($this->never())->method($this->anything());
+        $logger->expects($this->never())->method('error');
+        $logger->expects($this->once())
+            ->method('warning')
+            ->with('Use case refused', $this->callback(
+                fn (array $context) => $context['reason'] === 'Introuvable'
+                    && $context['status'] === Response::HTTP_NOT_FOUND
+                    && $context['command'] === $command::class
+                    && $context['useCase'] === $useCase::class,
+            ));
         $useCase->setLogger($logger);
 
-        $this->assertSame(Response::HTTP_NOT_FOUND, $useCase->execute()->getStatusCode());
+        $this->assertSame(Response::HTTP_NOT_FOUND, $useCase->execute($command)->getStatusCode());
     }
 
     private function useCaseReturning(mixed $result): AbstractUseCase

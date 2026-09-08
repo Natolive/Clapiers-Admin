@@ -54,16 +54,18 @@ abstract class AbstractUseCase
 
             return new JsonResponse($data);
         } catch (UseCaseException $e) {
+            $this->logger?->warning('Use case refused', [
+                'useCase' => static::class,
+                'command' => $command !== null ? $command::class : null,
+                'status' => $e->getCode() ?: Response::HTTP_BAD_REQUEST,
+                'reason' => $e->getMessage(),
+            ]);
+
             return new JsonResponse(
                 ['message' => $e->getMessage() ?? 'Use Case Error'],
                 $e->getCode() ?? Response::HTTP_BAD_REQUEST
             );
         } catch (\Throwable $e) {
-            // Seul endroit où cette exception est visible : `execute()` l'avale,
-            // donc le listener d'exception du kernel — qui journalise
-            // d'habitude — ne la voit jamais. Sans cette ligne une 500 ne
-            // laisse aucune trace (ni stderr, ni table `log`) et le client ne
-            // reçoit qu'« Unknown Error ».
             $this->logger?->error('Use case failure', [
                 'useCase' => static::class,
                 'command' => $command !== null ? $command::class : null,
