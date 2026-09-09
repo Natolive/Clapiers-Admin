@@ -77,8 +77,21 @@ class MemberMediaStorage
      */
     public function store(UploadedFile $file, int $memberId): array
     {
+        return $this->storeIn((string) $memberId, $file);
+    }
+
+    /**
+     * Même chose dans un dossier quelconque de la zone : le dossier d'un membre
+     * n'est qu'un préfixe parmi d'autres. Sert au brouillon d'inscription, qui
+     * reçoit ses pièces sous `drafts/<token>/` avant que le membre existe
+     * ({@see \App\Entity\InscriptionDraft}).
+     *
+     * @return FileMeta
+     */
+    public function storeIn(string $prefix, UploadedFile $file): array
+    {
         $extension = $file->guessExtension() ?? $file->getClientOriginalExtension();
-        $storedName = $memberId.'/'.Uuid::v4()->toRfc4122().($extension !== '' ? '.'.$extension : '');
+        $storedName = trim($prefix, '/').'/'.Uuid::v4()->toRfc4122().($extension !== '' ? '.'.$extension : '');
 
         $size = $file->getSize();
         $meta = [

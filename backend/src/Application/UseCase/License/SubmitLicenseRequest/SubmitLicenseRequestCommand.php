@@ -45,8 +45,17 @@ class SubmitLicenseRequestCommand implements CommandInterface
         #[Assert\Choice(callback: [MemberNationality::class, 'values'])]
         public readonly string $nationality,
 
-        #[Assert\NotBlank]
-        public readonly string $recaptchaToken,
+        /**
+         * Token du brouillon ({@see \App\Entity\InscriptionDraft}) : il porte
+         * les pièces déjà déposées, rattachées au membre à la validation. Le
+         * captcha ayant été vérifié à son ouverture, sa présence dispense de
+         * `recaptchaToken`.
+         */
+        #[Assert\Length(max: 64)]
+        public readonly ?string $draftToken = null,
+
+        /** Exigé seulement en l'absence de brouillon (appel direct, ancien formulaire). */
+        public readonly ?string $recaptchaToken = null,
 
         #[Assert\Length(max: 50)]
         public readonly ?string $licenseNumber = null,

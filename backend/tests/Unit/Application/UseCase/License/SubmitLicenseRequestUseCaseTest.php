@@ -6,9 +6,12 @@ use App\Application\UseCase\License\SubmitLicenseRequest\SubmitLicenseRequestCom
 use App\Application\UseCase\License\SubmitLicenseRequest\SubmitLicenseRequestUseCase;
 use App\Common\Exception\UseCaseException;
 use App\Common\Service\InscriptionsStatusProvider;
+use App\Common\Service\MemberMediaSlots;
+use App\Common\Service\MemberMediaStorage;
 use App\Common\Service\RecaptchaVerifier;
 use App\Common\Service\SeasonProvider;
 use App\Common\Service\SeasonResolver;
+use App\Repository\InscriptionDraftRepository;
 use App\Repository\SeasonRepository;
 use App\Repository\SettingRepository;
 use App\Entity\Enum\MemberGender;
@@ -56,7 +59,15 @@ class SubmitLicenseRequestUseCaseTest extends TestCase
         $inscriptions = $this->createStub(InscriptionsStatusProvider::class);
         $inscriptions->method('isFormOpen')->willReturn(true);
 
-        return new SubmitLicenseRequestUseCase($entityManager, $verifier, $seasonProvider, $inscriptions);
+        return new SubmitLicenseRequestUseCase(
+            $entityManager,
+            $verifier,
+            $seasonProvider,
+            $inscriptions,
+            $this->createStub(InscriptionDraftRepository::class),
+            $this->createStub(MemberMediaSlots::class),
+            $this->createStub(MemberMediaStorage::class),
+        );
     }
 
     private function command(string $birthDate = '2000-05-01'): SubmitLicenseRequestCommand
