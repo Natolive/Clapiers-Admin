@@ -5,19 +5,33 @@ namespace App\Application\UseCase\License\SubmitLicenseRequest;
 use App\Common\Command\CommandInterface;
 use App\Common\Exception\UseCaseException;
 use App\Common\Service\InscriptionsStatusProvider;
+use App\Common\Service\MemberMediaSlots;
+use App\Common\Service\MemberMediaStorage;
 use App\Common\Service\RecaptchaVerifier;
 use App\Common\Service\SeasonProvider;
 use App\Common\UseCase\AbstractUseCase;
 use App\Entity\Enum\LicenseStatus;
 use App\Entity\Enum\MemberStatus;
+use App\Entity\InscriptionDraft;
 use App\Entity\License;
 use App\Entity\Member;
 use App\Entity\ValueObject\Address;
 use App\Entity\ValueObject\LegalRepresentative;
+use App\Repository\InscriptionDraftRepository;
 use Doctrine\ORM\EntityManagerInterface;
+use Psr\Log\LoggerInterface;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
+ * Création de la demande de licence publique.
+ *
+ * Les pièces ne sont plus envoyées après coup : elles sont déjà sur le serveur,
+ * portées par le brouillon ({@see InscriptionDraft}), et ce use case les
+ * rattache aux slots médiathèque du membre dans la même requête. C'est ce qui
+ * garantit qu'une demande ne peut plus naître sans ses pièces — l'ancienne
+ * rafale d'uploads post-validation en laissait derrière elle dès qu'un envoi
+ * échouait.
+ *
  * @extends AbstractUseCase<SubmitLicenseRequestCommand>
  */
 class SubmitLicenseRequestUseCase extends AbstractUseCase
@@ -27,6 +41,10 @@ class SubmitLicenseRequestUseCase extends AbstractUseCase
         private readonly RecaptchaVerifier $recaptchaVerifier,
         private readonly SeasonProvider $seasonProvider,
         private readonly InscriptionsStatusProvider $inscriptionsStatus,
+        private readonly InscriptionDraftRepository $drafts,
+        private readonly MemberMediaSlots $slots,
+        private readonly MemberMediaStorage $storage,
+        private readonly LoggerInterface $logger,
     ) {
     }
 
@@ -43,7 +61,14 @@ class SubmitLicenseRequestUseCase extends AbstractUseCase
             );
         }
 
-        if (!$this->recaptchaVerifier->verify($command->recaptchaToken)) {
+        // Résolu avant toute création : un token de brouillon inconnu ne doit
+        // pas laisser derrière lui un membre et une licence orphelins.
+        $draft = $this->resolveDraft($command->draftToken);
+
+        // Le captcha a déjà été vérifié à l'ouverture du brouillon, et son
+        // token — secret, unique — en tient lieu ici. Sans brouillon (appel
+        // direct), il reste exigé.
+        if ($draft === null && !$this->recaptchaVerifier->verify((string) $command->recaptchaToken)) {
             throw new UseCaseException('Veuillez valider le captcha.');
         }
 
@@ -73,11 +98,86 @@ class SubmitLicenseRequestUseCase extends AbstractUseCase
         $license->setHealthDeclaration($command->healthDeclaration);
         $license->setAccessToken(bin2hex(random_bytes(32)));
 
-        $this->entityManager->persist($member);
-        $this->entityManager->persist($license);
-        $this->entityManager->flush();
+        // Tout ou rien. Le rattachement peut échouer (502 de la zone, slot
+        // introuvable) et il se produit APRÈS la création : sans transaction, le
+        // membre et la licence resteraient en base, la personne verrait une
+        // erreur, et son nouvel essai créerait un doublon — en laissant la
+        // première demande avec des pièces à moitié rattachées.
+        $obsolete = $this->entityManager->wrapInTransaction(function () use ($member, $license, $draft): array {
+            $this->entityManager->persist($member);
+            $this->entityManager->persist($license);
+            $this->entityManager->flush();
+
+            return $draft !== null ? $this->attachDraftDocuments($draft, $member, $license) : [];
+        });
+
+        // Une fois commité seulement : les objets du brouillon ne sont plus
+        // référencés. Un échec de ménage ne doit pas transformer une demande
+        // enregistrée en erreur — la personne n'aurait aucun moyen de la
+        // rejouer, le brouillon ayant disparu.
+        foreach ($obsolete as $storedName) {
+            $this->storage->deleteQuietly($storedName);
+        }
 
         return $license;
+    }
+
+    private function resolveDraft(?string $token): ?InscriptionDraft
+    {
+        if ($token === null || $token === '') {
+            return null;
+        }
+
+        $draft = $this->drafts->findOneByToken($token);
+        if (!$draft) {
+            throw new UseCaseException('Brouillon introuvable', Response::HTTP_NOT_FOUND);
+        }
+
+        return $draft;
+    }
+
+    /**
+     * Recopie les pièces du brouillon dans la médiathèque du membre et supprime
+     * le brouillon. Renvoie les objets du brouillon à effacer — l'appelant s'en
+     * charge après le commit : `copyTo()` laisse l'original en place, et rien ne
+     * doit disparaître de la zone avant que les nouveaux noms soient commités.
+     *
+     * @return string[]
+     */
+    private function attachDraftDocuments(InscriptionDraft $draft, Member $member, License $license): array
+    {
+        $sources = [];
+        foreach ($draft->getDocuments() as $systemKey => $meta) {
+            $slot = $this->slots->resolve($member, $license->getSeason(), $systemKey);
+            $storedName = $this->storage->copyTo($meta['storedName'], (int) $member->getId());
+            $sources[] = $meta['storedName'];
+
+            // `copyTo()` renvoie le nom source inchangé quand l'objet a disparu
+            // de la zone. Le rattacher donnerait un slot qui prétend porter un
+            // fichier, sous un chemin de brouillon qu'on s'apprête à effacer :
+            // mieux vaut une pièce manquante, visible côté admin, qu'un
+            // téléchargement en 404 sans explication.
+            if ($storedName === $meta['storedName']) {
+                $this->logger->warning('Pièce de brouillon introuvable au rattachement', [
+                    'systemKey' => $systemKey,
+                    'storedName' => $meta['storedName'],
+                    'member' => $member->getId(),
+                ]);
+                continue;
+            }
+
+            $slot->setFile($storedName, $meta['originalName'], $meta['mimeType'] ?? null, $meta['size'] ?? null);
+
+            // Marqueur sur la licence pour le badge « certificat déposé » côté admin.
+            if ($systemKey === 'medical_certificate') {
+                $license->setMedicalCertificateFileName($storedName);
+            }
+        }
+
+        $this->entityManager->remove($draft);
+        $this->entityManager->flush();
+
+        return $sources;
     }
 
     private function parseBirthDate(string $birthDate): \DateTimeImmutable

@@ -56,6 +56,12 @@
           </li>
         </ol>
 
+        <Message v-if="resumed" severity="info" :closable="false" class="form-error">
+          Nous avons retrouvé votre inscription en cours<template v-if="receivedDocs.length">
+            (pièces déjà reçues&nbsp;: {{ joinedDocLabels }})</template>.
+          <a href="#" class="restart-link" @click.prevent="restart">Repartir de zéro</a>
+        </Message>
+
         <Message v-if="stepError" severity="error" :closable="false" class="form-error">{{ stepError }}</Message>
 
         <!-- Étape : identité -->
@@ -128,6 +134,13 @@
             <label for="licenseNumber">N° de licence <span class="optional">(si renouvellement)</span></label>
             <InputText id="licenseNumber" name="licenseNumber" fluid />
           </div>
+
+          <!--
+            Le captcha est ici, et non au récapitulatif : c'est en quittant
+            cette étape que le brouillon s'ouvre, et c'est lui qui autorise
+            ensuite le dépôt des pièces.
+          -->
+          <CommonRecaptcha v-if="!draftToken" ref="recaptcha" v-model="recaptchaToken" class="form-group" />
         </section>
 
         <!-- Étape : représentant légal (mineur) -->
@@ -181,16 +194,29 @@
         <!-- Étape : documents -->
         <section v-show="currentStep === 'documents'" class="fields">
           <h3 class="form-title">Pièces à joindre</h3>
-          <p class="form-hint">PDF, PNG ou JPG, 5 Mo max par fichier.</p>
+          <p class="form-hint">
+            PDF, PNG ou JPG, 5 Mo max par fichier. Chaque pièce est envoyée au
+            club dès que vous la choisissez&nbsp;: vous pouvez fermer la page et
+            revenir plus tard, rien n'est perdu.
+          </p>
           <ul class="doc-list">
             <li v-for="doc in docItems" :key="doc.key" class="doc-item">
               <div class="doc-head">
-                <i class="pi" :class="files[doc.key] ? 'pi-check-circle done' : 'pi-circle todo'"></i>
+                <i class="pi" :class="docs[doc.key].status === 'done' ? 'pi-check-circle done' : 'pi-circle todo'"></i>
                 <span class="doc-name">{{ doc.label }}</span>
                 <span v-if="doc.required" class="req">*</span>
                 <span v-else class="optional">facultatif</span>
               </div>
-              <FileDropField v-model="files[doc.key]" :accept="doc.accept" :max-size="MAX_FILE_SIZE" />
+              <FileDropField
+                :accept="doc.accept"
+                :max-size="MAX_FILE_SIZE"
+                :file-name="docs[doc.key].name"
+                :file-size="docs[doc.key].size"
+                :status="docs[doc.key].status"
+                :message="docs[doc.key].message"
+                @select="(file) => onDocSelect(doc.key, file)"
+                @clear="onDocClear(doc.key)"
+              />
             </li>
           </ul>
         </section>
@@ -204,9 +230,8 @@
             <li>Né(e) le {{ formatDate($form.birthDate?.value) }}{{ isMinor ? ' (mineur)' : '' }}</li>
             <li v-if="isMinor">Représentant : {{ $form.legalRepFirstName?.value }} {{ $form.legalRepLastName?.value }}</li>
             <li>Attestation santé : {{ $form.healthDeclaration?.value ? 'aucune contre-indication' : 'certificat joint' }}</li>
-            <li>Documents : {{ joinedDocLabels }}</li>
+              <li>Documents reçus : {{ joinedDocLabels }}</li>
           </ul>
-          <CommonRecaptcha ref="recaptcha" v-model="recaptchaToken" class="form-group" />
         </section>
 
         <!-- Documents officiels FSGT à télécharger -->
@@ -366,11 +391,13 @@ const stepError = ref('')
 const done = ref(false)
 const recaptchaToken = ref('')
 const recaptcha = ref<{ reset: () => void } | null>(null)
-// Reprise après échec : la demande n'est créée qu'une fois, et on ne renvoie
-// que les pièces qui n'ont pas encore été acceptées — sinon chaque nouvel essai
-// créerait un doublon de membre et de licence côté serveur.
-let submittedToken = ''
-const uploadedFiles = new Map<LicenseDocumentKey, File>()
+// Brouillon : ouvert en sortie de la 1re étape (c'est là que le captcha est
+// validé), il porte les champs saisis et les pièces déjà déposées. Son token
+// vit en localStorage, ce qui permet de reprendre l'inscription après une
+// déconnexion ou dans un autre onglet.
+const DRAFT_KEY = 'inscription-draft-token'
+const draftToken = ref('')
+const resumed = ref(false)
 
 const fieldValue = (name: string) => form.value?.states?.[name]?.value
 const isMinor = computed(() => isMinorFromDate(fieldValue('birthDate')))
@@ -430,16 +457,141 @@ const docItems = computed<{ key: LicenseDocumentKey; label: string; accept: stri
   { key: 'attestation', label: "Attestation sur l'honneur", accept: PDF_IMG, required: !certRequired.value },
 ])
 
-const files = ref<Record<LicenseDocumentKey, File | null>>({
-  identity_photo: null, id_card: null, medical_certificate: null, attestation: null,
+/** État d'une pièce vis-à-vis du serveur : c'est lui qui pilote l'affichage. */
+interface DocState {
+  status: 'idle' | 'uploading' | 'done' | 'error'
+  message: string
+  name: string
+  size: number | null
+}
+function blankDoc(): DocState {
+  return { status: 'idle', message: '', name: '', size: null }
+}
+const docs = ref<Record<LicenseDocumentKey, DocState>>({
+  identity_photo: blankDoc(), id_card: blankDoc(), medical_certificate: blankDoc(), attestation: blankDoc(),
 })
 const docLabels: Record<LicenseDocumentKey, string> = {
   identity_photo: 'photo', id_card: "pièce d'identité", medical_certificate: 'certificat', attestation: 'attestation',
 }
+const receivedDocs = computed(() =>
+  (Object.keys(docs.value) as LicenseDocumentKey[]).filter((k) => docs.value[k].status === 'done'),
+)
 const joinedDocLabels = computed(() => {
-  const present = (Object.keys(files.value) as LicenseDocumentKey[]).filter((k) => files.value[k]).map((k) => docLabels[k])
-  return present.length ? present.join(', ') : 'aucun'
+  const received = receivedDocs.value.map((k) => docLabels[k])
+  return received.length ? received.join(', ') : 'aucun'
 })
+
+/**
+ * Ouvre le brouillon si besoin. Renvoie une chaîne vide quand le captcha
+ * manque — le message est déjà affiché, l'appelant n'a plus qu'à s'arrêter.
+ */
+const ensureDraft = async (): Promise<string> => {
+  if (draftToken.value) return draftToken.value
+  if (recaptchaEnabled && !recaptchaToken.value) {
+    stepError.value = 'Veuillez valider le captcha.'
+    return ''
+  }
+
+  const draft = await licenseRepo.createDraft(recaptchaToken.value)
+  draftToken.value = draft.token
+  localStorage.setItem(DRAFT_KEY, draft.token)
+
+  return draft.token
+}
+
+/**
+ * Envoi immédiat de la pièce choisie. C'est le seul appel lourd du formulaire,
+ * et il est isolé : un refus (413 de l'ingress, mimetype, taille) s'affiche sur
+ * la ligne concernée, à l'instant où la personne peut encore la remplacer.
+ */
+const onDocSelect = async (key: LicenseDocumentKey, file: File) => {
+  docs.value[key] = { status: 'uploading', message: '', name: file.name, size: file.size }
+
+  try {
+    const token = await ensureDraft()
+    if (!token) {
+      docs.value[key] = blankDoc()
+      return
+    }
+    await licenseRepo.uploadDraftDocument(token, key, file)
+    // Le brouillon a pu changer entre-temps (« repartir de zéro ») : afficher
+    // « reçu » pour un brouillon qui n'existe plus ferait passer le contrôle
+    // des pièces requises, et la demande partirait sans elles.
+    if (draftToken.value !== token) return
+    docs.value[key] = { status: 'done', message: '', name: file.name, size: file.size }
+  } catch (err: any) {
+    docs.value[key] = { status: 'error', message: apiErrorMessage(err), name: file.name, size: file.size }
+  }
+}
+
+const onDocClear = async (key: LicenseDocumentKey) => {
+  const previous = docs.value[key]
+  docs.value[key] = blankDoc()
+  // Y compris quand l'écran affiche « non reçu » : un envoi coupé après
+  // l'enregistrement laisse la pièce sur le brouillon. Sans cet appel, elle
+  // serait rattachée à la demande alors que la personne l'a retirée.
+  if (!draftToken.value || previous.status === 'idle') return
+
+  try {
+    await licenseRepo.deleteDraftDocument(draftToken.value, key)
+  } catch (err: any) {
+    // Le serveur l'a toujours : la remettre à l'écran, sinon elle serait
+    // rattachée à la demande alors que la personne l'a retirée.
+    docs.value[key] = { ...previous, status: 'error', message: apiErrorMessage(err) }
+  }
+}
+
+/**
+ * Sauvegarde silencieuse des champs saisis, à chaque changement d'étape : la
+ * reprise est un confort, son échec ne doit pas interrompre la saisie.
+ */
+const saveDraft = () => {
+  if (!draftToken.value) return
+
+  const values: Record<string, any> = {}
+  for (const [name, state] of Object.entries<any>(form.value?.states ?? {})) {
+    values[name] = state?.value
+  }
+  licenseRepo.saveDraft(draftToken.value, values).catch(() => {})
+}
+
+/** Reprise au chargement : formulaire prérempli et pièces déjà reçues. */
+onMounted(async () => {
+  const token = localStorage.getItem(DRAFT_KEY)
+  if (!token) return
+
+  try {
+    const draft = await licenseRepo.getDraft(token)
+    draftToken.value = token
+    form.value?.setValues({ ...initialValues, ...draft.payload })
+    for (const [key, doc] of Object.entries(draft.documents)) {
+      docs.value[key as LicenseDocumentKey] = {
+        status: 'done', message: '', name: doc!.originalName, size: doc!.size,
+      }
+    }
+    resumed.value = true
+  } catch {
+    // Brouillon expiré, purgé ou abandonné côté serveur : on repart à neuf,
+    // sans en parler à la personne.
+    localStorage.removeItem(DRAFT_KEY)
+  }
+})
+
+const restart = () => {
+  const token = draftToken.value
+  draftToken.value = ''
+  resumed.value = false
+  stepError.value = ''
+  stepIndex.value = 0
+  docs.value = {
+    identity_photo: blankDoc(), id_card: blankDoc(), medical_certificate: blankDoc(), attestation: blankDoc(),
+  }
+  localStorage.removeItem(DRAFT_KEY)
+  form.value?.reset()
+  recaptcha.value?.reset()
+  // Ménage au mieux : un brouillon oublié est purgé au bout de 30 jours.
+  if (token) licenseRepo.deleteDraft(token).catch(() => {})
+}
 
 const stepDocs = computed<{ label: string; url: string }[]>(() => {
   const age = isMinor.value ? 'mineur' : 'majeur'
@@ -461,19 +613,38 @@ const next = async () => {
     stepError.value = form.value?.states?.[invalid]?.error?.message || 'Veuillez corriger les champs en rouge.'
     return
   }
-  if (currentStep.value === 'documents') {
-    const missing = docItems.value.find((d) => d.required && !files.value[d.key])
-    if (missing) {
-      stepError.value = `Le document « ${missing.label} » est requis.`
+
+  // Le brouillon est ouvert dès la 1re étape franchie : les pièces de l'étape
+  // « documents » ont besoin de son token pour partir aussitôt.
+  if (currentStep.value === 'identity') {
+    stepError.value = ''
+    try {
+      if (!await ensureDraft()) return
+    } catch (err: any) {
+      stepError.value = apiErrorMessage(err)
+      recaptcha.value?.reset()
       return
     }
   }
+
+  if (currentStep.value === 'documents') {
+    const missing = docItems.value.find((d) => d.required && docs.value[d.key].status !== 'done')
+    if (missing) {
+      stepError.value = docs.value[missing.key].status === 'error'
+        ? `La pièce « ${missing.label} » n'a pas été reçue : remplacez-la avant de continuer.`
+        : `Le document « ${missing.label} » est requis.`
+      return
+    }
+  }
+
   stepError.value = ''
   stepIndex.value = Math.min(stepIndex.value + 1, steps.value.length - 1)
+  saveDraft()
 }
 const prev = () => {
   stepError.value = ''
   stepIndex.value = Math.max(stepIndex.value - 1, 0)
+  saveDraft()
 }
 
 const onSubmit = async (e: FormSubmitEvent) => {
@@ -481,15 +652,9 @@ const onSubmit = async (e: FormSubmitEvent) => {
     stepError.value = 'Veuillez vérifier les informations saisies.'
     return
   }
-  const missing = docItems.value.find((d) => d.required && !files.value[d.key])
+  const missing = docItems.value.find((d) => d.required && docs.value[d.key].status !== 'done')
   if (missing) {
-    stepError.value = `Le document « ${missing.label} » est requis.`
-    return
-  }
-  // Le captcha ne protège que la création de la demande : inutile de le
-  // redemander pour un nouvel essai d'envoi des pièces.
-  if (recaptchaEnabled && !submittedToken && !recaptchaToken.value) {
-    stepError.value = 'Veuillez valider le captcha.'
+    stepError.value = `La pièce « ${missing.label} » n'a pas été reçue.`
     return
   }
 
@@ -497,7 +662,12 @@ const onSubmit = async (e: FormSubmitEvent) => {
   stepError.value = ''
   const v = e.values as Record<string, any>
   try {
-    submittedToken ||= (await licenseRepo.submitRequest({
+    // Les pièces sont déjà sur le serveur : la validation ne fait plus que
+    // créer la demande et les rattacher. Plus de rafale d'uploads à ce
+    // moment-là, donc plus de demande amputée si l'une échoue. Pas de captcha
+    // non plus : il a été validé à l'ouverture du brouillon.
+    await licenseRepo.submitRequest({
+      draftToken: draftToken.value,
       firstName: v.firstName,
       lastName: v.lastName,
       phoneNumber: v.phoneNumber,
@@ -509,41 +679,21 @@ const onSubmit = async (e: FormSubmitEvent) => {
       birthDate: v.birthDate,
       nationality: v.nationality,
       licenseNumber: v.licenseNumber || null,
-      recaptchaToken: recaptchaToken.value,
       healthDeclaration: v.healthDeclaration,
       legalRepFirstName: isMinor.value ? v.legalRepFirstName : null,
       legalRepLastName: isMinor.value ? v.legalRepLastName : null,
       legalRepEmail: isMinor.value ? v.legalRepEmail : null,
       legalRepPhone: isMinor.value ? v.legalRepPhone : null,
-    })).accessToken as string
+    })
+
+    draftToken.value = ''
+    localStorage.removeItem(DRAFT_KEY)
+    done.value = true
   } catch (err: any) {
     stepError.value = apiErrorMessage(err)
-    recaptcha.value?.reset()
+  } finally {
     sending.value = false
-    return
   }
-
-  const failed: { label: string; err: any }[] = []
-  for (const key of Object.keys(files.value) as LicenseDocumentKey[]) {
-    const file = files.value[key]
-    if (!file || uploadedFiles.get(key) === file) continue
-    try {
-      await licenseRepo.uploadDocument(submittedToken, key, file)
-      uploadedFiles.set(key, file)
-    } catch (err: any) {
-      failed.push({ label: docItems.value.find((d) => d.key === key)?.label ?? key, err })
-    }
-  }
-  sending.value = false
-
-  if (failed.length) {
-    stepError.value = `Pièce${failed.length > 1 ? 's' : ''} refusée${failed.length > 1 ? 's' : ''} : `
-      + `${failed.map((f) => f.label).join(', ')} — ${apiErrorMessage(failed[0]!.err)} `
-      + 'Vos informations sont enregistrées : remplacez cette pièce et renvoyez le formulaire.'
-    return
-  }
-
-  done.value = true
 }
 </script>
 
@@ -672,6 +822,12 @@ const onSubmit = async (e: FormSubmitEvent) => {
 .form-group .optional {
   color: #9ca3af;
   font-weight: 400;
+}
+
+.restart-link {
+  font-weight: 600;
+  text-decoration: underline;
+  white-space: nowrap;
 }
 
 .field-error {

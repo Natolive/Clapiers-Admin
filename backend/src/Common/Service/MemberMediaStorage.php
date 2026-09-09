@@ -77,8 +77,21 @@ class MemberMediaStorage
      */
     public function store(UploadedFile $file, int $memberId): array
     {
+        return $this->storeIn((string) $memberId, $file);
+    }
+
+    /**
+     * Même chose dans un dossier quelconque de la zone : le dossier d'un membre
+     * n'est qu'un préfixe parmi d'autres. Sert au brouillon d'inscription, qui
+     * reçoit ses pièces sous `drafts/<token>/` avant que le membre existe
+     * ({@see \App\Entity\InscriptionDraft}).
+     *
+     * @return FileMeta
+     */
+    public function storeIn(string $prefix, UploadedFile $file): array
+    {
         $extension = $file->guessExtension() ?? $file->getClientOriginalExtension();
-        $storedName = $memberId.'/'.Uuid::v4()->toRfc4122().($extension !== '' ? '.'.$extension : '');
+        $storedName = trim($prefix, '/').'/'.Uuid::v4()->toRfc4122().($extension !== '' ? '.'.$extension : '');
 
         $size = $file->getSize();
         $meta = [
@@ -175,6 +188,24 @@ class MemberMediaStorage
         $this->bunny('PUT', $target, ['body' => $source->getContent()]);
 
         return $target;
+    }
+
+    /**
+     * Suppression de ménage, après le commit : la base ne pointe plus sur
+     * l'objet, donc un échec de la zone ne doit surtout pas faire échouer la
+     * requête — au pire il reste un orphelin. `bunny()` a déjà journalisé
+     * l'erreur, il n'y a rien à ajouter ici.
+     *
+     * À utiliser partout où l'on efface un fichier *remplacé* ou *détaché* ;
+     * `delete()` reste pour les cas où l'appelant veut connaître l'échec.
+     */
+    public function deleteQuietly(?string $storedName): void
+    {
+        try {
+            $this->delete($storedName);
+        } catch (UseCaseException) {
+            // Orphelin toléré : mieux qu'une 502 sur une opération réussie.
+        }
     }
 
     public function delete(?string $storedName): void

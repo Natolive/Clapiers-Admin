@@ -4,17 +4,19 @@
       class="file-drop"
       :class="{
         'file-drop--active': isDragging,
-        'file-drop--filled': !!modelValue,
-        'file-drop--error': !!error,
+        'file-drop--filled': !!fileName,
+        'file-drop--busy': status === 'uploading',
+        'file-drop--error': !!shownMessage && status !== 'done',
+        'file-drop--done': status === 'done',
       }"
       role="button"
       tabindex="0"
       @dragover.prevent="isDragging = true"
       @dragleave.prevent="isDragging = false"
       @drop.prevent="onDrop"
-      @click="inputRef?.click()"
-      @keydown.enter.prevent="inputRef?.click()"
-      @keydown.space.prevent="inputRef?.click()"
+      @click="pick"
+      @keydown.enter.prevent="pick"
+      @keydown.space.prevent="pick"
     >
       <input
         ref="inputRef"
@@ -24,11 +26,11 @@
         @change="onChange"
       />
 
-      <template v-if="modelValue">
-        <i class="pi pi-file file-drop__icon file-drop__icon--filled" />
+      <template v-if="fileName">
+        <i class="file-drop__icon" :class="stateIcon" />
         <div class="file-drop__meta">
-          <span class="file-drop__name">{{ modelValue.name }}</span>
-          <span class="file-drop__size">{{ formatSize(modelValue.size) }}</span>
+          <span class="file-drop__name">{{ fileName }}</span>
+          <span class="file-drop__size">{{ stateLabel }}</span>
         </div>
         <Button
           icon="pi pi-times"
@@ -36,8 +38,9 @@
           text
           rounded
           size="small"
+          :disabled="status === 'uploading'"
           v-tooltip.top="'Retirer'"
-          @click.stop="clear"
+          @click.stop="emit('clear')"
         />
       </template>
       <template v-else>
@@ -48,26 +51,56 @@
       </template>
     </div>
 
-    <small v-if="error" class="file-drop__error">{{ error }}</small>
+    <small v-if="shownMessage" class="file-drop__message" :class="{ 'file-drop__message--error': status !== 'done' }">
+      {{ shownMessage }}
+    </small>
   </div>
 </template>
 
 <script setup lang="ts">
+/**
+ * Champ de dépôt d'une pièce. Il n'a pas de `v-model` : le fichier est envoyé
+ * au serveur dès qu'il est choisi, et c'est l'appelant qui porte l'état de cet
+ * envoi (`status`/`message`). Un `File` local ne suffirait pas de toute façon
+ * pour une pièce reprise d'un brouillon — on n'en a plus que le nom.
+ */
 const props = withDefaults(defineProps<{
-  modelValue: File | null
   accept?: string
   maxSize?: number
-}>(), { accept: '', maxSize: 5 * 1024 * 1024 })
+  /** Nom de la pièce attachée, fraîchement choisie ou déjà reçue par le serveur. */
+  fileName?: string
+  fileSize?: number | null
+  status?: 'idle' | 'uploading' | 'done' | 'error'
+  /** Message venant du serveur (refus, panne). Le contrôle local a le sien. */
+  message?: string
+}>(), { accept: '', maxSize: 5 * 1024 * 1024, fileName: '', fileSize: null, status: 'idle', message: '' })
 
-const emit = defineEmits<{ 'update:modelValue': [value: File | null] }>()
+const emit = defineEmits<{ select: [file: File]; clear: [] }>()
 
 const inputRef = ref<HTMLInputElement | null>(null)
 const isDragging = ref(false)
-const error = ref('')
+const localError = ref('')
 
 const acceptList = computed(() =>
   props.accept.split(',').map((s) => s.trim()).filter(Boolean),
 )
+
+const shownMessage = computed(() => localError.value || props.message)
+
+const stateIcon = computed(() => ({
+  uploading: 'pi pi-spinner pi-spin file-drop__icon--filled',
+  done: 'pi pi-check-circle file-drop__icon--done',
+  error: 'pi pi-exclamation-circle file-drop__icon--error',
+  idle: 'pi pi-file file-drop__icon--filled',
+}[props.status]))
+
+const stateLabel = computed(() => {
+  if (props.status === 'uploading') return 'Envoi en cours…'
+  if (props.status === 'error') return 'Non reçu'
+  const size = props.fileSize ? ` · ${formatSize(props.fileSize)}` : ''
+
+  return props.status === 'done' ? `Reçu par le club${size}` : formatSize(props.fileSize ?? 0)
+})
 
 const formatSize = (bytes: number) => {
   if (bytes < 1024) return `${bytes} o`
@@ -89,21 +122,23 @@ const isAccepted = (file: File) => {
   )
 }
 
+const pick = () => {
+  if (props.status === 'uploading') return
+  inputRef.value?.click()
+}
+
 const setFile = (file: File | null) => {
-  error.value = ''
-  if (!file) {
-    emit('update:modelValue', null)
-    return
-  }
+  localError.value = ''
+  if (!file) return
   if (!isAccepted(file)) {
-    error.value = 'Format non accepté (PDF, PNG ou JPG).'
+    localError.value = 'Format non accepté (PDF, PNG ou JPG).'
     return
   }
   if (file.size > props.maxSize) {
-    error.value = `Fichier trop volumineux (max ${formatSize(props.maxSize)}).`
+    localError.value = `Fichier trop volumineux (max ${formatSize(props.maxSize)}).`
     return
   }
-  emit('update:modelValue', file)
+  emit('select', file)
 }
 
 const onChange = (event: Event) => {
@@ -114,13 +149,8 @@ const onChange = (event: Event) => {
 
 const onDrop = (event: DragEvent) => {
   isDragging.value = false
+  if (props.status === 'uploading') return
   setFile(event.dataTransfer?.files?.[0] ?? null)
-}
-
-const clear = () => {
-  error.value = ''
-  emit('update:modelValue', null)
-  if (inputRef.value) inputRef.value.value = ''
 }
 </script>
 
@@ -159,6 +189,14 @@ const clear = () => {
   background: var(--p-surface-0);
 }
 
+.file-drop--busy {
+  cursor: progress;
+}
+
+.file-drop--done {
+  border-color: var(--p-green-400);
+}
+
 .file-drop--error {
   border-color: var(--p-red-400);
   background: var(--p-red-50);
@@ -176,6 +214,14 @@ const clear = () => {
 
 .file-drop__icon--filled {
   color: var(--p-primary-color);
+}
+
+.file-drop__icon--done {
+  color: var(--p-green-500);
+}
+
+.file-drop__icon--error {
+  color: var(--p-red-500);
 }
 
 .file-drop__hint {
@@ -207,8 +253,12 @@ const clear = () => {
   color: var(--p-text-muted-color);
 }
 
-.file-drop__error {
-  color: var(--p-red-500);
+.file-drop__message {
   font-size: 0.8rem;
+  color: var(--p-text-muted-color);
+}
+
+.file-drop__message--error {
+  color: var(--p-red-500);
 }
 </style>
