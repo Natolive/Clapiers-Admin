@@ -514,6 +514,10 @@ const onDocSelect = async (key: LicenseDocumentKey, file: File) => {
       return
     }
     await licenseRepo.uploadDraftDocument(token, key, file)
+    // Le brouillon a pu changer entre-temps (« repartir de zéro ») : afficher
+    // « reçu » pour un brouillon qui n'existe plus ferait passer le contrôle
+    // des pièces requises, et la demande partirait sans elles.
+    if (draftToken.value !== token) return
     docs.value[key] = { status: 'done', message: '', name: file.name, size: file.size }
   } catch (err: any) {
     docs.value[key] = { status: 'error', message: apiErrorMessage(err), name: file.name, size: file.size }
@@ -523,7 +527,10 @@ const onDocSelect = async (key: LicenseDocumentKey, file: File) => {
 const onDocClear = async (key: LicenseDocumentKey) => {
   const previous = docs.value[key]
   docs.value[key] = blankDoc()
-  if (!draftToken.value || previous.status !== 'done') return
+  // Y compris quand l'écran affiche « non reçu » : un envoi coupé après
+  // l'enregistrement laisse la pièce sur le brouillon. Sans cet appel, elle
+  // serait rattachée à la demande alors que la personne l'a retirée.
+  if (!draftToken.value || previous.status === 'idle') return
 
   try {
     await licenseRepo.deleteDraftDocument(draftToken.value, key)

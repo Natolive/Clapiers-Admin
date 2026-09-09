@@ -55,7 +55,7 @@ class UploadInscriptionDraftDocumentUseCase extends AbstractUseCase
         // L'ancien fichier ne part qu'une fois le nouveau nom commité : le
         // supprimer avant laisserait le brouillon pointer sur un objet effacé
         // si le flush échouait.
-        $this->storage->delete($previous);
+        $this->storage->deleteQuietly($previous);
 
         return $draft;
     }

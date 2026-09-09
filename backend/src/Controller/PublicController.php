@@ -92,8 +92,12 @@ class PublicController extends AbstractController
         // Corps libre (le formulaire évolue) et lu à la main : `toArray()`
         // jetterait une JsonException sur un corps invalide, donc une 500. Le
         // use case borne et filtre ce qu'il accepte.
+        //
+        // `null` quand le corps est illisible, et surtout PAS un tableau vide :
+        // une requête coupée en plein vol — le scénario mobile que ce brouillon
+        // existe pour encaisser — effacerait tout ce que la personne a saisi.
         $body = json_decode((string) $request->getContent(), true);
-        $payload = \is_array($body) && \is_array($body['payload'] ?? null) ? $body['payload'] : [];
+        $payload = \is_array($body) && \is_array($body['payload'] ?? null) ? $body['payload'] : null;
 
         return $useCase->execute(new SaveInscriptionDraftCommand($token, $payload));
     }

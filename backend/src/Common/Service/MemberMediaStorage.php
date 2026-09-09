@@ -190,6 +190,24 @@ class MemberMediaStorage
         return $target;
     }
 
+    /**
+     * Suppression de ménage, après le commit : la base ne pointe plus sur
+     * l'objet, donc un échec de la zone ne doit surtout pas faire échouer la
+     * requête — au pire il reste un orphelin. `bunny()` a déjà journalisé
+     * l'erreur, il n'y a rien à ajouter ici.
+     *
+     * À utiliser partout où l'on efface un fichier *remplacé* ou *détaché* ;
+     * `delete()` reste pour les cas où l'appelant veut connaître l'échec.
+     */
+    public function deleteQuietly(?string $storedName): void
+    {
+        try {
+            $this->delete($storedName);
+        } catch (UseCaseException) {
+            // Orphelin toléré : mieux qu'une 502 sur une opération réussie.
+        }
+    }
+
     public function delete(?string $storedName): void
     {
         if ($storedName === null) {

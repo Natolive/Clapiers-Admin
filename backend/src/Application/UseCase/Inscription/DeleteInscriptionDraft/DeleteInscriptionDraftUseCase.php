@@ -44,7 +44,7 @@ class DeleteInscriptionDraftUseCase extends AbstractUseCase
         // Les objets ne partent qu'une fois la ligne supprimée : jamais de
         // brouillon pointant sur un fichier déjà effacé.
         foreach ($storedNames as $storedName) {
-            $this->storage->delete($storedName);
+            $this->storage->deleteQuietly($storedName);
         }
 
         return ['deleted' => true];

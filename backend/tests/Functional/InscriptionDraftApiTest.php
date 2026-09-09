@@ -47,11 +47,18 @@ class InscriptionDraftApiTest extends ApiTestCase
         $this->assertCount(0, $this->draftRepo()->findAll());
     }
 
-    public function testCreateWithoutACaptchaTokenIsRejected(): void
+    /**
+     * Aucune contrainte `NotBlank` sur le token : c'est `RecaptchaVerifier` qui
+     * tranche, et il accepte tout quand le secret est vide (bypass dev, actif en
+     * test). Une contrainte ici rendrait le formulaire inutilisable dès la 1re
+     * étape sur un environnement sans clé — le refus, lui, est couvert par
+     * CreateInscriptionDraftUseCaseTest.
+     */
+    public function testCreateWithoutACaptchaTokenIsAcceptedWhenTheCaptchaIsDisabled(): void
     {
         $this->postJson('/api/public/inscription-draft', []);
 
-        $this->assertJsonResponse(422);
+        $this->assertMatchesRegularExpression('/^[0-9a-f]{64}$/', $this->assertJsonResponse(200)['token']);
     }
 
     // ── Sauvegarde et reprise ───────────────────────────────────────────────
@@ -107,19 +114,40 @@ class InscriptionDraftApiTest extends ApiTestCase
         $this->assertJsonResponse(404);
     }
 
-    public function testAnInvalidJsonBodyDoesNotBreakTheSave(): void
+    /**
+     * Une requête coupée en plein vol — le scénario mobile que ce brouillon
+     * existe précisément pour encaisser — ne doit RIEN effacer. Enregistrer un
+     * tableau vide serait pire que ne rien enregistrer : au retour, la personne
+     * verrait « nous avons retrouvé votre inscription » au-dessus d'un
+     * formulaire vide.
+     */
+    public function testATruncatedJsonBodyLeavesTheSavedPayloadUntouched(): void
     {
         $token = $this->openDraft();
+        $this->putJson('/api/public/inscription-draft/'.$token, ['payload' => ['firstName' => 'Marie']]);
+        $this->assertJsonResponse(200);
 
         $this->client->request(
             'PUT',
             '/api/public/inscription-draft/'.$token,
             server: ['CONTENT_TYPE' => 'application/json', 'HTTP_ACCEPT' => 'application/json'],
-            content: '{pas du json',
+            content: '{"payload":{"firstName":"Ma',
         );
 
         $body = $this->assertJsonResponse(200);
-        $this->assertSame([], $body['payload']);
+        $this->assertSame('Marie', $body['payload']['firstName']);
+    }
+
+    /** Un `payload` explicitement vide, lui, vide bien le brouillon. */
+    public function testAnEmptyPayloadClearsTheDraft(): void
+    {
+        $token = $this->openDraft();
+        $this->putJson('/api/public/inscription-draft/'.$token, ['payload' => ['firstName' => 'Marie']]);
+        $this->assertJsonResponse(200);
+
+        $this->putJson('/api/public/inscription-draft/'.$token, ['payload' => []]);
+
+        $this->assertSame([], $this->assertJsonResponse(200)['payload']);
     }
 
     public function testGettingAnUnknownDraftIs404(): void
@@ -313,6 +341,81 @@ class InscriptionDraftApiTest extends ApiTestCase
         foreach ($draftFiles as $draftFile) {
             $this->assertFalse($this->bunny()->has($draftFile), 'Les objets du brouillon doivent être nettoyés');
         }
+    }
+
+    /**
+     * Le rattachement se produit après la création du membre et de la licence,
+     * et il peut échouer (502 de la zone). Sans transaction, la demande restait
+     * en base : la personne voyait une erreur, et son nouvel essai créait un
+     * doublon de membre et de licence — la première gardant des pièces à moitié
+     * rattachées.
+     */
+    public function testAFailedAttachmentRollsBackTheWholeSubmission(): void
+    {
+        $token = $this->openDraft();
+        $this->uploadFile('/api/public/inscription-draft/'.$token.'/document/id_card', $this->fakePdf());
+        $this->assertJsonResponse(200);
+
+        // Le 1er PUT (le dépôt) a réussi ; c'est la recopie vers le dossier du
+        // membre qui échoue.
+        FakeBunnyStorageClient::failPutsFromCall(2);
+
+        $this->postJson('/api/public/license-request', $this->validPayload(['draftToken' => $token]));
+
+        $this->assertSame(502, $this->response()->getStatusCode());
+        $this->em()->clear();
+        $this->assertCount(0, $this->em()->getRepository(License::class)->findAll(), 'Aucune demande ne doit survivre');
+        $this->assertNotNull($this->draftRepo()->findOneByToken($token), 'Le brouillon doit rester rejouable');
+    }
+
+    /**
+     * Le ménage des objets du brouillon a lieu après le commit : son échec ne
+     * doit pas transformer une demande enregistrée en erreur — la personne
+     * n'aurait aucun moyen de la rejouer, le brouillon ayant disparu.
+     */
+    public function testAFailingCleanupDoesNotFailAnAcceptedSubmission(): void
+    {
+        $token = $this->openDraft();
+        $this->uploadFile('/api/public/inscription-draft/'.$token.'/document/id_card', $this->fakePdf());
+        $this->assertJsonResponse(200);
+
+        FakeBunnyStorageClient::failDeletes();
+
+        $this->postJson('/api/public/license-request', $this->validPayload(['draftToken' => $token]));
+
+        $this->assertJsonResponse(200);
+        $this->assertNull($this->draftRepo()->findOneByToken($token));
+    }
+
+    /**
+     * Si l'objet a disparu de la zone entre le dépôt et la validation,
+     * `copyTo()` renvoie le nom source inchangé. Le rattacher donnerait un slot
+     * qui prétend porter un fichier, sous un chemin de brouillon qu'on
+     * s'apprête à effacer : mieux vaut une pièce manquante et une trace.
+     */
+    public function testAVanishedDraftFileLeavesTheSlotEmptyRatherThanBroken(): void
+    {
+        $token = $this->openDraft();
+        $this->uploadFile('/api/public/inscription-draft/'.$token.'/document/medical_certificate', $this->fakePdf());
+        $this->assertJsonResponse(200);
+
+        // L'objet n'existe plus dans la zone : le brouillon pointe dans le vide.
+        $this->em()->getConnection()->executeStatement(
+            'UPDATE inscription_draft SET documents = :docs WHERE token = :token',
+            ['docs' => json_encode(['medical_certificate' => [
+                'storedName' => 'drafts/'.$token.'/disparu.pdf',
+                'originalName' => 'certif.pdf', 'mimeType' => 'application/pdf', 'size' => 1234,
+            ]], JSON_THROW_ON_ERROR), 'token' => $token],
+        );
+
+        $this->postJson('/api/public/license-request', $this->validPayload(['draftToken' => $token]));
+
+        $body = $this->assertJsonResponse(200);
+        $license = $this->em()->getRepository(License::class)->find($body['id']);
+        $slot = $this->documentRepo()->findDefaultSlot($license->getMember(), $license->getSeason(), 'medical_certificate');
+        $this->assertNotNull($slot);
+        $this->assertFalse($slot->hasFile(), 'Un slot ne doit jamais annoncer un fichier absent');
+        $this->assertNull($license->getMedicalCertificateFileName(), 'Pas de badge « certificat déposé » sans certificat');
     }
 
     public function testSubmitWithAnUnknownDraftTokenCreatesNothing(): void

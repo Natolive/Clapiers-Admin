@@ -44,8 +44,13 @@ class SaveInscriptionDraftUseCase extends AbstractUseCase
             throw new UseCaseException('Brouillon introuvable', Response::HTTP_NOT_FOUND);
         }
 
-        $draft->setPayload($this->sanitize($command->payload));
-        $this->entityManager->flush();
+        // `null` = corps illisible, rien à enregistrer : on renvoie le brouillon
+        // tel quel plutôt que de l'écraser avec du vide. Seul un `payload`
+        // explicitement vide le vide.
+        if ($command->payload !== null) {
+            $draft->setPayload($this->sanitize($command->payload));
+            $this->entityManager->flush();
+        }
 
         return $draft;
     }

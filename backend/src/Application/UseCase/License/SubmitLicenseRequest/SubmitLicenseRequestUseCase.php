@@ -19,6 +19,7 @@ use App\Entity\ValueObject\Address;
 use App\Entity\ValueObject\LegalRepresentative;
 use App\Repository\InscriptionDraftRepository;
 use Doctrine\ORM\EntityManagerInterface;
+use Psr\Log\LoggerInterface;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -43,6 +44,7 @@ class SubmitLicenseRequestUseCase extends AbstractUseCase
         private readonly InscriptionDraftRepository $drafts,
         private readonly MemberMediaSlots $slots,
         private readonly MemberMediaStorage $storage,
+        private readonly LoggerInterface $logger,
     ) {
     }
 
@@ -96,12 +98,25 @@ class SubmitLicenseRequestUseCase extends AbstractUseCase
         $license->setHealthDeclaration($command->healthDeclaration);
         $license->setAccessToken(bin2hex(random_bytes(32)));
 
-        $this->entityManager->persist($member);
-        $this->entityManager->persist($license);
-        $this->entityManager->flush();
+        // Tout ou rien. Le rattachement peut échouer (502 de la zone, slot
+        // introuvable) et il se produit APRÈS la création : sans transaction, le
+        // membre et la licence resteraient en base, la personne verrait une
+        // erreur, et son nouvel essai créerait un doublon — en laissant la
+        // première demande avec des pièces à moitié rattachées.
+        $obsolete = $this->entityManager->wrapInTransaction(function () use ($member, $license, $draft): array {
+            $this->entityManager->persist($member);
+            $this->entityManager->persist($license);
+            $this->entityManager->flush();
 
-        if ($draft !== null) {
-            $this->attachDraftDocuments($draft, $member, $license);
+            return $draft !== null ? $this->attachDraftDocuments($draft, $member, $license) : [];
+        });
+
+        // Une fois commité seulement : les objets du brouillon ne sont plus
+        // référencés. Un échec de ménage ne doit pas transformer une demande
+        // enregistrée en erreur — la personne n'aurait aucun moyen de la
+        // rejouer, le brouillon ayant disparu.
+        foreach ($obsolete as $storedName) {
+            $this->storage->deleteQuietly($storedName);
         }
 
         return $license;
@@ -122,36 +137,47 @@ class SubmitLicenseRequestUseCase extends AbstractUseCase
     }
 
     /**
-     * Déplace les pièces du brouillon vers la médiathèque du membre, puis
-     * supprime le brouillon.
+     * Recopie les pièces du brouillon dans la médiathèque du membre et supprime
+     * le brouillon. Renvoie les objets du brouillon à effacer — l'appelant s'en
+     * charge après le commit : `copyTo()` laisse l'original en place, et rien ne
+     * doit disparaître de la zone avant que les nouveaux noms soient commités.
      *
-     * Copie puis suppression, jamais l'inverse : `copyTo()` laisse l'original en
-     * place, et les objets du brouillon ne partent qu'une fois les nouveaux noms
-     * commités — sinon un échec en cours de route laisserait la base pointer sur
-     * des fichiers déjà effacés.
+     * @return string[]
      */
-    private function attachDraftDocuments(InscriptionDraft $draft, Member $member, License $license): void
+    private function attachDraftDocuments(InscriptionDraft $draft, Member $member, License $license): array
     {
         $sources = [];
         foreach ($draft->getDocuments() as $systemKey => $meta) {
             $slot = $this->slots->resolve($member, $license->getSeason(), $systemKey);
             $storedName = $this->storage->copyTo($meta['storedName'], (int) $member->getId());
+            $sources[] = $meta['storedName'];
+
+            // `copyTo()` renvoie le nom source inchangé quand l'objet a disparu
+            // de la zone. Le rattacher donnerait un slot qui prétend porter un
+            // fichier, sous un chemin de brouillon qu'on s'apprête à effacer :
+            // mieux vaut une pièce manquante, visible côté admin, qu'un
+            // téléchargement en 404 sans explication.
+            if ($storedName === $meta['storedName']) {
+                $this->logger->warning('Pièce de brouillon introuvable au rattachement', [
+                    'systemKey' => $systemKey,
+                    'storedName' => $meta['storedName'],
+                    'member' => $member->getId(),
+                ]);
+                continue;
+            }
+
             $slot->setFile($storedName, $meta['originalName'], $meta['mimeType'] ?? null, $meta['size'] ?? null);
 
             // Marqueur sur la licence pour le badge « certificat déposé » côté admin.
             if ($systemKey === 'medical_certificate') {
                 $license->setMedicalCertificateFileName($storedName);
             }
-
-            $sources[] = $meta['storedName'];
         }
 
         $this->entityManager->remove($draft);
         $this->entityManager->flush();
 
-        foreach ($sources as $source) {
-            $this->storage->delete($source);
-        }
+        return $sources;
     }
 
     private function parseBirthDate(string $birthDate): \DateTimeImmutable

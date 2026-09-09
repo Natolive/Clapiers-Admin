@@ -45,7 +45,7 @@ class CreateInscriptionDraftUseCase extends AbstractUseCase
             );
         }
 
-        if (!$this->recaptchaVerifier->verify($command->recaptchaToken)) {
+        if (!$this->recaptchaVerifier->verify((string) $command->recaptchaToken)) {
             throw new UseCaseException('Veuillez valider le captcha.');
         }
 

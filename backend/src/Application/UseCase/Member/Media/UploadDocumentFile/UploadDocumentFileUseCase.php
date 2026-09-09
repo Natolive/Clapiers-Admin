@@ -57,7 +57,7 @@ class UploadDocumentFileUseCase extends AbstractUseCase
         // L'ancien fichier ne part qu'une fois le nouveau nom commité : le
         // supprimer avant laisserait la base pointer sur un objet déjà effacé
         // si le store (502 Bunny) ou le flush échouait.
-        $this->storage->delete($previous);
+        $this->storage->deleteQuietly($previous);
 
         return $node;
     }

@@ -17,6 +17,7 @@ use App\Repository\SettingRepository;
 use App\Entity\Enum\MemberGender;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\NullLogger;
 
 class SubmitLicenseRequestUseCaseTest extends TestCase
 {
@@ -67,6 +68,7 @@ class SubmitLicenseRequestUseCaseTest extends TestCase
             $this->createStub(InscriptionDraftRepository::class),
             $this->createStub(MemberMediaSlots::class),
             $this->createStub(MemberMediaStorage::class),
+            new NullLogger(),
         );
     }
 

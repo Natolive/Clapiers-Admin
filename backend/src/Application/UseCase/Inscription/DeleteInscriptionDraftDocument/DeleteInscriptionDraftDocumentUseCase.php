@@ -41,7 +41,7 @@ class DeleteInscriptionDraftDocumentUseCase extends AbstractUseCase
         $this->entityManager->flush();
 
         // Après le flush, toujours : la base ne pointe plus dessus.
-        $this->storage->delete($previous);
+        $this->storage->deleteQuietly($previous);
 
         return $draft;
     }

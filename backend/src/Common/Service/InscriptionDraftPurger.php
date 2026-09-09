@@ -50,7 +50,7 @@ class InscriptionDraftPurger
 
             // Après le flush : plus aucune ligne ne pointe sur ces objets.
             foreach ($storedNames as $storedName) {
-                $this->storage->delete($storedName);
+                $this->storage->deleteQuietly($storedName);
             }
 
             return \count($expired);
