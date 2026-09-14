@@ -552,6 +552,10 @@ const saveDraft = () => {
   for (const [name, state] of Object.entries<any>(form.value?.states ?? {})) {
     values[name] = state?.value
   }
+  // L'étape voyage avec les champs : à la reprise, la personne retrouve son
+  // wizard là où elle l'a laissé au lieu de re-parcourir tout depuis le début.
+  // Par nom et non par index — la liste des étapes dépend de la minorité.
+  values.step = currentStep.value
   licenseRepo.saveDraft(draftToken.value, values).catch(() => {})
 }
 
@@ -563,12 +567,17 @@ onMounted(async () => {
   try {
     const draft = await licenseRepo.getDraft(token)
     draftToken.value = token
-    form.value?.setValues({ ...initialValues, ...draft.payload })
+    const { step, ...fields } = draft.payload
+    form.value?.setValues({ ...initialValues, ...fields })
     for (const [key, doc] of Object.entries(draft.documents)) {
       docs.value[key as LicenseDocumentKey] = {
         status: 'done', message: '', name: doc!.originalName, size: doc!.size,
       }
     }
+    // Après le tick : `steps` dépend de la date de naissance qu'on vient de
+    // poser. Une étape inconnue (ancien brouillon) renvoie -1 → 1re étape.
+    await nextTick()
+    stepIndex.value = Math.max(0, steps.value.indexOf(step))
     resumed.value = true
   } catch {
     // Brouillon expiré, purgé ou abandonné côté serveur : on repart à neuf,
