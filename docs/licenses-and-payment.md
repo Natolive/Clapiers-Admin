@@ -38,13 +38,19 @@ Invariants / traps:
 
 ## Public submission
 
-- `POST /api/public/license-request` (`PublicController.php:43`, `PUBLIC_ACCESS`).
+- `POST /api/public/license-request` (`PublicController.php`, `PUBLIC_ACCESS`).
 - **Gated by the `inscriptions_form_open` setting** — closed → **403** avant
   tout le reste (`SubmitLicenseRequestUseCase`). À ne pas confondre avec
   `inscriptions_open`, purement indicatif (voir « Réglages d'inscription »).
 - **Recaptcha enforced** — but `RecaptchaVerifier` returns `true` when
   `RECAPTCHA_SECRET_KEY` is empty (dev/test bypass). Trap: an unset key in prod
   silently disables captcha.
+- **Le corps porte un `draftToken`** (voir « Brouillon d'inscription ») : les
+  pièces sont déjà sur le serveur et ce use case les rattache aux slots
+  médiathèque dans la même requête, puis supprime le brouillon. Un token
+  inconnu est un **404 avant toute création** — pas de membre orphelin.
+  Le captcha n'est **plus exigé** quand un brouillon est fourni : il a été
+  vérifié à son ouverture, et son token est un secret unique.
 - Creates **both a new `Member` and a `License`** in one shot — always a fresh
   Member even for re-registrations; de-duplication is deferred to approval (see
   merge below).
@@ -57,20 +63,54 @@ Invariants / traps:
 - Legal representative is always stored (empty strings when adult); "required if
   minor" is **frontend-only** — the backend does not validate minority.
 
-### Document upload
+### Brouillon d'inscription (où arrivent les pièces)
+
+Les pièces **ne sont plus envoyées après la soumission**. Elles sont déposées
+sur un brouillon (`InscriptionDraft`) dès que la personne les choisit, et
+rattachées au membre à la validation. C'est ce qui a supprimé la classe de bug
+« demande reçue sans ses pièces » : la rafale d'uploads d'après-coup laissait
+une demande amputée dès qu'un envoi échouait (413 de l'ingress, coupure mobile,
+onglet mis en veille), et son token ne vivait qu'en mémoire de l'onglet.
+
+- Table `inscription_draft` : `token` (64 hex, comme un `accessToken`),
+  `payload` (champs saisis, JSON), `documents` (`systemKey` → nom d'origine,
+  mimetype, taille, `storedName`), `created_at`, `updated_at`.
+- Fichiers sur Bunny sous **`drafts/<token>/`** (`MemberMediaStorage::storeIn()`).
+- Routes, toutes `PUBLIC_ACCESS` et autorisées par le seul token du brouillon
+  (`requirements` : `[0-9a-f]{64}`, un token mal formé n'est pas routé) :
+
+  | route | rôle |
+  |---|---|
+  | `POST /api/public/inscription-draft` | **captcha vérifié ici** + `isFormOpen()` → `{token}` |
+  | `PUT /api/public/inscription-draft/{token}` | enregistre `payload` (à chaque changement d'étape) |
+  | `GET /api/public/inscription-draft/{token}` | reprise : `payload` + pièces reçues, **jamais** le `storedName` |
+  | `POST …/{token}/document/{systemKey}` | dépôt d'une pièce (remplace la précédente) |
+  | `DELETE …/{token}/document/{systemKey}` | « Retirer » |
+  | `DELETE /api/public/inscription-draft/{token}` | « Repartir de zéro » |
+
+- Contraintes de fichier **identiques à l'ancienne route** : max **6Mi** (unité
+  binaire — Symfony lit `6M` comme 6 000 000 octets, or le formulaire plafonne à
+  5 MiB ; le serveur garde un cran de marge), mimetypes =
+  `MemberMediaStorage::MIME_TYPES`, et `identity_photo` doit être une image.
+- `payload` est écrit par un appel **public non authentifié** : `SaveInscription
+  DraftUseCase` n'accepte que des scalaires, 40 champs et 500 caractères au plus.
+  Il ne sert qu'à réafficher le formulaire — la validation reste portée par les
+  contraintes de `SubmitLicenseRequestCommand`, sur le corps de la soumission.
+- **Purge** : 30 jours sans activité (`updated_at`), lignes + objets Bunny,
+  appliquée au fil de l'eau à l'ouverture d'un brouillon
+  (`InscriptionDraftPurger`, même parti pris que la purge des logs — pas de
+  cron). Un échec de ménage est journalisé, jamais propagé.
+- Le front garde le token en `localStorage` : au retour, bandeau « Nous avons
+  retrouvé votre inscription en cours », formulaire prérempli, pièces marquées
+  reçues. Le captcha est donc à la **1re étape**, pas au récapitulatif.
+
+### Document upload (chemin de secours, par magic link)
 
 - `POST /api/public/license-request/{token}/document/{systemKey}`, `systemKey ∈
   {identity_photo, id_card, medical_certificate, attestation}` (regex-constrained).
-- Constraint: max **6Mi** (unité binaire — Symfony lit `6M` comme 6 000 000
-  octets, or le formulaire plafonne à 5 MiB ; le serveur garde un cran de
-  marge), mimetypes = `MemberMediaStorage::MIME_TYPES` (`application/pdf`,
-  `image/png`, `image/jpeg`, `image/webp`, `image/heic`, `image/heif`).
-  `identity_photo` must be an image (PDF rejected).
-- **Le front n'abandonne plus à la première pièce refusée** : les quatre sont
-  tentées, l'écran nomme celles qui ont échoué, et un nouvel envoi ne renvoie
-  que celles-là (jamais de doublon de demande). Avant, un refus sur
-  `identity_photo` — premier slot de la boucle — faisait arriver la demande
-  sans le moindre document.
+- Mêmes contraintes que le dépôt sur brouillon. **Le formulaire ne l'utilise
+  plus** : elle ne reste que pour compléter une demande déjà en base, et sera
+  supprimée quand plus rien ne l'appellera.
 - **Où chercher quand une demande arrive sans ses pièces** :
   `/dashboard/settings/logs`. Un refus 422 du validateur (taille/mimetype) est
   journalisé par Symfony avec le type *détecté* ; tous les autres refus
@@ -89,7 +129,8 @@ Invariants / traps:
 - **Routes into the member's médiathèque** (there is no separate "request
   document" store): `identity_photo`/`id_card` → root "Identité" folder
   (season-independent); `medical_certificate`/`attestation` → the licence's
-  season folder (`UploadLicenseRequestDocumentUseCase.php:27-28`).
+  season folder — mapping partagé par le dépôt et le rattachement du
+  brouillon (`MemberMediaSlots::ROOT_KEYS` / `SEASON_KEYS`).
 - Uploading **deletes the previous file in the slot first** (overwrite, not
   versioned).
 - `medical_certificate` upload also stamps `license.medicalCertificateFileName`

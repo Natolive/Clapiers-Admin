@@ -4,6 +4,18 @@ namespace App\Controller;
 
 use App\Application\UseCase\ContactMessage\CreateContactMessage\CreateContactMessageCommand;
 use App\Application\UseCase\ContactMessage\CreateContactMessage\CreateContactMessageUseCase;
+use App\Application\UseCase\Inscription\CreateInscriptionDraft\CreateInscriptionDraftCommand;
+use App\Application\UseCase\Inscription\CreateInscriptionDraft\CreateInscriptionDraftUseCase;
+use App\Application\UseCase\Inscription\DeleteInscriptionDraft\DeleteInscriptionDraftCommand;
+use App\Application\UseCase\Inscription\DeleteInscriptionDraft\DeleteInscriptionDraftUseCase;
+use App\Application\UseCase\Inscription\DeleteInscriptionDraftDocument\DeleteInscriptionDraftDocumentCommand;
+use App\Application\UseCase\Inscription\DeleteInscriptionDraftDocument\DeleteInscriptionDraftDocumentUseCase;
+use App\Application\UseCase\Inscription\GetInscriptionDraft\GetInscriptionDraftCommand;
+use App\Application\UseCase\Inscription\GetInscriptionDraft\GetInscriptionDraftUseCase;
+use App\Application\UseCase\Inscription\SaveInscriptionDraft\SaveInscriptionDraftCommand;
+use App\Application\UseCase\Inscription\SaveInscriptionDraft\SaveInscriptionDraftUseCase;
+use App\Application\UseCase\Inscription\UploadInscriptionDraftDocument\UploadInscriptionDraftDocumentCommand;
+use App\Application\UseCase\Inscription\UploadInscriptionDraftDocument\UploadInscriptionDraftDocumentUseCase;
 use App\Application\UseCase\License\CreateCheckout\CreateCheckoutCommand;
 use App\Application\UseCase\License\CreateCheckout\CreateCheckoutUseCase;
 use App\Application\UseCase\License\GetLicenseForPayment\GetLicenseForPaymentCommand;
@@ -34,12 +46,98 @@ use Symfony\Component\Validator\Constraints as Assert;
 #[Route('/api/public', name: 'api_public_')]
 class PublicController extends AbstractController
 {
+    /** Token de brouillon : 32 octets aléatoires en hexa, comme l'accessToken d'une licence. */
+    private const DRAFT_TOKEN = ['token' => '[0-9a-f]{64}'];
+
+    /** Slots déposables publiquement à l'inscription. */
+    private const DOCUMENT_KEYS = ['systemKey' => 'identity_photo|id_card|medical_certificate|attestation'];
+
     #[Route('/contact-message', name: 'contact_message_create', methods: ['POST'])]
     public function createContactMessage(
         #[MapRequestPayload] CreateContactMessageCommand $command,
         CreateContactMessageUseCase $useCase
     ): Response {
         return $useCase->execute($command);
+    }
+
+    // ── Brouillon d'inscription ─────────────────────────────────────────────
+    //
+    // Les pièces sont déposées sur le brouillon, dès qu'elles sont choisies, et
+    // rattachées au membre à la soumission. Le token du brouillon est le seul
+    // secret qui autorise ces routes (même schéma que le magic link), d'où le
+    // `requirements` : un token mal formé est écarté par le routeur.
+
+    #[Route('/inscription-draft', name: 'inscription_draft_create', methods: ['POST'])]
+    public function createInscriptionDraft(
+        #[MapRequestPayload] CreateInscriptionDraftCommand $command,
+        CreateInscriptionDraftUseCase $useCase,
+    ): Response {
+        return $useCase->execute($command);
+    }
+
+    #[Route('/inscription-draft/{token}', name: 'inscription_draft_get', methods: ['GET'], requirements: self::DRAFT_TOKEN)]
+    public function getInscriptionDraft(
+        string $token,
+        GetInscriptionDraftUseCase $useCase,
+    ): Response {
+        return $useCase->execute(new GetInscriptionDraftCommand($token));
+    }
+
+    #[Route('/inscription-draft/{token}', name: 'inscription_draft_save', methods: ['PUT'], requirements: self::DRAFT_TOKEN)]
+    public function saveInscriptionDraft(
+        string $token,
+        Request $request,
+        SaveInscriptionDraftUseCase $useCase,
+    ): Response {
+        // Corps libre (le formulaire évolue) et lu à la main : `toArray()`
+        // jetterait une JsonException sur un corps invalide, donc une 500. Le
+        // use case borne et filtre ce qu'il accepte.
+        //
+        // `null` quand le corps est illisible, et surtout PAS un tableau vide :
+        // une requête coupée en plein vol — le scénario mobile que ce brouillon
+        // existe pour encaisser — effacerait tout ce que la personne a saisi.
+        $body = json_decode((string) $request->getContent(), true);
+        $payload = \is_array($body) && \is_array($body['payload'] ?? null) ? $body['payload'] : null;
+
+        return $useCase->execute(new SaveInscriptionDraftCommand($token, $payload));
+    }
+
+    #[Route('/inscription-draft/{token}', name: 'inscription_draft_delete', methods: ['DELETE'], requirements: self::DRAFT_TOKEN)]
+    public function deleteInscriptionDraft(
+        string $token,
+        DeleteInscriptionDraftUseCase $useCase,
+    ): Response {
+        return $useCase->execute(new DeleteInscriptionDraftCommand($token));
+    }
+
+    #[Route(
+        '/inscription-draft/{token}/document/{systemKey}',
+        name: 'inscription_draft_document_upload',
+        methods: ['POST'],
+        requirements: self::DRAFT_TOKEN + self::DOCUMENT_KEYS,
+    )]
+    public function uploadInscriptionDraftDocument(
+        string $token,
+        string $systemKey,
+        #[MapUploadedFile([new Assert\File(maxSize: '6Mi', mimeTypes: MemberMediaStorage::MIME_TYPES)])]
+        UploadedFile $file,
+        UploadInscriptionDraftDocumentUseCase $useCase,
+    ): Response {
+        return $useCase->execute(new UploadInscriptionDraftDocumentCommand($token, $systemKey, $file));
+    }
+
+    #[Route(
+        '/inscription-draft/{token}/document/{systemKey}',
+        name: 'inscription_draft_document_delete',
+        methods: ['DELETE'],
+        requirements: self::DRAFT_TOKEN + self::DOCUMENT_KEYS,
+    )]
+    public function deleteInscriptionDraftDocument(
+        string $token,
+        string $systemKey,
+        DeleteInscriptionDraftDocumentUseCase $useCase,
+    ): Response {
+        return $useCase->execute(new DeleteInscriptionDraftDocumentCommand($token, $systemKey));
     }
 
     #[Route('/license-request', name: 'license_request', methods: ['POST'])]
@@ -50,7 +148,7 @@ class PublicController extends AbstractController
         return $useCase->execute($command);
     }
 
-    #[Route('/license-request/{token}/document/{systemKey}', name: 'license_document', methods: ['POST'], requirements: ['systemKey' => 'identity_photo|id_card|medical_certificate|attestation'])]
+    #[Route('/license-request/{token}/document/{systemKey}', name: 'license_document', methods: ['POST'], requirements: self::DOCUMENT_KEYS)]
     public function uploadLicenseRequestDocument(
         string $token,
         string $systemKey,
