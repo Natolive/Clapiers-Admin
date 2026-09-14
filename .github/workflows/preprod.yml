@@ -173,13 +173,45 @@ jobs:
           method: kubeconfig
           kubeconfig: ${{ secrets.KUBECONFIG_SECRET }}
 
+      # La migration part AVANT le redémarrage. L'inverse laissait 1-2 min où
+      # les nouveaux pods lisaient des tables encore absentes (inscription_draft
+      # en septembre 2026) : toute inscription tombait en 500 pendant ce temps.
+      #
+      # L'ancien pod n'a pas le nouveau fichier de migration, donc `kubectl exec`
+      # dedans ne peut pas la jouer : on lance un Job jetable copié du template du
+      # Deployment — même image fraîchement poussée, même env, mêmes volumes (dont
+      # le ConfigMap php.ini) — débarrassé de ses labels pour que le Service ne
+      # lui envoie pas de trafic, et de ses probes/ports qui n'ont pas de sens
+      # pour une commande. Une migration en échec bloque le rollout : l'ancien
+      # code continue de tourner sur l'ancien schéma, rien n'est cassé.
+      - name: Run migrations from the new image
+        run: |
+          NS=clapier-admin-preprod
+          # Un nom par tentative : un re-run ne doit pas retomber sur le Job
+          # (peut-être en échec) de la précédente.
+          JOB=migrate-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}
+          kubectl get deployment/clapieradmin-backend-php -n $NS -o json | jq --arg job "$JOB" '{
+            apiVersion: "batch/v1", kind: "Job",
+            metadata: {name: $job, namespace: .metadata.namespace},
+            spec: {
+              backoffLimit: 0, ttlSecondsAfterFinished: 3600,
+              template: (.spec.template
+                | .metadata = {labels: {job: $job}}
+                | .spec.restartPolicy = "Never"
+                | .spec.containers = [.spec.containers[0]
+                    | del(.livenessProbe, .readinessProbe, .startupProbe, .lifecycle, .ports, .args)
+                    | .imagePullPolicy = "Always"
+                    | .command = ["bin/console", "doctrine:migrations:migrate", "--no-interaction"]])
+            }
+          }' | kubectl apply -f -
+          # Pod resté Pending (image, ConfigMap absent) : `logs` n'a rien à
+          # dire, c'est `describe` qui porte la raison.
+          kubectl wait --for=condition=complete job/$JOB -n $NS --timeout=300s \
+            || { kubectl describe job/$JOB -n $NS; kubectl logs job/$JOB -n $NS || true; exit 1; }
+          kubectl logs job/$JOB -n $NS
+
       - name: Rollout restart
         run: kubectl rollout restart deployment/clapieradmin-backend-php -n clapier-admin-preprod
 
       - name: Wait for rollout
         run: kubectl rollout status deployment/clapieradmin-backend-php -n clapier-admin-preprod
-
-      - name: Run command in pod
-        run: |
-          POD=$(kubectl get pods -n clapier-admin-preprod -l app=clapieradmin-backend-php | grep Running | awk '{print $1}' | head -n1)
-          kubectl exec -n clapier-admin-preprod $POD -- bin/console doctrine:migrations:migrate --no-interaction
