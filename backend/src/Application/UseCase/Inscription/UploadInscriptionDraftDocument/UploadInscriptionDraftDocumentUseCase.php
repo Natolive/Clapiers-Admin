@@ -4,6 +4,7 @@ namespace App\Application\UseCase\Inscription\UploadInscriptionDraftDocument;
 
 use App\Common\Command\CommandInterface;
 use App\Common\Exception\UseCaseException;
+use App\Common\Service\InscriptionsStatusProvider;
 use App\Common\Service\MemberMediaStorage;
 use App\Common\UseCase\AbstractUseCase;
 use App\Entity\InscriptionDraft;
@@ -28,6 +29,7 @@ class UploadInscriptionDraftDocumentUseCase extends AbstractUseCase
         private readonly InscriptionDraftRepository $drafts,
         private readonly MemberMediaStorage $storage,
         private readonly EntityManagerInterface $entityManager,
+        private readonly InscriptionsStatusProvider $inscriptionsStatus,
     ) {
     }
 
@@ -35,6 +37,15 @@ class UploadInscriptionDraftDocumentUseCase extends AbstractUseCase
     {
         if (!$command instanceof UploadInscriptionDraftDocumentCommand) {
             throw new UseCaseException('Invalid command');
+        }
+
+        // Même porte que l'ouverture du brouillon et la soumission : un token
+        // obtenu avant la clôture ne doit pas continuer à remplir la zone.
+        if (!$this->inscriptionsStatus->isFormOpen()) {
+            throw new UseCaseException(
+                'Les inscriptions en ligne sont fermées pour le moment.',
+                Response::HTTP_FORBIDDEN,
+            );
         }
 
         // La photo de profil doit être une image (pas un PDF) — même règle que

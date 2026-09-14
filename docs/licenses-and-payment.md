@@ -84,7 +84,7 @@ onglet mis en veille), et son token ne vivait qu'en mémoire de l'onglet.
   | `POST /api/public/inscription-draft` | **captcha vérifié ici** + `isFormOpen()` → `{token}` |
   | `PUT /api/public/inscription-draft/{token}` | enregistre `payload` (à chaque changement d'étape) |
   | `GET /api/public/inscription-draft/{token}` | reprise : `payload` + pièces reçues, **jamais** le `storedName` |
-  | `POST …/{token}/document/{systemKey}` | dépôt d'une pièce (remplace la précédente) |
+  | `POST …/{token}/document/{systemKey}` | dépôt d'une pièce (remplace la précédente) ; `isFormOpen()` → fermé = **403**, un token d'avant la clôture ne remplit plus la zone |
   | `DELETE …/{token}/document/{systemKey}` | « Retirer » |
   | `DELETE /api/public/inscription-draft/{token}` | « Repartir de zéro » |
 
@@ -102,7 +102,9 @@ onglet mis en veille), et son token ne vivait qu'en mémoire de l'onglet.
   cron). Un échec de ménage est journalisé, jamais propagé.
 - Le front garde le token en `localStorage` : au retour, bandeau « Nous avons
   retrouvé votre inscription en cours », formulaire prérempli, pièces marquées
-  reçues. Le captcha est donc à la **1re étape**, pas au récapitulatif.
+  reçues, et wizard **rouvert à l'étape quittée** (`payload.step`, par nom —
+  la liste des étapes dépend de la minorité ; inconnu → 1re étape). Le captcha
+  est donc à la **1re étape**, pas au récapitulatif.
 
 ### Document upload (chemin de secours, par magic link)
 
