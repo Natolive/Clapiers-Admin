@@ -185,6 +185,16 @@ the public inscription route. `Assert\File` compares the type **detected by
 fileinfo**, never the one the browser declares — so `image/jpg` (which does not
 exist) has no business being in that list.
 
+Le dossier du membre n'est qu'un préfixe : `storeIn()` écrit aussi les pièces
+d'un brouillon d'inscription sous `drafts/<token>/`, avant que le membre existe
+(voir [licenses-and-payment.md](licenses-and-payment.md)). Elles sont recopiées
+dans le dossier du membre à la validation, par le même `copyTo()`.
+
+Le mapping « quelle pièce va dans quel slot » vit dans
+`MemberMediaSlots::resolve()` — partagé par le dépôt via magic link et par le
+rattachement d'un brouillon, avec son piège de flush (le seeder ne flushe pas,
+la requête de slot tape la base).
+
 `store()` therefore takes the member id. The one place a file changes owner is
 `ApproveLicenseUseCase` merging a request into an existing member: it calls
 `copyTo()`, which GET+PUTs the object into the target member's folder (Bunny has

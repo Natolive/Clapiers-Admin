@@ -78,7 +78,9 @@ class ApproveLicenseUseCase extends AbstractUseCase
         // Après le commit seulement : supprimer plus tôt, c'est perdre les
         // fichiers si la suite échoue — la base pointerait sur des objets déjà
         // effacés de la zone.
-        $this->deleteObsoleteFiles($obsoleteFiles);
+        foreach ($obsoleteFiles as $obsoleteFile) {
+            $this->storage->deleteQuietly($obsoleteFile);
+        }
 
         $this->mailer->send($license);
 
@@ -188,24 +190,6 @@ class ApproveLicenseUseCase extends AbstractUseCase
         );
 
         return $obsoleteFiles;
-    }
-
-    /**
-     * Ménage post-commit. La validation est déjà enregistrée : un objet resté
-     * dans la zone ne doit pas faire échouer la demande (l'erreur est déjà
-     * loggée par le stockage).
-     *
-     * @param list<string> $storedNames
-     */
-    private function deleteObsoleteFiles(array $storedNames): void
-    {
-        foreach ($storedNames as $storedName) {
-            try {
-                $this->storage->delete($storedName);
-            } catch (UseCaseException) {
-                // Orphelin toléré : mieux qu'une 502 sur une licence validée.
-            }
-        }
     }
 
     private function copyCoordinates(Member $source, Member $target): void
