@@ -78,4 +78,10 @@ onBeforeUnmount(() => {
   position: relative;
   display: inline-block;
 }
+
+/* Photo non carrée : on affiche le carré central au lieu d'étirer l'image. */
+.member-avatar-wrapper :deep(.p-avatar img) {
+  object-fit: cover;
+  object-position: center;
+}
 </style>
