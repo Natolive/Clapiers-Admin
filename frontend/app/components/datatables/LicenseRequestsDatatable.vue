@@ -3,7 +3,7 @@
     <div class="license-filters mb-3">
       <IconField class="license-filters__search">
         <InputIcon class="pi pi-search" />
-        <InputText v-model="search" placeholder="Rechercher par nom du membre..." class="w-full" />
+        <InputText v-model="search" placeholder="Rechercher par nom, email ou téléphone..." class="w-full" />
       </IconField>
       <Select
         v-model="statusFilter"
@@ -179,16 +179,6 @@ const copyPaymentLink = async (license: License) => {
   }
 }
 
-const items = ref<License[]>([])
-const total = ref(0)
-const loading = ref(false)
-const statusFilter = ref<string | null>(LicenseStatus.SOUMISE)
-const search = ref('')
-const { selected: season, load: loadSeasons } = useSeasonFilter()
-let searchTimeout: ReturnType<typeof setTimeout> | undefined
-
-const lazyParams = ref({ first: 0, rows: 10 })
-
 const statusOptions = [
   { label: 'Soumises', value: LicenseStatus.SOUMISE },
   { label: 'Validées', value: LicenseStatus.VALIDEE },
@@ -196,6 +186,21 @@ const statusOptions = [
   { label: 'Payées', value: LicenseStatus.PAYEE },
   { label: 'Refusées', value: LicenseStatus.REFUSEE },
 ]
+
+const route = useRoute()
+const queryStatus = String(route.query.status ?? '')
+
+const items = ref<License[]>([])
+const total = ref(0)
+const loading = ref(false)
+const statusFilter = ref<string | null>(
+  statusOptions.some((o) => o.value === queryStatus) ? queryStatus : LicenseStatus.SOUMISE,
+)
+const search = ref('')
+const { selected: season, load: loadSeasons } = useSeasonFilter()
+let searchTimeout: ReturnType<typeof setTimeout> | undefined
+
+const lazyParams = ref({ first: 0, rows: 10 })
 
 const statusLabel = (status: LicenseStatus) => LicenseStatusLabels[status] ?? status
 const statusSeverity = (status: string): string => ({

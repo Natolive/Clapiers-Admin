@@ -34,7 +34,7 @@
 
             <!-- ── KPI : un par domaine, cliquable ── -->
             <section class="kpi-grid">
-                <NuxtLink to="/dashboard/settings/license-requests" class="kpi" :class="{ 'kpi--alert': pendingRequests > 0 }">
+                <NuxtLink :to="{ path: '/dashboard/settings/license-requests', query: { status: LicenseStatus.SOUMISE } }" class="kpi" :class="{ 'kpi--alert': pendingRequests > 0 }">
                     <div class="kpi__icon kpi__icon--accent"><i class="pi pi-inbox" /></div>
                     <div class="kpi__body">
                         <span class="kpi__value">{{ pendingRequests }}</span>
@@ -43,7 +43,7 @@
                     <span class="kpi__sub">{{ stats.licenses.total }} demande{{ stats.licenses.total > 1 ? 's' : '' }} au total</span>
                 </NuxtLink>
 
-                <NuxtLink to="/dashboard/settings/members" class="kpi">
+                <NuxtLink :to="{ path: '/dashboard/settings/members', query: { licensePaid: LicensePaidFilter.PAID } }" class="kpi">
                     <div class="kpi__icon kpi__icon--green"><i class="pi pi-check-circle" /></div>
                     <div class="kpi__body">
                         <span class="kpi__value">{{ stats.members.withLicense }}</span>
@@ -52,7 +52,7 @@
                     <span class="kpi__sub kpi__sub--green">{{ licenseRate }}% des licenciés</span>
                 </NuxtLink>
 
-                <NuxtLink to="/dashboard/settings/license-requests" class="kpi">
+                <NuxtLink :to="{ path: '/dashboard/settings/license-requests', query: { status: LicenseStatus.PAYEE } }" class="kpi">
                     <div class="kpi__icon kpi__icon--green"><i class="pi pi-euro" /></div>
                     <div class="kpi__body">
                         <span class="kpi__value">{{ paidAmount }}</span>
@@ -168,6 +168,8 @@
 <script setup lang="ts">
 import { StatsRepository } from '~/repository/stats-repository';
 import { AppUserRole } from '~/types/entity/AppUser';
+import { LicenseStatus } from '~/types/enum/LicenseStatus';
+import { LicensePaidFilter } from '~/types/enum/LicensePaidFilter';
 
 definePageMeta({
     middleware: 'auth-middleware',

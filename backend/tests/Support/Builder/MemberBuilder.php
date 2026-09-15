@@ -50,6 +50,13 @@ final class MemberBuilder
         return $this;
     }
 
+    public function withPhoneNumber(string $phoneNumber): self
+    {
+        $this->phoneNumber = $phoneNumber;
+
+        return $this;
+    }
+
     public function withGender(MemberGender $gender): self
     {
         $this->gender = $gender;
