@@ -52,13 +52,13 @@
                     <span class="kpi__sub kpi__sub--green">{{ licenseRate }}% des licenciés</span>
                 </NuxtLink>
 
-                <NuxtLink to="/dashboard/settings/members" class="kpi">
-                    <div class="kpi__icon kpi__icon--orange"><i class="pi pi-exclamation-triangle" /></div>
+                <NuxtLink to="/dashboard/settings/license-requests" class="kpi">
+                    <div class="kpi__icon kpi__icon--green"><i class="pi pi-euro" /></div>
                     <div class="kpi__body">
-                        <span class="kpi__value">{{ stats.members.withoutLicense }}</span>
-                        <span class="kpi__label">Sans licence</span>
+                        <span class="kpi__value">{{ paidAmount }}</span>
+                        <span class="kpi__label">Licences encaissées</span>
                     </div>
-                    <span class="kpi__sub kpi__sub--orange">{{ 100 - licenseRate }}% des licenciés</span>
+                    <span class="kpi__sub kpi__sub--green">{{ stats.licenses.byStatus.payee ?? 0 }} licence{{ (stats.licenses.byStatus.payee ?? 0) > 1 ? 's' : '' }} payée{{ (stats.licenses.byStatus.payee ?? 0) > 1 ? 's' : '' }}</span>
                 </NuxtLink>
 
                 <NuxtLink to="/dashboard/settings/users" class="kpi">
@@ -200,6 +200,10 @@ const licenseRate = computed(() => {
     if (!stats.value || stats.value.members.total === 0) return 0;
     return Math.round((stats.value.members.withLicense / stats.value.members.total) * 100);
 });
+
+// Montants stockés en centimes côté API.
+const paidAmount = computed(() => ((stats.value?.licenses.paidAmount ?? 0) / 100)
+    .toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }));
 
 // Demandes en attente d'action admin (soumises, pas encore validées/refusées).
 const pendingRequests = computed(() => stats.value?.licenses.byStatus.soumise ?? 0);

@@ -27,6 +27,8 @@ export type DashboardStats = {
     licenses: {
         total: number;
         byStatus: Record<string, number>;
+        /** Montant encaissé sur la saison, en centimes. */
+        paidAmount: number;
     };
     users: {
         total: number;
