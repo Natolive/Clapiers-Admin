@@ -3,6 +3,10 @@
 namespace App\Tests\Functional;
 
 use App\Common\Service\MemberMediaSeeder;
+use App\Entity\AppUser;
+use App\Entity\Enum\LicenseStatus;
+use App\Entity\Enum\MemberStatus;
+use App\Entity\Game;
 use App\Common\Service\SeasonProvider;
 use App\Entity\Member;
 use App\Entity\Team;
@@ -197,6 +201,261 @@ class TeamApiTest extends ApiTestCase
 
         $body = $this->assertJsonResponse(200);
         $this->assertSame([$superCoach->getId()], array_column($body['coaches'], 'id'));
+    }
+
+    // ── Compteurs d'effectif dans la liste ──────────────────────────────────
+
+    public function testTeamListingCarriesSeasonCounters(): void
+    {
+        $season = $this->currentSeason();
+        $team = $this->aTeam()->named('Seniors M')->persist();
+        $this->aTeam()->named('Équipe vide')->persist();
+
+        $paid = $this->aMember()->inTeams($team)->licensedFor($season, LicenseStatus::PAYEE)->persist();
+        $paid->setStatus(MemberStatus::ACTIVE); // le builder de licence l'avait passé en attente
+        $this->aMember()->inTeams($team)->licensedFor($season)->persist(); // licencié mais non payé
+        $this->em()->flush();
+
+        $this->actingAsSuperAdmin();
+        $this->getJson('/api/team');
+
+        $body = $this->assertJsonResponse(200);
+        $counters = array_column($body, null, 'name');
+
+        $this->assertSame(2, $counters['Seniors M']['memberCount']);
+        $this->assertSame(1, $counters['Seniors M']['paidCount']);
+        $this->assertSame(0, $counters['Équipe vide']['memberCount']);
+        $this->assertSame($season, $counters['Seniors M']['season']);
+    }
+
+    public function testTeamListingCountersAreScopedToRequestedSeason(): void
+    {
+        $team = $this->aTeam()->named('Seniors M')->persist();
+        $this->aMember()->inTeams($team)->licensedFor('2000-2001')->persist();
+
+        $this->actingAsSuperAdmin();
+        $this->getJson('/api/team?season=2000-2001');
+
+        $body = $this->assertJsonResponse(200);
+        $this->assertSame(1, $body[0]['memberCount']);
+
+        $this->getJson('/api/team');
+        $body = $this->assertJsonResponse(200);
+        $this->assertSame(0, $body[0]['memberCount']);
+    }
+
+    /**
+     * Symfony refuse une query string invalide avec un 404 (comportement par
+     * défaut de #[MapQueryString], partagé par les autres endpoints saisonniers).
+     */
+    public function testTeamListingRejectsInvalidSeason(): void
+    {
+        $this->actingAsSuperAdmin();
+        $this->getJson('/api/team?season=pas-une-saison');
+
+        $this->assertJsonResponse(404);
+    }
+
+    // ── DELETE /api/team/{id} ───────────────────────────────────────────────
+
+    public function testSuperAdminDeletesTeam(): void
+    {
+        $team = $this->aTeam()->named('À supprimer')->persist();
+        $teamId = $team->getId();
+
+        $this->actingAsSuperAdmin();
+        $this->deleteJson('/api/team/'.$teamId);
+
+        $body = $this->assertJsonResponse(200);
+        $this->assertTrue($body['deleted']);
+
+        // Suppression douce : la ligne existe encore mais le filtre la masque.
+        $this->getJson('/api/team');
+        $this->assertSame([], $this->assertJsonResponse(200));
+    }
+
+    public function testDeletingTeamDetachesCoachesAndMembers(): void
+    {
+        $season = $this->currentSeason();
+        $team = $this->aTeam()->persist();
+        $member = $this->aMember()->inTeams($team)->licensedFor($season)->persist();
+        $coach = $this->aUser()->admin()->managing($team)->persist();
+
+        $this->actingAsSuperAdmin();
+        $this->deleteJson('/api/team/'.$team->getId());
+        $this->assertJsonResponse(200);
+
+        $this->em()->clear();
+        $this->assertCount(0, $this->em()->getRepository(Member::class)->find($member->getId())->getTeams());
+        $this->assertCount(0, $this->em()->getRepository(AppUser::class)->find($coach->getId())->getTeams());
+    }
+
+    public function testDeletingTeamKeepsItsGames(): void
+    {
+        $team = $this->aTeam()->persist();
+        $game = $this->aGame()->forTeam($team)->persist();
+
+        $this->actingAsSuperAdmin();
+        $this->deleteJson('/api/team/'.$team->getId());
+
+        $this->assertJsonResponse(200);
+        $this->em()->clear();
+        $this->assertNotNull($this->em()->getRepository(Game::class)->find($game->getId()));
+    }
+
+    public function testDeletingUnknownTeamReturns404(): void
+    {
+        $this->actingAsSuperAdmin();
+        $this->deleteJson('/api/team/999999');
+
+        $this->assertJsonResponse(404);
+    }
+
+    public function testDeletingTeamTwiceReturns404(): void
+    {
+        $team = $this->aTeam()->persist();
+
+        $this->actingAsSuperAdmin();
+        $this->deleteJson('/api/team/'.$team->getId());
+        $this->assertJsonResponse(200);
+
+        $this->deleteJson('/api/team/'.$team->getId());
+        $this->assertJsonResponse(404);
+    }
+
+    public function testDeletingTeamRequiresAuthentication(): void
+    {
+        $team = $this->aTeam()->persist();
+
+        $this->deleteJson('/api/team/'.$team->getId());
+
+        $this->assertJsonResponse(401);
+    }
+
+    public function testAdminCannotDeleteTeam(): void
+    {
+        $team = $this->aTeam()->persist();
+
+        $this->actingAsAdmin();
+        $this->deleteJson('/api/team/'.$team->getId());
+
+        $this->assertJsonResponse(403);
+    }
+
+    // ── PATCH /api/team/{id}/members (effectif) ─────────────────────────────
+
+    public function testSuperAdminAddsMembersToTeam(): void
+    {
+        $season = $this->currentSeason();
+        $team = $this->aTeam()->persist();
+        $member = $this->aMember()->named('Ajouté', 'Effectif')->licensedFor($season)->persist();
+
+        $this->actingAsSuperAdmin();
+        $this->patchJson('/api/team/'.$team->getId().'/members', ['add' => [$member->getId()]]);
+
+        $body = $this->assertJsonResponse(200);
+        $this->assertSame(1, $body['memberCount']);
+        $this->assertSame([$member->getId()], array_column($body['members'], 'id'));
+    }
+
+    public function testSuperAdminRemovesMemberFromTeam(): void
+    {
+        $season = $this->currentSeason();
+        $team = $this->aTeam()->persist();
+        $member = $this->aMember()->inTeams($team)->licensedFor($season)->persist();
+
+        $this->actingAsSuperAdmin();
+        $this->patchJson('/api/team/'.$team->getId().'/members', ['remove' => [$member->getId()]]);
+
+        $body = $this->assertJsonResponse(200);
+        $this->assertSame(0, $body['memberCount']);
+        $this->assertSame([], $body['members']);
+    }
+
+    /**
+     * Le rattachement n'est pas saisonnier : un licencié ajouté sans licence
+     * pour la saison affichée est bien rattaché, simplement absent de
+     * l'effectif renvoyé. Le front en avertit l'utilisateur.
+     */
+    public function testMemberWithoutCurrentLicenseIsAttachedButNotListed(): void
+    {
+        $team = $this->aTeam()->persist();
+        $member = $this->aMember()->licensedFor('2000-2001')->persist();
+
+        $this->actingAsSuperAdmin();
+        $this->patchJson('/api/team/'.$team->getId().'/members', ['add' => [$member->getId()]]);
+
+        $body = $this->assertJsonResponse(200);
+        $this->assertSame([], $body['members']);
+
+        $this->em()->clear();
+        $this->assertCount(1, $this->em()->getRepository(Member::class)->find($member->getId())->getTeams());
+    }
+
+    public function testRosterUpdateIsIdempotent(): void
+    {
+        $season = $this->currentSeason();
+        $team = $this->aTeam()->persist();
+        $member = $this->aMember()->inTeams($team)->licensedFor($season)->persist();
+
+        $this->actingAsSuperAdmin();
+        $this->patchJson('/api/team/'.$team->getId().'/members', ['add' => [$member->getId(), $member->getId()]]);
+
+        $body = $this->assertJsonResponse(200);
+        $this->assertSame(1, $body['memberCount']);
+    }
+
+    public function testRosterUpdateOnUnknownTeamReturns404(): void
+    {
+        $this->actingAsSuperAdmin();
+        $this->patchJson('/api/team/999999/members', ['add' => []]);
+
+        $this->assertJsonResponse(404);
+    }
+
+    public function testRosterUpdateWithUnknownMemberReturns404(): void
+    {
+        $team = $this->aTeam()->persist();
+
+        $this->actingAsSuperAdmin();
+        $this->patchJson('/api/team/'.$team->getId().'/members', ['add' => [999999]]);
+
+        $body = $this->assertJsonResponse(404);
+        $this->assertSame('Member 999999 not found', $body['message']);
+    }
+
+    public function testRosterUpdateRejectsNonIntegerIds(): void
+    {
+        $team = $this->aTeam()->persist();
+
+        $this->actingAsSuperAdmin();
+        $this->patchJson('/api/team/'.$team->getId().'/members', ['add' => ['pas-un-id']]);
+
+        $this->assertJsonResponse(422);
+    }
+
+    public function testRosterUpdateRequiresAuthentication(): void
+    {
+        $team = $this->aTeam()->persist();
+
+        $this->patchJson('/api/team/'.$team->getId().'/members', ['add' => []]);
+
+        $this->assertJsonResponse(401);
+    }
+
+    public function testAdminCannotUpdateRoster(): void
+    {
+        $team = $this->aTeam()->persist();
+
+        $this->actingAsAdmin();
+        $this->patchJson('/api/team/'.$team->getId().'/members', ['add' => []]);
+
+        $this->assertJsonResponse(403);
+    }
+
+    private function currentSeason(): string
+    {
+        return static::getContainer()->get(SeasonProvider::class)->current();
     }
 
     public function testMyTeamGroupsMembersByManagedTeam(): void

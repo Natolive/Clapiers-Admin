@@ -50,6 +50,27 @@ authenticated user).
 - "My team" for a coach = the teams on his `AppUser.teams`. `GetMyTeamUseCase`
   lists, per team, that team's **members** for the current season.
 
+## Team admin endpoints (page Équipes)
+
+- `GET /api/team?season=AAAA-AAAA` renvoie chaque équipe **enrichie des
+  compteurs de la saison** : `memberCount` (population comptée, cf. licence
+  active) et `paidCount`. Une seule requête agrégée
+  (`MemberRepository::countActiveByTeam`), pas de N+1. Sans `?season=`, la
+  saison courante.
+- `DELETE /api/team/{id}` : **suppression douce** (Gedmo, comme les licenciés).
+  Une équipe est référencée par `game.team_id` (non nul) : une vraie suppression
+  effacerait l'historique sportif. Les jointures `member_team` / `app_user_team`
+  sont vidées explicitement (ni le filtre ni l'horodatage ne les couvrent) ;
+  seconde suppression → 404, le filtre masquant déjà la ligne.
+- `PATCH /api/team/{id}/members` `{add: int[], remove: int[], season?}` compose
+  l'effectif depuis l'équipe et renvoie l'équipe + ses compteurs + `members`.
+  **Ajouts/retraits explicites, jamais « remplace la liste »** : l'effectif
+  affiché est scopé saison alors que `member_team` ne l'est pas — envoyer la
+  liste vue à l'écran détacherait les licenciés des autres saisons. Un id
+  inconnu → 404 et rien n'est écrit. Conséquence assumée : ajouter un licencié
+  sans licence pour la saison affichée le rattache sans le faire apparaître —
+  le front avertit explicitement.
+
 ## User ↔ member linking
 
 - `AppUser.member` is a nullable, **unique** `OneToOne` to `Member` — one Member
