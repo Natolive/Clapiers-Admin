@@ -55,9 +55,10 @@ class LicenseRepository extends ServiceEntityRepository
 
     /**
      * Compteurs pour le tableau de bord, restreints à une saison : total + détail
-     * par statut (toutes les valeurs de l'enum présentes, à 0 par défaut).
+     * par statut (toutes les valeurs de l'enum présentes, à 0 par défaut) +
+     * montant encaissé (somme des licences payées, en centimes).
      *
-     * @return array{total: int, byStatus: array<string, int>}
+     * @return array{total: int, byStatus: array<string, int>, paidAmount: int}
      */
     public function getStats(string $season): array
     {
@@ -67,7 +68,7 @@ class LicenseRepository extends ServiceEntityRepository
         }
 
         $rows = $this->createQueryBuilder('l')
-            ->select('l.status AS status, COUNT(l.id) AS total')
+            ->select('l.status AS status, COUNT(l.id) AS total, SUM(l.amount) AS amount')
             ->andWhere('l.season = :season')
             ->setParameter('season', $season)
             ->groupBy('l.status')
@@ -75,14 +76,19 @@ class LicenseRepository extends ServiceEntityRepository
             ->getScalarResult();
 
         $total = 0;
+        $paidAmount = 0;
         foreach ($rows as $row) {
             $status = $row['status'] instanceof LicenseStatus ? $row['status']->value : (string) $row['status'];
             $count = (int) $row['total'];
             $byStatus[$status] = $count;
             $total += $count;
+
+            if ($status === LicenseStatus::PAYEE->value) {
+                $paidAmount = (int) $row['amount'];
+            }
         }
 
-        return ['total' => $total, 'byStatus' => $byStatus];
+        return ['total' => $total, 'byStatus' => $byStatus, 'paidAmount' => $paidAmount];
     }
 
     private function createFilteredQueryBuilder(?LicenseStatus $status, ?string $search, ?string $season = null): QueryBuilder
