@@ -240,6 +240,22 @@ class InscriptionDraftApiTest extends ApiTestCase
         $this->assertJsonResponse(404);
     }
 
+    /**
+     * Fermer les inscriptions ferme aussi le dépôt : un brouillon ouvert avant
+     * la clôture ne doit pas continuer à remplir la zone Bunny — la soumission
+     * serait refusée de toute façon.
+     */
+    public function testUploadIsRefusedWhenTheFormIsClosed(): void
+    {
+        $token = $this->openDraft();
+        static::getContainer()->get(InscriptionsStatusProvider::class)->setFormOpen(false);
+
+        $this->uploadFile('/api/public/inscription-draft/'.$token.'/document/id_card', $this->fakePdf());
+
+        $this->assertJsonResponse(403);
+        $this->assertSame([], $this->draftRepo()->findOneByToken($token)->getDocuments());
+    }
+
     public function testDeletingAPieceRemovesItsFile(): void
     {
         $token = $this->openDraft();
