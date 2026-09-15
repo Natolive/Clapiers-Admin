@@ -201,8 +201,25 @@ const licenseRate = computed(() => {
     return Math.round((stats.value.members.withLicense / stats.value.members.total) * 100);
 });
 
-// Montants stockés en centimes côté API.
-const paidAmount = computed(() => ((stats.value?.licenses.paidAmount ?? 0) / 100)
+// Montants stockés en centimes côté API, comptés de 0 jusqu'à la valeur au
+// chargement et à chaque changement de saison (easing out, ~800 ms).
+const countedCents = ref(0);
+watch(() => stats.value?.licenses.paidAmount ?? 0, (target) => {
+    const reduced = import.meta.server
+        || window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduced) { countedCents.value = target; return; }
+
+    const from = countedCents.value;
+    const start = performance.now();
+    const tick = (now: number) => {
+        const t = Math.min(1, (now - start) / 800);
+        countedCents.value = Math.round(from + (target - from) * (1 - (1 - t) ** 3));
+        if (t < 1) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+}, { immediate: true });
+
+const paidAmount = computed(() => (countedCents.value / 100)
     .toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }));
 
 // Demandes en attente d'action admin (soumises, pas encore validées/refusées).
