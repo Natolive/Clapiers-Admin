@@ -17,6 +17,9 @@ use Gedmo\Mapping\Annotation as Gedmo;
 use Gedmo\SoftDeleteable\Traits\SoftDeleteableEntity;
 
 #[ORM\Entity(repositoryClass: MemberRepository::class)]
+// Déclaré pour que `doctrine:schema:update` ne propose pas de le supprimer ;
+// il est créé en GIN/trgm par la migration, Doctrine ne sait pas l'exprimer.
+#[ORM\Index(name: 'idx_member_search_text', columns: ['search_text'])]
 #[ORM\HasLifecycleCallbacks]
 #[Gedmo\SoftDeleteable]
 class Member
@@ -46,6 +49,14 @@ class Member
 
     #[ORM\Column(length: 255)]
     private string $email;
+
+    /**
+     * Prénom + nom + email + téléphone à plat, sans accents ni majuscules :
+     * calculée par Postgres (colonne générée, cf. Version20260915120000) et
+     * jamais écrite ici. Sert uniquement de cible aux recherches d'écran.
+     */
+    #[ORM\Column(type: 'text', nullable: true, insertable: false, updatable: false, generated: 'ALWAYS')]
+    private ?string $searchText = null;
 
     /**
      * @var Collection<int, License>
@@ -135,6 +146,18 @@ class Member
     {
         if (!$this->hasTeam($team)) {
             $this->teams->add($team);
+        }
+
+        return $this;
+    }
+
+    public function removeTeam(Team $team): static
+    {
+        foreach ($this->teams as $t) {
+            if ($t === $team || ($t->getId() !== null && $t->getId() === $team->getId())) {
+                $this->teams->removeElement($t);
+                break;
+            }
         }
 
         return $this;

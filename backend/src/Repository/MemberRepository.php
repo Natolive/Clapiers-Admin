@@ -61,11 +61,7 @@ class MemberRepository extends ServiceEntityRepository
                 ->setParameter('validatedStatuses', LicenseStatus::activeMembership());
         }
 
-        if ($search) {
-            $searchTerm = '%' . $search . '%';
-            $qb->andWhere('LOWER(m.firstName) LIKE LOWER(:search) OR LOWER(m.lastName) LIKE LOWER(:search) OR LOWER(m.email) LIKE LOWER(:search) OR m.phoneNumber LIKE :search')
-                ->setParameter('search', $searchTerm);
-        }
+        MemberSearchFilter::apply($qb, 'm', $search);
 
         if ($teamId) {
             // ManyToMany : un membre matche au plus une fois pour un teamId donné, pas de doublon
@@ -258,6 +254,42 @@ class MemberRepository extends ServiceEntityRepository
             ->setMaxResults(1)
             ->getQuery()
             ->getOneOrNullResult();
+    }
+
+    /**
+     * Effectif par équipe pour une saison : nombre de licenciés comptés (même
+     * population que la liste des licenciés) et, parmi eux, ceux dont la licence
+     * est payée. Une seule requête pour tout le tableau des équipes.
+     *
+     * @return array<int, array{members: int, paid: int}> indexé par id d'équipe
+     */
+    public function countActiveByTeam(string $season): array
+    {
+        $rows = $this->createQueryBuilder('m')
+            ->select('t.id AS teamId', 'COUNT(DISTINCT m.id) AS members', 'COUNT(DISTINCT lp.member) AS paid')
+            ->join('m.teams', 't')
+            ->leftJoin(
+                License::class,
+                'lp',
+                'WITH',
+                'lp.member = m AND lp.season = :season AND lp.status = :paidStatus'
+            )
+            ->andWhere('m.status = :activeStatus')
+            ->andWhere('EXISTS (SELECT ls.id FROM '.License::class.' ls WHERE ls.member = m AND ls.season = :season AND ls.status IN (:validatedStatuses))')
+            ->groupBy('t.id')
+            ->setParameter('season', $season)
+            ->setParameter('paidStatus', LicenseStatus::PAYEE)
+            ->setParameter('activeStatus', MemberStatus::ACTIVE)
+            ->setParameter('validatedStatuses', LicenseStatus::activeMembership())
+            ->getQuery()
+            ->getArrayResult();
+
+        $counts = [];
+        foreach ($rows as $row) {
+            $counts[(int) $row['teamId']] = ['members' => (int) $row['members'], 'paid' => (int) $row['paid']];
+        }
+
+        return $counts;
     }
 
     /**
