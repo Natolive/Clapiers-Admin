@@ -65,6 +65,29 @@ class StatsApiTest extends ApiTestCase
         $this->assertSame(1, $this->assertJsonResponse(200)['licenses']['total']);
     }
 
+    /**
+     * Le montant encaissé ne somme que les licences PAYEE de la saison demandée :
+     * ni les autres statuts, ni les autres saisons.
+     */
+    public function testDashboardSumsPaidLicenseAmountsForTheRequestedSeason(): void
+    {
+        $this->aLicense()->inSeason('2030-2031')->withStatus(LicenseStatus::PAYEE)->withAmount(4500)->persist();
+        $this->aLicense()->inSeason('2030-2031')->withStatus(LicenseStatus::PAYEE)->withAmount(3000)->persist();
+        $this->aLicense()->inSeason('2030-2031')->withStatus(LicenseStatus::VALIDEE)->withAmount(9900)->persist();
+        $this->aLicense()->inSeason('2031-2032')->withStatus(LicenseStatus::PAYEE)->withAmount(8800)->persist();
+
+        $this->actingAsSuperAdmin();
+
+        $this->getJson('/api/stats/dashboard?season=2030-2031');
+        $this->assertSame(7500, $this->assertJsonResponse(200)['licenses']['paidAmount']);
+
+        $this->getJson('/api/stats/dashboard?season=2031-2032');
+        $this->assertSame(8800, $this->assertJsonResponse(200)['licenses']['paidAmount']);
+
+        $this->getJson('/api/stats/dashboard?season=2032-2033');
+        $this->assertSame(0, $this->assertJsonResponse(200)['licenses']['paidAmount']);
+    }
+
     public function testNewThisSeasonCountsFirstTimeMembersRegardlessOfCreatedAt(): void
     {
         // Nouveau : licence validée cette saison, aucune licence antérieure.
