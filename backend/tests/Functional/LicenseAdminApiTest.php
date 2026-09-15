@@ -494,4 +494,39 @@ class LicenseAdminApiTest extends ApiTestCase
         $this->assertSame(1, $body['total']);
         $this->assertSame('Zidane', $body['data'][0]['member']['lastName']);
     }
+
+    /**
+     * Même moteur de recherche que la liste des licenciés : mots dans n'importe
+     * quel ordre, email et téléphone inclus.
+     */
+    #[\PHPUnit\Framework\Attributes\DataProvider('licenseSearchQueries')]
+    public function testListSearchIsForgiving(string $query, bool $shouldMatch): void
+    {
+        $zidane = $this->aMember()->named('Zinédine', 'Zidane')
+            ->withEmail('zz@test.fr')
+            ->withPhoneNumber('0612345001')
+            ->persist();
+        $this->aLicense()->forMember($zidane)->withStatus(LicenseStatus::SOUMISE)->persist();
+        $this->actingAsSuperAdmin();
+
+        $this->getJson('/api/license/paginated?search='.urlencode($query));
+
+        $body = $this->assertJsonResponse(200);
+        $this->assertSame($shouldMatch ? 1 : 0, $body['total'], sprintf('recherche « %s »', $query));
+    }
+
+    /**
+     * @return iterable<string, array{string, bool}>
+     */
+    public static function licenseSearchQueries(): iterable
+    {
+        yield 'nom puis prénom' => ['zidane zinedine', true];
+        yield 'prénom puis nom tronqué' => ['zine zid', true];
+        yield 'email' => ['zz@test.fr', true];
+        yield 'téléphone formaté' => ['06 12 34 50', true];
+        yield 'espaces superflus' => ['   zidane   ', true];
+        yield 'saisie sans accent' => ['zinedine', true];
+        yield 'saisie avec accent' => ['zinédine zidane', true];
+        yield 'mot en trop' => ['zidane platini', false];
+    }
 }

@@ -4,7 +4,12 @@ namespace App\Controller;
 
 use App\Application\UseCase\Team\CreateUpdateTeam\CreateUpdateTeamCommand;
 use App\Application\UseCase\Team\CreateUpdateTeam\CreateUpdateTeamUseCase;
-use App\Application\UseCase\Team\GetAllTeamsUseCase;
+use App\Application\UseCase\Team\DeleteTeam\DeleteTeamCommand;
+use App\Application\UseCase\Team\DeleteTeam\DeleteTeamUseCase;
+use App\Application\UseCase\Team\GetAllTeams\GetAllTeamsCommand;
+use App\Application\UseCase\Team\GetAllTeams\GetAllTeamsUseCase;
+use App\Application\UseCase\Team\UpdateTeamRoster\UpdateTeamRosterCommand;
+use App\Application\UseCase\Team\UpdateTeamRoster\UpdateTeamRosterUseCase;
 use App\Application\UseCase\Team\DownloadMyTeamMemberLicense\DownloadMyTeamMemberLicenseCommand;
 use App\Application\UseCase\Team\DownloadMyTeamMemberLicense\DownloadMyTeamMemberLicenseUseCase;
 use App\Application\UseCase\Team\DownloadMyTeamMemberPhoto\DownloadMyTeamMemberPhotoCommand;
@@ -12,10 +17,13 @@ use App\Application\UseCase\Team\DownloadMyTeamMemberPhoto\DownloadMyTeamMemberP
 use App\Application\UseCase\Team\GetMyTeam\GetMyTeamCommand;
 use App\Application\UseCase\Team\GetMyTeam\GetMyTeamUseCase;
 use App\Common\Exception\UseCaseException;
+use App\Controller\Input\SeasonQuery;
+use App\Controller\Input\UpdateTeamRosterInput;
 use App\Entity\AppUser;
 use App\Entity\Enum\AppUserRole;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpKernel\Attribute\MapQueryString;
 use Symfony\Component\HttpKernel\Attribute\MapRequestPayload;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
@@ -25,9 +33,9 @@ class TeamController extends AbstractController
 {
     #[Route('', name: 'get_all', methods: ['GET'])]
     #[IsGranted(AppUserRole::ROLE_SUPER_ADMIN)]
-    public function getAll(GetAllTeamsUseCase $useCase): Response
+    public function getAll(#[MapQueryString] ?SeasonQuery $query, GetAllTeamsUseCase $useCase): Response
     {
-        return $useCase->execute();
+        return $useCase->execute(new GetAllTeamsCommand($query?->season));
     }
 
     #[Route('', name: 'create_update', methods: ['POST', 'PUT'])]
@@ -37,6 +45,28 @@ class TeamController extends AbstractController
         CreateUpdateTeamUseCase $useCase
     ): Response {
         return $useCase->execute($command);
+    }
+
+    #[Route('/{id}', name: 'delete', requirements: ['id' => '\d+'], methods: ['DELETE'])]
+    #[IsGranted(AppUserRole::ROLE_SUPER_ADMIN)]
+    public function delete(int $id, DeleteTeamUseCase $useCase): Response
+    {
+        return $useCase->execute(new DeleteTeamCommand($id));
+    }
+
+    #[Route('/{id}/members', name: 'update_roster', requirements: ['id' => '\d+'], methods: ['PATCH'])]
+    #[IsGranted(AppUserRole::ROLE_SUPER_ADMIN)]
+    public function updateRoster(
+        int $id,
+        #[MapRequestPayload] UpdateTeamRosterInput $input,
+        UpdateTeamRosterUseCase $useCase
+    ): Response {
+        return $useCase->execute(new UpdateTeamRosterCommand(
+            $id,
+            array_values($input->add),
+            array_values($input->remove),
+            $input->season,
+        ));
     }
 
     #[Route('/my-team', name: 'get_my_team', methods: ['GET'])]

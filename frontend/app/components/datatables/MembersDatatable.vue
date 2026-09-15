@@ -17,12 +17,15 @@
       showClear
       class="members-filters__team"
     />
-    <div class="members-filters__toggles">
-      <div class="flex align-items-center gap-2">
-        <ToggleSwitch v-model="licensePaidFilter" />
-        <span class="white-space-nowrap">Licence payée</span>
-      </div>
-    </div>
+    <SelectButton
+      v-model="licensePaidFilter"
+      :options="licensePaidOptions"
+      option-label="label"
+      option-value="value"
+      :allow-empty="false"
+      aria-label="Filtre licence payée"
+      class="members-filters__paid"
+    />
   </div>
 
   <DataTable
@@ -230,6 +233,7 @@ import MemberAvatar from '~/components/common/MemberAvatar.vue';
 import { MemberRepository } from '~/repository/member-repository';
 import type { Member } from '~/types/entity/Member';
 import type { Team } from '~/types/entity/Team';
+import { LicensePaidFilter } from '~/types/enum/LicensePaidFilter';
 
 const props = defineProps<{
   teams: Team[]
@@ -243,7 +247,18 @@ const totalRecords = ref(0);
 const loading = ref(false);
 const searchValue = ref('');
 const selectedTeamId = ref<number | null>(null);
-const licensePaidFilter = ref(false);
+// 3 états : tous / payée / non payée (undefined côté API = pas de filtre),
+// initialisés depuis ?licensePaid= pour les liens du tableau de bord.
+const licensePaidOptions = [
+  { label: 'Tous', value: LicensePaidFilter.ALL },
+  { label: 'Payée', value: LicensePaidFilter.PAID },
+  { label: 'Non payée', value: LicensePaidFilter.UNPAID },
+];
+const route = useRoute();
+const queryPaid = String(route.query.licensePaid ?? '') as LicensePaidFilter;
+const licensePaidFilter = ref<LicensePaidFilter>(
+  Object.values(LicensePaidFilter).includes(queryPaid) ? queryPaid : LicensePaidFilter.ALL,
+);
 const { selected: season, load: loadSeasons } = useSeasonFilter();
 let searchTimeout: ReturnType<typeof setTimeout> | null = null;
 
@@ -286,7 +301,7 @@ const fetchData = async () => {
       sortOrder: lazyParams.value.sortOrder === 1 ? 'asc' : 'desc',
       search: searchValue.value || undefined,
       teamId: selectedTeamId.value || undefined,
-      licensePaid: licensePaidFilter.value ? true : undefined,
+      licensePaid: licensePaidFilter.value === LicensePaidFilter.ALL ? undefined : licensePaidFilter.value === LicensePaidFilter.PAID,
       season: season.value || undefined,
     });
     members.value = result.data;
@@ -381,12 +396,6 @@ onMounted(async () => {
   width: 15rem;
 }
 
-.members-filters__toggles {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
-
 @media (max-width: 767px) {
   .members-filters__search {
     flex: 1 1 100%;
@@ -397,9 +406,12 @@ onMounted(async () => {
     width: auto;
   }
 
-  .members-filters__toggles {
-    flex-wrap: wrap;
-    row-gap: 0.5rem;
+  .members-filters__paid {
+    flex: 1 1 100%;
+  }
+
+  .members-filters__paid :deep(.p-togglebutton) {
+    flex: 1;
   }
 }
 

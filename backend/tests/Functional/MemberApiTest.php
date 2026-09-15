@@ -415,6 +415,94 @@ class MemberApiTest extends ApiTestCase
         $this->assertSame('Zoé', $body['data'][0]['firstName']);
     }
 
+    #[\PHPUnit\Framework\Attributes\DataProvider('searchQueries')]
+    public function testPaginatedMembersSearchIsForgiving(string $query, bool $shouldMatch): void
+    {
+        $season = $this->currentSeason();
+        $team = $this->aTeam()->persist();
+        $this->aMember()->named('Jean-Rémi', 'Dupont')
+            ->withEmail('jean.dupont@test.fr')
+            ->withPhoneNumber('0612345001')
+            ->inTeams($team)->licensedFor($season)->persist();
+        $this->aMember()->named('Marc', 'Commun')->withPhoneNumber('0799999999')
+            ->inTeams($team)->licensedFor($season)->persist();
+
+        $this->actingAsSuperAdmin();
+        $this->getJson('/api/member/paginated?limit=50&search='.urlencode($query));
+
+        $body = $this->assertJsonResponse(200);
+        if ($shouldMatch) {
+            $this->assertSame(1, $body['total'], sprintf('« %s » doit trouver Jean Dupont', $query));
+            $this->assertSame('Dupont', $body['data'][0]['lastName']);
+        } else {
+            $this->assertSame(0, $body['total'], sprintf('« %s » ne doit rien trouver', $query));
+        }
+    }
+
+    /**
+     * @return iterable<string, array{string, bool}>
+     */
+    public static function searchQueries(): iterable
+    {
+        yield 'un seul mot' => ['dupont', true];
+        yield 'casse indifférente' => ['DUPONT', true];
+        yield 'prénom puis nom' => ['jean dup', true];
+        yield 'nom puis prénom' => ['dupont jean', true];
+        yield 'espaces superflus' => ['  jean   dupont  ', true];
+        yield 'email partiel' => ['jean.dupont@', true];
+        yield 'téléphone brut' => ['0612345', true];
+        yield 'téléphone formaté' => ['06 12 34 50', true];
+        yield 'téléphone en points' => ['06.12.34', true];
+        yield 'saisie sans accent' => ['jean-remi', true];
+        yield 'saisie avec accent' => ['jean-rémi dupont', true];
+        yield 'accent et casse mélangés' => ['RÉMI', true];
+        yield 'mot inconnu en plus' => ['jean zidane', false];
+        yield 'aucun rapport' => ['zidane', false];
+    }
+
+    public function testPaginatedMembersSearchFindsInternationalPhoneTypedNationally(): void
+    {
+        $season = $this->currentSeason();
+        $team = $this->aTeam()->persist();
+        $this->aMember()->withPhoneNumber('+33 6 12 34 50 04')->inTeams($team)->licensedFor($season)->persist();
+        $this->aMember()->withPhoneNumber('0799999999')->inTeams($team)->licensedFor($season)->persist();
+
+        $this->actingAsSuperAdmin();
+        $this->getJson('/api/member/paginated?limit=50&search='.urlencode('06 12 34 50'));
+
+        $body = $this->assertJsonResponse(200);
+        $this->assertSame(1, $body['total']);
+    }
+
+    public function testPaginatedMembersBlankSearchIsIgnored(): void
+    {
+        $season = $this->currentSeason();
+        $team = $this->aTeam()->persist();
+        $this->aMember()->inTeams($team)->licensedFor($season)->persist();
+        $this->aMember()->inTeams($team)->licensedFor($season)->persist();
+
+        $this->actingAsSuperAdmin();
+        $this->getJson('/api/member/paginated?limit=50&search='.urlencode('   '));
+
+        $body = $this->assertJsonResponse(200);
+        $this->assertSame(2, $body['total']);
+    }
+
+    public function testPaginatedMembersSearchCombinesWithOtherFilters(): void
+    {
+        $season = $this->currentSeason();
+        $teamA = $this->aTeam()->persist();
+        $teamB = $this->aTeam()->persist();
+        $this->aMember()->named('Jean', 'Dupont')->inTeams($teamA)->licensedFor($season)->persist();
+        $this->aMember()->named('Jean', 'Dupont')->inTeams($teamB)->licensedFor($season)->persist();
+
+        $this->actingAsSuperAdmin();
+        $this->getJson('/api/member/paginated?search=jean+dupont&teamId='.$teamA->getId());
+
+        $body = $this->assertJsonResponse(200);
+        $this->assertSame(1, $body['total']);
+    }
+
     public function testPaginatedMembersFiltersByTeam(): void
     {
         $season = $this->currentSeason();

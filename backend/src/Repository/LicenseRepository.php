@@ -103,10 +103,7 @@ class LicenseRepository extends ServiceEntityRepository
             $qb->andWhere('l.season = :season')->setParameter('season', $season);
         }
 
-        if ($search !== null && $search !== '') {
-            $qb->andWhere("LOWER(CONCAT(m.firstName, ' ', m.lastName)) LIKE :search OR LOWER(CONCAT(m.lastName, ' ', m.firstName)) LIKE :search")
-                ->setParameter('search', '%'.mb_strtolower($search).'%');
-        }
+        MemberSearchFilter::apply($qb, 'm', $search);
 
         return $qb;
     }

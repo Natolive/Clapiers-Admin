@@ -8,12 +8,16 @@ use App\Repository\TeamRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
+use Gedmo\Mapping\Annotation as Gedmo;
+use Gedmo\SoftDeleteable\Traits\SoftDeleteableEntity;
 
 #[ORM\Entity(repositoryClass: TeamRepository::class)]
 #[ORM\HasLifecycleCallbacks]
+#[Gedmo\SoftDeleteable]
 class Team
 {
     use IdTrait;
+    use SoftDeleteableEntity;
     use TimestampableTrait;
 
     #[ORM\Column(length: 255)]
