@@ -15,6 +15,18 @@ enum LicenseStatus: string
     case PAYEE = 'payee';
     case REMBOURSEE = 'remboursee';
 
+    public function label(): string
+    {
+        return match ($this) {
+            self::SOUMISE     => 'Soumise',
+            self::VALIDEE     => 'Validée',
+            self::REFUSEE     => 'Refusée',
+            self::EN_PAIEMENT => 'En paiement',
+            self::PAYEE       => 'Payée',
+            self::REMBOURSEE  => 'Remboursée',
+        };
+    }
+
     /**
      * Statuts comptant comme adhésion active pour une saison : une licence
      * validée, en cours de paiement ou payée. Source unique pour toute stat ou

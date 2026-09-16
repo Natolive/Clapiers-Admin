@@ -34,4 +34,41 @@ final class MemberMediaDefaults
         'medical_certificate' => 'Certificat médical',
         'attestation' => "Attestation sur l'honneur",
     ];
+
+    /**
+     * Les deux familles à plat : clé système => [label, seasonScoped]. Dérivé
+     * des constantes ci-dessus, donc un nouveau slot par défaut devient
+     * exportable sans rien toucher d'autre — la promesse du fichier tient.
+     *
+     * `seasonScoped` dit où chercher le nœud : dans le dossier de la saison
+     * demandée, ou dans un dossier racine indépendant de la saison.
+     *
+     * @return array<string, array{label: string, seasonScoped: bool}>
+     */
+    public static function documentSlots(): array
+    {
+        $slots = [];
+
+        foreach (self::ROOT_FOLDERS as $folder) {
+            foreach ($folder['documents'] as $key => $label) {
+                $slots[$key] = ['label' => $label, 'seasonScoped' => false];
+            }
+        }
+
+        foreach (self::SEASON_DOCUMENTS as $key => $label) {
+            $slots[$key] = ['label' => $label, 'seasonScoped' => true];
+        }
+
+        return $slots;
+    }
+
+    /**
+     * Cible du `Assert\Choice` sur les pièces demandées à l'export.
+     *
+     * @return list<string>
+     */
+    public static function documentSlotKeys(): array
+    {
+        return array_keys(self::documentSlots());
+    }
 }

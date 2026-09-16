@@ -329,7 +329,22 @@ const refresh = () => {
   fetchData();
 };
 
-defineExpose({ refresh });
+// Les filtres vivent ici, mais le bouton d'export est dans la toolbar de la
+// page : on les expose pour que l'export porte sur ce qui est affiché.
+const currentFilters = computed(() => ({
+  search: searchValue.value || undefined,
+  teamId: selectedTeamId.value || undefined,
+  licensePaid: licensePaidFilter.value === LicensePaidFilter.ALL
+    ? undefined
+    : licensePaidFilter.value === LicensePaidFilter.PAID,
+  season: season.value || undefined,
+}));
+
+const currentTeamName = computed(() =>
+  props.teams.find(t => t.id === selectedTeamId.value)?.name,
+);
+
+defineExpose({ refresh, currentFilters, currentTeamName });
 
 const openDialog = (member?: Member, initialTab: 'fiche' | 'media' = 'fiche') => {
   if (member) {

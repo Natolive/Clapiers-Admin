@@ -293,11 +293,109 @@ case-insensitive by name), not in SQL.
 - **By team** (`findByTeam`): same season-licence gate; season defaults to
   current.
 - **GetAll** (`findAllWithTeams`): no status, no season filter — everything.
+- **Export** (`findForExport`): the *same* filters, unpaginated, ordered by
+  last then first name.
 - Teams are fetch-joined **after** the cloned COUNT and paginated via Doctrine
   `Paginator`, else `setMaxResults` would truncate SQL rows, not members.
+- The filter clauses themselves live in **one** private
+  `MemberRepository::createFilteredQueryBuilder()`, shared by `findPaginated`
+  and `findForExport` — "who is in the licenciés list" is defined once. Add a
+  filter there, and both the screen and the export get it.
 
 See [seasons-and-stats.md](seasons-and-stats.md) for dashboard stats built on
 this population.
+
+## Export of licenciés (xlsx, or zip with the pieces)
+
+`GET /api/member/export` (`ROLE_SUPER_ADMIN`, `ExportMembersUseCase`).
+
+- **No `files[]`** → an **xlsx** attachment `licencies-<saison>.xlsx`, sheet
+  `Licenciés`.
+- **With `files[]`** → a **zip** `licencies-<saison>.zip` holding that same
+  xlsx at the root plus `pieces/<Nom Prénom>/<Libellé du slot>.<ext>`.
+
+- **Population = what the screen shows.** `search`, `teamId`, `licensePaid` and
+  `season` are the same query params as `/paginated` and go through the same
+  repository filters; `season` defaults to the current one. Exporting is never
+  a second definition of "the list".
+- **Columns are chosen by the caller**: `?columns[]=firstName&columns[]=email`.
+  No `columns[]` at all = every column.
+- **`MemberExportColumn` is the single source** for the header label, the cell
+  value and the list of valid choices (`values()` backs the `Assert\Choice`).
+  A new column is one case there and nothing else — plus its twin in
+  `frontend/app/types/enum/MemberExportColumn.ts`, which only mirrors the
+  values and labels for the picker.
+- **Output order is the enum's**, not the request's, so two exports asking for
+  the same columns in a different order are byte-comparable
+  (`ExportMembersCommand::selectedColumns()`).
+- **Types matter**: amounts are written in **euros as numbers** (stored in
+  cents) so an Excel `SOMME()` works; a licence with no frozen amount leaves the
+  cell **empty**, never `0`. Booleans are `Oui`/`Non`, dates `jj/mm/aaaa`.
+- **Licence columns come from the licence of the exported season**, fetched in
+  one query (`LicenseRepository::findBySeasonIndexedByMember`) — never by
+  walking `Member::$licenses` per row. `licenseNumber` falls back to the
+  member's own field for hand-entered fiches.
+
+### Which pieces come out — and for which season
+
+`files[]` takes the **default slot keys**, and the valid list is *derived* from
+`MemberMediaDefaults::documentSlots()`, so a new default slot becomes
+exportable with no change here (that file's promise still holds).
+
+| `files[]` | Where the node lives | Season |
+| --- | --- | --- |
+| `license`, `medical_certificate`, `attestation` | the season folder | **the exported season only** |
+| `identity_photo`, `id_card` | the `identity` root folder (`season IS NULL`) | **not dated — one per member** |
+
+- **Season-scoped pieces never leak across seasons.** The lookup filters on the
+  parent folder's season, so a member licensed several years gets *only* that
+  year's licence. Proof:
+  `MemberExportApiTest::testSeasonScopedPiecesFollowTheExportedSeasonOnly`
+  deposits a different PDF in two seasons and asserts the **content** delivered
+  for each.
+- **The identity photo is deliberately season-independent**: the médiathèque
+  stores exactly one per member in a root folder, so the same file comes out
+  whichever season you export. There is no "photo of the season" to pick —
+  making one would mean moving `identity_photo` into the season folders, which
+  the profile-picture route also depends on.
+- **One query for all the slots**
+  (`MemberDocumentRepository::findDefaultSlotsForMembers`): two queries per
+  member per piece is untenable on a whole list.
+- **An empty slot is skipped, not an error** — not everyone uploads a
+  certificate. A file that vanished from the zone (404) is skipped too, but a
+  **storage outage propagates its 502**: an export that silently drops every
+  piece would be worse than a failed one.
+- Homonyms get `Dupont Jean` then `Dupont Jean (2)` — same folder would mean one
+  member's pieces overwriting the other's.
+
+### Traps
+
+- **`run()` returns a file, so `execute()` is unusable** (it wraps everything in
+  a `JsonResponse`). The controller calls `run()` directly and maps
+  `UseCaseException` by hand — same pattern as
+  `DownloadMyTeamMemberLicenseUseCase`. See the
+  [architecture trap](architecture.md#the-trap).
+- **`#[MapQueryString]` answers `404` on a validation failure**, unlike
+  `#[MapRequestPayload]`'s `422` (Symfony default). The export route forces
+  `validationFailedStatusCode: 422` so an unknown column or a malformed season
+  doesn't look like a missing route. Every *other* GET in this app still has the
+  404 default.
+- **The writer omits a row whose cells are all empty** (only `dimension` keeps
+  the gap, so Excel still shows a blank line). Reachable only when every
+  selected column is empty for that member; OpenSpout's reader needs
+  `SHOULD_PRESERVE_EMPTY_ROWS` to see such rows at all.
+- **`ext-zip` is required** to write xlsx *and* the archive, and was missing
+  from both images — added to `Dockerfile.dev` and `Dockerfile.prod`. A prod
+  image built before that commit will 500 on this route.
+- **Adding a constructor dependency to a use case needs the test cache cleared**
+  (`composer test`, not bare `phpunit`): the test kernel runs `debug=0` and will
+  keep serving the stale compiled container, failing every test on that route
+  with an opaque 500. Same trap as config/validator changes — see
+  [testing.md](testing.md).
+- **Pieces transit through temp files** (`ZipArchive::addFile`, not
+  `addFromString`) so a 200-member archive doesn't sit in the pod's memory; the
+  ceiling is now disk. Marked `ponytail:` in the use case with the upgrade path
+  (async generation + a link) if a club ever outgrows it.
 
 ## Security
 

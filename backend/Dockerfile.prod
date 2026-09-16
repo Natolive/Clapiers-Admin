@@ -8,6 +8,7 @@ RUN apk add --no-cache \
         icu-dev \
         postgresql-dev \
         zlib-dev \
+        libzip-dev \
         oniguruma-dev
 
 RUN docker-php-ext-configure pgsql -with-pgsql=/usr/include/postgresql/
@@ -15,7 +16,8 @@ RUN docker-php-ext-install \
     intl \
     mbstring \
     pdo_pgsql \
-    pgsql
+    pgsql \
+    zip
 
 WORKDIR /app
 

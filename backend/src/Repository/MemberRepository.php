@@ -8,6 +8,7 @@ use App\Entity\License;
 use App\Entity\Member;
 use App\Entity\Team;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\ORM\QueryBuilder;
 use Doctrine\ORM\Tools\Pagination\Paginator;
 use Doctrine\Persistence\ManagerRegistry;
 
@@ -22,29 +23,15 @@ class MemberRepository extends ServiceEntityRepository
     }
 
     /**
-     * @return array{data: Member[], total: int}
+     * Filtres de la liste des licenciés, partagés par l'affichage paginé et
+     * l'export : une seule définition de « qui fait partie de la liste ».
      */
-    public function findPaginated(
-        int $page,
-        int $limit,
-        string $sortField,
-        string $sortOrder,
-        ?string $search = null,
-        ?int $teamId = null,
-        ?bool $licensePaid = null,
-        ?string $season = null,
-    ): array {
-        $allowedFields = [
-            'firstName' => 'm.firstName',
-            'lastName' => 'm.lastName',
-            'email' => 'm.email',
-            'phoneNumber' => 'm.phoneNumber',
-            'createdAt' => 'm.createdAt',
-        ];
-
-        $orderColumn = $allowedFields[$sortField] ?? 'm.firstName';
-        $orderDir = strtolower($sortOrder) === 'desc' ? 'DESC' : 'ASC';
-
+    private function createFilteredQueryBuilder(
+        ?string $search,
+        ?int $teamId,
+        ?bool $licensePaid,
+        ?string $season,
+    ): QueryBuilder {
         $qb = $this->createQueryBuilder('m');
 
         // La liste des licenciés n'affiche que les membres actifs : les demandes
@@ -81,6 +68,57 @@ class MemberRepository extends ServiceEntityRepository
                 $qb->setParameter('season', $season);
             }
         }
+
+        return $qb;
+    }
+
+    /**
+     * Mêmes filtres que la liste paginée, mais sans pagination : l'export sort
+     * toute la population filtrée, triée par nom puis prénom.
+     *
+     * @return Member[]
+     */
+    public function findForExport(
+        ?string $search = null,
+        ?int $teamId = null,
+        ?bool $licensePaid = null,
+        ?string $season = null,
+    ): array {
+        return $this->createFilteredQueryBuilder($search, $teamId, $licensePaid, $season)
+            // Équipes jointes d'avance : sans ça, une requête par membre exporté.
+            ->leftJoin('m.teams', 'allTeams')
+            ->addSelect('allTeams')
+            ->orderBy('m.lastName', 'ASC')
+            ->addOrderBy('m.firstName', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
+     * @return array{data: Member[], total: int}
+     */
+    public function findPaginated(
+        int $page,
+        int $limit,
+        string $sortField,
+        string $sortOrder,
+        ?string $search = null,
+        ?int $teamId = null,
+        ?bool $licensePaid = null,
+        ?string $season = null,
+    ): array {
+        $allowedFields = [
+            'firstName' => 'm.firstName',
+            'lastName' => 'm.lastName',
+            'email' => 'm.email',
+            'phoneNumber' => 'm.phoneNumber',
+            'createdAt' => 'm.createdAt',
+        ];
+
+        $orderColumn = $allowedFields[$sortField] ?? 'm.firstName';
+        $orderDir = strtolower($sortOrder) === 'desc' ? 'DESC' : 'ASC';
+
+        $qb = $this->createFilteredQueryBuilder($search, $teamId, $licensePaid, $season);
 
         $total = (clone $qb)
             ->select('COUNT(m.id)')

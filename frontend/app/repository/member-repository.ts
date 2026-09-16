@@ -1,4 +1,6 @@
 import type { Member } from "~/types/entity/Member";
+import type { MemberExportColumn } from "~/types/enum/MemberExportColumn";
+import type { MemberExportFile } from "~/types/enum/MemberExportFile";
 
 export interface PaginatedResult<T> {
     data: T[];
@@ -57,6 +59,31 @@ return await this.api<Member>('/member', {
         return await this.api<{ id: number; deleted: boolean }>(`/member/${id}`, {
             method: 'DELETE'
         });
+    }
+
+    /**
+     * Export de la liste : mêmes filtres que `getPaginated` (on exporte ce qu'on
+     * voit), plus les colonnes et les pièces choisies. Sans pièce c'est un
+     * xlsx, avec c'est un zip — d'où l'extension calculée ici aussi. La route
+     * est authentifiée par en-tête Bearer, donc pas de simple `href` : on passe
+     * par un blob.
+     */
+    async export(
+        params: Omit<PaginationParams, 'page' | 'limit' | 'sortField' | 'sortOrder'>,
+        columns: MemberExportColumn[],
+        files: MemberExportFile[] = [],
+    ): Promise<void> {
+        const query = new URLSearchParams();
+        if (params.search) query.set('search', params.search);
+        if (params.teamId) query.set('teamId', String(params.teamId));
+        if (params.licensePaid !== undefined) query.set('licensePaid', String(params.licensePaid));
+        if (params.season) query.set('season', params.season);
+        columns.forEach(column => query.append('columns[]', column));
+        files.forEach(file => query.append('files[]', file));
+
+        const extension = files.length ? 'zip' : 'xlsx';
+        const fileName = `licencies-${params.season ?? 'saison-courante'}.${extension}`;
+        await useAuthenticatedFile().download(`/member/export?${query.toString()}`, fileName);
     }
 
     async getByTeam(teamId: number, season?: string): Promise<Member[]> {

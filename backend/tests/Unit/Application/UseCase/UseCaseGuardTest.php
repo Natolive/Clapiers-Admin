@@ -56,6 +56,7 @@ class UseCaseGuardTest extends TestCase
             \App\Application\UseCase\Log\GetPaginatedLogs\GetPaginatedLogsUseCase::class,
             \App\Application\UseCase\Member\CreateUpdateMember\CreateUpdateMemberUseCase::class,
             \App\Application\UseCase\Member\DeleteMember\DeleteMemberUseCase::class,
+            \App\Application\UseCase\Member\ExportMembers\ExportMembersUseCase::class,
             \App\Application\UseCase\Member\Media\CreateDocument\CreateDocumentUseCase::class,
             \App\Application\UseCase\Member\Media\CreateFolder\CreateFolderUseCase::class,
             \App\Application\UseCase\Member\Media\DeleteDocumentFile\DeleteDocumentFileUseCase::class,
