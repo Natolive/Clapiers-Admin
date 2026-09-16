@@ -117,8 +117,15 @@ Symfony's validator, not this class.
 
 ## Auth stack
 
-- **Lexik JWT**, stateless. RSA keypair in `config/jwt/`, **1-hour TTL**
-  (`token_ttl: 3600`).
+- **Lexik JWT**, stateless. RSA keypair in `config/jwt/`, **7-day TTL**
+  (`token_ttl: 604800`).
+  > **No refresh token, no revocation.** The TTL *is* the session length, and a
+  > stolen token stays valid until it expires — the 7 days are a deliberate
+  > trade against being logged out mid-form. The front's cookie `maxAge`
+  > (`TOKEN_MAX_AGE`, `auth.store.ts`) is aligned on it: left as a session
+  > cookie it made the app look logged in long after the token died, then eject
+  > the user on the first 401. **Move both together.** Locked by
+  > `AuthenticationTest::testIssuedTokenLastsSevenDays`.
 - Firewalls (`config/packages/security.yaml`): `dev`, `login`
   (`^/api/login`, `json_login` with `email`/`password`), `api` (`^/api`,
   stateless, `jwt: ~`).
