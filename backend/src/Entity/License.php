@@ -61,6 +61,16 @@ class License
     #[ORM\Column(length: 50, nullable: true)]
     private ?string $licenseNumber = null;
 
+    /**
+     * Date d'inscription du licencié auprès de la FSGT pour cette saison — donc
+     * null tant que le club ne l'a pas déclaré. Distinct de `licenseNumber` :
+     * un renouvellement arrive avec son ancien numéro, saisi par le demandeur
+     * lui-même dans le formulaire public, ce qui ne prouve rien sur la saison
+     * en cours. Seul ce champ dit « déclaré à la fédération cette saison ».
+     */
+    #[ORM\Column(type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $fsgtRegisteredAt = null;
+
     #[ORM\Column(type: 'datetime_immutable', nullable: true)]
     private ?\DateTimeImmutable $approvedAt = null;
 
@@ -204,6 +214,23 @@ class License
         return $this;
     }
 
+    public function getFsgtRegisteredAt(): ?\DateTimeImmutable
+    {
+        return $this->fsgtRegisteredAt;
+    }
+
+    public function setFsgtRegisteredAt(?\DateTimeImmutable $fsgtRegisteredAt): static
+    {
+        $this->fsgtRegisteredAt = $fsgtRegisteredAt;
+
+        return $this;
+    }
+
+    public function isFsgtRegistered(): bool
+    {
+        return $this->fsgtRegisteredAt !== null;
+    }
+
     public function getApprovedAt(): ?\DateTimeImmutable
     {
         return $this->approvedAt;
@@ -242,6 +269,8 @@ class License
             'medicalCertificateFileName' => $this->getMedicalCertificateFileName(),
             'healthDeclaration' => $this->getHealthDeclaration(),
             'licenseNumber' => $this->getLicenseNumber(),
+            'fsgtRegistered' => $this->isFsgtRegistered(),
+            'fsgtRegisteredAt' => $this->getFsgtRegisteredAt()?->format(DATE_ATOM),
             'approvedAt' => $this->getApprovedAt()?->format(DATE_ATOM),
             'rejectionReason' => $this->getRejectionReason(),
             'createdAt' => $this->getCreatedAt()?->format(DATE_ATOM),

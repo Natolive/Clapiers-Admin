@@ -13,9 +13,12 @@ use App\Application\UseCase\Member\GetMembersByTeam\GetMembersByTeamCommand;
 use App\Application\UseCase\Member\GetMembersByTeam\GetMembersByTeamUseCase;
 use App\Application\UseCase\Member\GetPaginatedMembers\GetPaginatedMembersCommand;
 use App\Application\UseCase\Member\GetPaginatedMembers\GetPaginatedMembersUseCase;
+use App\Application\UseCase\Member\SetFsgtRegistration\SetFsgtRegistrationCommand;
+use App\Application\UseCase\Member\SetFsgtRegistration\SetFsgtRegistrationUseCase;
 use App\Common\Exception\UseCaseException;
 use App\Common\Service\MemberMediaStorage;
 use App\Controller\Input\SeasonQuery;
+use App\Controller\Input\SetFsgtRegistrationInput;
 use App\Entity\Enum\AppUserRole;
 use App\Repository\MemberDocumentRepository;
 use App\Repository\MemberRepository;
@@ -85,6 +88,24 @@ class MemberController extends AbstractController
         } catch (\Throwable) {
             return $this->json(['message' => 'Unknown Error'], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
+    }
+
+    /**
+     * Déclare l'inscription FSGT du licencié pour une saison (celle en cours par
+     * défaut). L'information est portée par la licence de la saison.
+     */
+    #[Route('/{id}/fsgt', name: 'set_fsgt', methods: ['PUT'], requirements: ['id' => '\d+'])]
+    public function setFsgtRegistration(
+        int $id,
+        #[MapRequestPayload] SetFsgtRegistrationInput $input,
+        SetFsgtRegistrationUseCase $useCase,
+    ): Response {
+        return $useCase->execute(new SetFsgtRegistrationCommand(
+            $id,
+            $input->registered,
+            $input->licenseNumber,
+            $input->season,
+        ));
     }
 
     #[Route('/team/{teamId}', name: 'get_by_team', methods: ['GET'])]

@@ -434,6 +434,146 @@ class MemberExportApiTest extends ApiTestCase
         $this->assertNotNull($kept->getId());
     }
 
+    // ── Inscription FSGT & lignes sélectionnées ─────────────────────────────
+
+    public function testFsgtColumnsAreExported(): void
+    {
+        $this->actingAsSuperAdmin();
+        $member = $this->aMember()->named('Jean', 'Dupont')->licensedFor($this->currentSeason())->persist();
+        $this->registerFsgt($member, 'FSGT-42');
+
+        $this->getJson('/api/member/export?columns[]=licenseNumber&columns[]=fsgtRegistered&columns[]=fsgtRegisteredAt');
+
+        $row = $this->readExport()[1];
+        $this->assertSame('FSGT-42', $row[0]);
+        $this->assertSame('Oui', $row[1]);
+        $this->assertSame((new \DateTimeImmutable('today'))->format('d/m/Y'), $row[2]);
+    }
+
+    /** Un numéro seul ne vaut pas inscription : le renouvellement l'apporte déjà. */
+    public function testFsgtColumnStaysNoWhenOnlyTheNumberIsFilled(): void
+    {
+        $this->actingAsSuperAdmin();
+        $season = $this->currentSeason();
+        $member = $this->aMember()->named('Jean', 'Dupont')->licensedFor($season)->persist();
+        $this->licenseOf($member, $season)->setLicenseNumber('ANCIEN');
+        $this->em()->flush();
+
+        $this->getJson('/api/member/export?columns[]=licenseNumber&columns[]=fsgtRegistered');
+
+        $this->assertSame(['ANCIEN', 'Non'], $this->readExport()[1]);
+    }
+
+    public function testExportCanBeRestrictedToRegisteredOrNotRegistered(): void
+    {
+        $this->actingAsSuperAdmin();
+        $season = $this->currentSeason();
+        $registered = $this->aMember()->named('Inscrit', 'Alpha')->licensedFor($season)->persist();
+        $this->aMember()->named('Absent', 'Beta')->licensedFor($season)->persist();
+        $this->registerFsgt($registered, 'A1');
+
+        $this->getJson('/api/member/export?fsgtRegistered=true&columns[]=firstName');
+        $this->assertSame([['Inscrit']], array_slice($this->readExport(), 1));
+
+        $this->getJson('/api/member/export?fsgtRegistered=false&columns[]=firstName');
+        $this->assertSame([['Absent']], array_slice($this->readExport(), 1));
+
+        $this->getJson('/api/member/export?columns[]=firstName');
+        $this->assertCount(3, $this->readExport(), 'Sans filtre : en-tête + les deux');
+    }
+
+    /** L'inscription d'une autre saison ne compte pas pour celle exportée. */
+    public function testFsgtFilterIsScopedToTheExportedSeason(): void
+    {
+        $this->actingAsSuperAdmin();
+        $member = $this->aMember()->named('Jean', 'Dupont')->licensedFor($this->currentSeason())->persist();
+        $this->alsoLicensedFor($member, '2020-2021');
+        $this->registerFsgt($member, 'ANCIEN-1', '2020-2021');
+
+        $this->getJson('/api/member/export?season=2020-2021&fsgtRegistered=true&columns[]=firstName');
+        $this->assertSame([['Jean']], array_slice($this->readExport(), 1));
+
+        $this->getJson('/api/member/export?fsgtRegistered=true&columns[]=firstName');
+        $this->assertSame([], array_slice($this->readExport(), 1), 'Pas inscrit pour la saison courante');
+    }
+
+    public function testExportCanBeRestrictedToTheSelectedRows(): void
+    {
+        $this->actingAsSuperAdmin();
+        $season = $this->currentSeason();
+        $kept = $this->aMember()->named('Coche', 'Alpha')->licensedFor($season)->persist();
+        $this->aMember()->named('Ignore', 'Beta')->licensedFor($season)->persist();
+
+        $this->getJson(sprintf('/api/member/export?memberIds[]=%d&columns[]=firstName', $kept->getId()));
+
+        $this->assertSame([['Coche']], array_slice($this->readExport(), 1));
+    }
+
+    /**
+     * La sélection s'ajoute aux filtres : cocher quelqu'un puis filtrer sur une
+     * autre équipe ne doit pas le faire ressortir.
+     */
+    public function testSelectionNarrowsTheFiltersInsteadOfReplacingThem(): void
+    {
+        $this->actingAsSuperAdmin();
+        $season = $this->currentSeason();
+        $teamA = $this->aTeam()->named('Loisir 1')->persist();
+        $teamB = $this->aTeam()->named('Compet 2')->persist();
+        $inB = $this->aMember()->named('DansB', 'Beta')->inTeams($teamB)->licensedFor($season)->persist();
+
+        $this->getJson(sprintf(
+            '/api/member/export?teamId=%d&memberIds[]=%d&columns[]=firstName',
+            $teamA->getId(),
+            $inB->getId(),
+        ));
+
+        $this->assertSame([], array_slice($this->readExport(), 1));
+    }
+
+    public function testSelectingSeveralRowsExportsThemAll(): void
+    {
+        $this->actingAsSuperAdmin();
+        $season = $this->currentSeason();
+        $one = $this->aMember()->named('Un', 'Alpha')->licensedFor($season)->persist();
+        $two = $this->aMember()->named('Deux', 'Beta')->licensedFor($season)->persist();
+        $this->aMember()->named('Trois', 'Gamma')->licensedFor($season)->persist();
+
+        $this->getJson(sprintf(
+            '/api/member/export?memberIds[]=%d&memberIds[]=%d&columns[]=firstName',
+            $one->getId(),
+            $two->getId(),
+        ));
+
+        $this->assertSame([['Un'], ['Deux']], array_slice($this->readExport(), 1));
+    }
+
+    public function testNonIntegerSelectionIsRejected(): void
+    {
+        $this->actingAsSuperAdmin();
+
+        $this->getJson('/api/member/export?memberIds[]=abc&columns[]=firstName');
+
+        $this->assertSame(422, $this->response()->getStatusCode());
+    }
+
+    /** La sélection vaut aussi pour les pièces jointes. */
+    public function testSelectionAppliesToTheArchivedPiecesToo(): void
+    {
+        $this->actingAsSuperAdmin();
+        $season = $this->currentSeason();
+        $kept = $this->aMember()->named('Coche', 'Alpha')->licensedFor($season)->persist();
+        $other = $this->aMember()->named('Ignore', 'Beta')->licensedFor($season)->persist();
+        $this->attachFile($kept->getId(), 'license', $this->fakePdf());
+        $this->attachFile($other->getId(), 'license', $this->fakePdf());
+
+        $this->getJson(sprintf('/api/member/export?memberIds[]=%d&columns[]=firstName&files[]=license', $kept->getId()));
+
+        $this->assertSame([
+            sprintf('licencies-%s.xlsx', $season),
+            'pieces/Alpha Coche/Licence.pdf',
+        ], $this->archiveEntries());
+    }
+
     // ── Pièces jointes (archive zip) ────────────────────────────────────────
 
     public function testExportWithoutFilesStaysAPlainSpreadsheet(): void
@@ -730,6 +870,18 @@ class MemberExportApiTest extends ApiTestCase
 
         $member->setStatus(MemberStatus::ACTIVE);
         $this->em()->flush();
+    }
+
+    /** Déclare l'inscription FSGT via la route dédiée (la seule qui l'écrit). */
+    private function registerFsgt(Member $member, string $number, ?string $season = null): void
+    {
+        $this->putJson('/api/member/'.$member->getId().'/fsgt', array_filter([
+            'registered' => true,
+            'licenseNumber' => $number,
+            'season' => $season,
+        ], static fn ($v) => $v !== null));
+
+        $this->assertJsonResponse(200);
     }
 
     /** Joue le callback en faisant croire à l'app que `$season` est la saison courante. */

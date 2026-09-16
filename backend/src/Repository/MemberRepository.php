@@ -31,6 +31,8 @@ class MemberRepository extends ServiceEntityRepository
         ?int $teamId,
         ?bool $licensePaid,
         ?string $season,
+        ?bool $fsgtRegistered = null,
+        ?array $memberIds = null,
     ): QueryBuilder {
         $qb = $this->createQueryBuilder('m');
 
@@ -69,12 +71,34 @@ class MemberRepository extends ServiceEntityRepository
             }
         }
 
+        if ($fsgtRegistered !== null) {
+            // Inscrit à la FSGT = licence de la saison portant une date de
+            // déclaration. Jamais dérivé du numéro : un renouvellement arrive
+            // avec l'ancien, saisi par le demandeur (cf. License).
+            $seasonClause = $season !== null ? ' AND lf.season = :season' : '';
+            $exists = 'EXISTS (SELECT lf.id FROM '.License::class.' lf WHERE lf.member = m AND lf.fsgtRegisteredAt IS NOT NULL'.$seasonClause.')';
+            $qb->andWhere($fsgtRegistered ? $exists : 'NOT '.$exists);
+            if ($season !== null) {
+                $qb->setParameter('season', $season);
+            }
+        }
+
+        // Sélection explicite de lignes (cases cochées dans la liste) : elle
+        // s'ajoute aux filtres, elle ne les remplace pas — on n'exporte jamais
+        // quelqu'un qui n'est pas dans la liste affichée.
+        if ($memberIds !== null) {
+            $qb->andWhere('m.id IN (:selectedIds)')
+                ->setParameter('selectedIds', $memberIds);
+        }
+
         return $qb;
     }
 
     /**
      * Mêmes filtres que la liste paginée, mais sans pagination : l'export sort
      * toute la population filtrée, triée par nom puis prénom.
+     *
+     * @param list<int>|null $memberIds restreint aux lignes cochées ; null = toute la liste
      *
      * @return Member[]
      */
@@ -83,8 +107,10 @@ class MemberRepository extends ServiceEntityRepository
         ?int $teamId = null,
         ?bool $licensePaid = null,
         ?string $season = null,
+        ?bool $fsgtRegistered = null,
+        ?array $memberIds = null,
     ): array {
-        return $this->createFilteredQueryBuilder($search, $teamId, $licensePaid, $season)
+        return $this->createFilteredQueryBuilder($search, $teamId, $licensePaid, $season, $fsgtRegistered, $memberIds)
             // Équipes jointes d'avance : sans ça, une requête par membre exporté.
             ->leftJoin('m.teams', 'allTeams')
             ->addSelect('allTeams')
@@ -106,6 +132,7 @@ class MemberRepository extends ServiceEntityRepository
         ?int $teamId = null,
         ?bool $licensePaid = null,
         ?string $season = null,
+        ?bool $fsgtRegistered = null,
     ): array {
         $allowedFields = [
             'firstName' => 'm.firstName',
@@ -118,7 +145,7 @@ class MemberRepository extends ServiceEntityRepository
         $orderColumn = $allowedFields[$sortField] ?? 'm.firstName';
         $orderDir = strtolower($sortOrder) === 'desc' ? 'DESC' : 'ASC';
 
-        $qb = $this->createFilteredQueryBuilder($search, $teamId, $licensePaid, $season);
+        $qb = $this->createFilteredQueryBuilder($search, $teamId, $licensePaid, $season, $fsgtRegistered);
 
         $total = (clone $qb)
             ->select('COUNT(m.id)')

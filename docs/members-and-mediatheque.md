@@ -283,6 +283,38 @@ it — already pod-safe.
 Children are ordered in PHP for serialization (folders before documents, then
 case-insensitive by name), not in SQL.
 
+## FSGT registration (per season)
+
+Declaring a member to the federation is **season-scoped**, so it lives on the
+season's `License`, not on `Member`: `license.fsgt_registered_at` (null = not
+declared). `PUT /api/member/{id}/fsgt` (`ROLE_SUPER_ADMIN`,
+`SetFsgtRegistrationUseCase`) sets or clears it.
+
+- **It is NOT derivable from `licenseNumber`** — the trap the whole column
+  exists for. The public inscription form lets the applicant type their own
+  number ("N° de licence (si renouvellement)"), and
+  `SubmitLicenseRequestUseCase` stores it on both the member and the licence.
+  So a renewal carries a number from day one while nobody has been declared to
+  the FSGT for the new season. Only `fsgtRegisteredAt` means "declared".
+  Regression test:
+  `MemberFsgtApiTest::testAnExistingLicenseNumberDoesNotCountAsRegistered`.
+- **Ticking requires a number** (400 otherwise): the federation issues it, and
+  an unverifiable registration is worth nothing. **Unticking keeps the number** —
+  fixing a mis-click must not destroy data.
+- Registering mirrors the number onto `Member::$licenseNumber`, exactly as
+  submission already does, so the fiche keeps the last known number.
+- No licence for the requested season → **404**: there is nothing to declare.
+- The paginated list exposes `fsgtRegistered` and `seasonLicenseNumber` (the
+  season's number, distinct from the fiche's), both resolved in **one** query
+  via `LicenseRepository::findBySeasonIndexedByMember`.
+- Filter `?fsgtRegistered=true|false` on the list **and** the export — it lives
+  in the shared `createFilteredQueryBuilder`, so both got it at once.
+
+> **UI trap**: the list's FSGT checkbox is `readonly` and the *cell* carries the
+> click. PrimeVue's `Checkbox` keeps an internal shadow value and flips it
+> optimistically, so a checkbox that owns its state stays ticked when the modal
+> is cancelled. Here nothing changes on screen until the server answers.
+
 ## Season scoping of member lists
 
 - **Paginated licenciés** (`MemberRepository::findPaginated`): always
@@ -314,10 +346,15 @@ this population.
 - **With `files[]`** → a **zip** `licencies-<saison>.zip` holding that same
   xlsx at the root plus `pieces/<Nom Prénom>/<Libellé du slot>.<ext>`.
 
-- **Population = what the screen shows.** `search`, `teamId`, `licensePaid` and
-  `season` are the same query params as `/paginated` and go through the same
-  repository filters; `season` defaults to the current one. Exporting is never
-  a second definition of "the list".
+- **Population = what the screen shows.** `search`, `teamId`, `licensePaid`,
+  `fsgtRegistered` and `season` are the same query params as `/paginated` and go
+  through the same repository filters; `season` defaults to the current one.
+  Exporting is never a second definition of "the list".
+- **`memberIds[]` restricts to the rows ticked on screen**, and **narrows** the
+  filters instead of replacing them — you can never export someone who is not in
+  the displayed list. They arrive as query strings, so the constraint accepts
+  `integer|digit` and `selectedMemberIds()` casts; a bare `Assert\Type('integer')`
+  would reject every real request.
 - **Columns are chosen by the caller**: `?columns[]=firstName&columns[]=email`.
   No `columns[]` at all = every column.
 - **`MemberExportColumn` is the single source** for the header label, the cell

@@ -16,6 +16,16 @@ export interface PaginationParams {
     teamId?: number;
     licensePaid?: boolean;
     season?: string;
+    /** true = inscrits FSGT, false = non inscrits, undefined = les deux. */
+    fsgtRegistered?: boolean;
+}
+
+export interface FsgtRegistration {
+    memberId: number;
+    season: string;
+    fsgtRegistered: boolean;
+    fsgtRegisteredAt: string | null;
+    licenseNumber: string | null;
 }
 
 export class MemberRepository {
@@ -39,7 +49,29 @@ export class MemberRepository {
                 ...(params.teamId ? { teamId: params.teamId } : {}),
                 ...(params.licensePaid !== undefined ? { licensePaid: params.licensePaid } : {}),
                 ...(params.season ? { season: params.season } : {}),
+                ...(params.fsgtRegistered !== undefined ? { fsgtRegistered: params.fsgtRegistered } : {}),
             }
+        });
+    }
+
+    /**
+     * Déclare (ou retire) l'inscription FSGT du licencié pour la saison. Le
+     * numéro est exigé côté serveur pour cocher : c'est la fédération qui
+     * l'attribue, une inscription sans numéro ne se vérifie pas.
+     */
+    async setFsgtRegistration(
+        id: number,
+        registered: boolean,
+        licenseNumber?: string | null,
+        season?: string,
+    ): Promise<FsgtRegistration> {
+        return await this.api<FsgtRegistration>(`/member/${id}/fsgt`, {
+            method: 'PUT',
+            body: {
+                registered,
+                ...(licenseNumber ? { licenseNumber } : {}),
+                ...(season ? { season } : {}),
+            },
         });
     }
 
@@ -72,14 +104,18 @@ return await this.api<Member>('/member', {
         params: Omit<PaginationParams, 'page' | 'limit' | 'sortField' | 'sortOrder'>,
         columns: MemberExportColumn[],
         files: MemberExportFile[] = [],
+        memberIds: number[] = [],
     ): Promise<void> {
         const query = new URLSearchParams();
         if (params.search) query.set('search', params.search);
         if (params.teamId) query.set('teamId', String(params.teamId));
         if (params.licensePaid !== undefined) query.set('licensePaid', String(params.licensePaid));
         if (params.season) query.set('season', params.season);
+        if (params.fsgtRegistered !== undefined) query.set('fsgtRegistered', String(params.fsgtRegistered));
         columns.forEach(column => query.append('columns[]', column));
         files.forEach(file => query.append('files[]', file));
+        // Aucune ligne cochée = toute la population filtrée (pas de paramètre).
+        memberIds.forEach(id => query.append('memberIds[]', String(id)));
 
         const extension = files.length ? 'zip' : 'xlsx';
         const fileName = `licencies-${params.season ?? 'saison-courante'}.${extension}`;

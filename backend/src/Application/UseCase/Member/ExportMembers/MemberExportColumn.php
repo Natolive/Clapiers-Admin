@@ -38,6 +38,8 @@ enum MemberExportColumn: string
 
     // Licence de la saison exportée
     case LICENSE_NUMBER = 'licenseNumber';
+    case FSGT_REGISTERED = 'fsgtRegistered';
+    case FSGT_REGISTERED_AT = 'fsgtRegisteredAt';
     case LICENSE_STATUS = 'licenseStatus';
     case LICENSE_PAID = 'licensePaid';
     case LICENSE_AMOUNT = 'licenseAmount';
@@ -71,6 +73,8 @@ enum MemberExportColumn: string
             self::ADDRESS_CITY => 'Ville',
             self::TEAMS => 'Équipes',
             self::LICENSE_NUMBER => 'N° de licence',
+            self::FSGT_REGISTERED => 'Inscrit FSGT',
+            self::FSGT_REGISTERED_AT => 'Inscrit FSGT le',
             self::LICENSE_STATUS => 'Statut de la licence',
             self::LICENSE_PAID => 'Licence payée',
             self::LICENSE_AMOUNT => 'Montant (€)',
@@ -112,6 +116,8 @@ enum MemberExportColumn: string
             // Le n° porté par la licence de la saison fait foi ; celui de la
             // fiche membre n'est qu'un repli pour les fiches saisies à la main.
             self::LICENSE_NUMBER => $license?->getLicenseNumber() ?? $member->getLicenseNumber() ?? '',
+            self::FSGT_REGISTERED => self::yesNo($license?->isFsgtRegistered() ?? false),
+            self::FSGT_REGISTERED_AT => $license?->getFsgtRegisteredAt()?->format('d/m/Y') ?? '',
             self::LICENSE_STATUS => $license?->getStatus()->label() ?? '',
             self::LICENSE_PAID => self::yesNo($license?->getStatus() === LicenseStatus::PAYEE),
             // Stocké en centimes ; l'export sort des euros pour être sommable.

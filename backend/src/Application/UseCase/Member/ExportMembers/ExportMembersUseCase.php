@@ -65,6 +65,8 @@ class ExportMembersUseCase extends AbstractUseCase
             $command->teamId,
             $command->licensePaid,
             $season,
+            $command->fsgtRegistered,
+            $command->selectedMemberIds(),
         );
 
         $memberIds = array_map(static fn (Member $m) => (int) $m->getId(), $members);

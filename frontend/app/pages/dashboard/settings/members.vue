@@ -73,6 +73,7 @@ const openExportDialog = () => {
     props: {
       filters: datatableRef.value?.currentFilters ?? {},
       teamName: datatableRef.value?.currentTeamName,
+      memberIds: datatableRef.value?.selectedMemberIds ?? [],
     }
   });
 };

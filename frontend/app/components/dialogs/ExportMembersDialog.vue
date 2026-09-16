@@ -10,6 +10,19 @@
       {{ filtersSummary }}
     </Message>
 
+    <div class="mb-3">
+      <label for="export-fsgt" class="block mb-2 font-medium">Inscription FSGT</label>
+      <Select
+        id="export-fsgt"
+        v-model="fsgtChoice"
+        :options="fsgtChoices"
+        option-label="label"
+        option-value="value"
+        class="w-full"
+        :disabled="restrictedToSelection"
+      />
+    </div>
+
     <div class="flex align-items-center justify-content-between mb-2">
       <span class="font-medium">Colonnes à exporter</span>
       <div class="flex gap-2">
@@ -103,7 +116,9 @@ const props = withDefaults(defineProps<{
   visible?: boolean;
   filters: ExportFilters;
   teamName?: string;
-}>(), { visible: true });
+  /** Lignes cochées dans la liste ; vide = toute la population filtrée. */
+  memberIds?: number[];
+}>(), { visible: true, memberIds: () => [] });
 
 const emit = defineEmits<{ 'update:visible': [value: boolean] }>();
 
@@ -120,9 +135,27 @@ const fileOptions = MemberExportFileOptions;
 const selectedFiles = ref<MemberExportFile[]>([]);
 const loading = ref(false);
 
+// Des lignes cochées l'emportent : filtrer en plus n'aurait pas de sens, on a
+// déjà désigné qui exporter.
+const restrictedToSelection = computed(() => props.memberIds.length > 0);
+
+const fsgtChoices = [
+  { label: 'Inscrits et non inscrits', value: 'all' },
+  { label: 'Inscrits à la FSGT uniquement', value: 'yes' },
+  { label: 'Non inscrits à la FSGT uniquement', value: 'no' },
+];
+// Initialisé sur le filtre déjà actif dans la liste : le dialog reflète l'écran.
+const fsgtChoice = ref<'all' | 'yes' | 'no'>(
+  props.filters.fsgtRegistered === undefined ? 'all' : (props.filters.fsgtRegistered ? 'yes' : 'no'),
+);
+
 // L'export reprend les filtres de la liste : le dire, sinon on croit toujours
 // exporter tout le club alors qu'une recherche est active.
 const filtersSummary = computed(() => {
+  if (restrictedToSelection.value) {
+    return `Export des ${props.memberIds.length} licencié(s) sélectionné(s) dans la liste.`;
+  }
+
   const parts = [`Saison ${props.filters.season || 'courante'}`];
   if (props.teamName) parts.push(`équipe « ${props.teamName} »`);
   if (props.filters.licensePaid !== undefined) parts.push(props.filters.licensePaid ? 'licence payée' : 'licence non payée');
@@ -154,7 +187,15 @@ const onVisible = (value: boolean) => emit('update:visible', value);
 const submit = async () => {
   loading.value = true;
   try {
-    await repository.export(props.filters, selected.value, selectedFiles.value);
+    await repository.export(
+      {
+        ...props.filters,
+        fsgtRegistered: fsgtChoice.value === 'all' ? undefined : fsgtChoice.value === 'yes',
+      },
+      selected.value,
+      selectedFiles.value,
+      props.memberIds,
+    );
     onVisible(false);
   } catch (e) {
     toast.add({
