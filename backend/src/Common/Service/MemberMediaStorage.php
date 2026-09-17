@@ -161,6 +161,18 @@ class MemberMediaStorage
     }
 
     /**
+     * Contenu brut du fichier, ou null s'il n'existe plus dans la zone. Pour
+     * les cas où l'objet ne part pas tel quel au client : recopie entre
+     * membres, archive d'export.
+     */
+    public function contents(string $storedName): ?string
+    {
+        $response = $this->bunny('GET', $storedName);
+
+        return $response->getStatusCode() === 404 ? null : $response->getContent();
+    }
+
+    /**
      * Recopie un fichier dans le dossier d'un autre membre — utilisé quand une
      * demande de licence est rattachée à une fiche existante. Renvoie le
      * nouveau `storedName` (l'ancien si rien n'a bougé).
@@ -177,15 +189,15 @@ class MemberMediaStorage
             return $storedName;
         }
 
-        $source = $this->bunny('GET', $storedName);
-        if ($source->getStatusCode() === 404) {
+        // Bunny n'a pas d'API de copie côté serveur : relire puis réécrire. Les
+        // pièces sont plafonnées à 10 Mo à l'upload, donc ça tient en mémoire.
+        $content = $this->contents($storedName);
+        if ($content === null) {
             // Rien à copier : le nom en base reste tel quel, comme avant.
             return $storedName;
         }
 
-        // Bunny n'a pas d'API de copie côté serveur : relire puis réécrire. Les
-        // pièces sont plafonnées à 10 Mo à l'upload, donc ça tient en mémoire.
-        $this->bunny('PUT', $target, ['body' => $source->getContent()]);
+        $this->bunny('PUT', $target, ['body' => $content]);
 
         return $target;
     }

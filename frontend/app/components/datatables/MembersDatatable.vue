@@ -26,15 +26,31 @@
       aria-label="Filtre licence payée"
       class="members-filters__paid"
     />
+    <Select
+      v-model="fsgtFilter"
+      :options="fsgtOptions"
+      option-label="label"
+      option-value="value"
+      placeholder="Inscription FSGT"
+      class="members-filters__fsgt"
+    />
+  </div>
+
+  <div v-if="selectedMembers.length" class="members-selection mb-3">
+    <i class="pi pi-check-square" />
+    <span>{{ selectedMembers.length }} licencié(s) sélectionné(s) — l'export ne portera que sur eux.</span>
+    <Button label="Tout désélectionner" size="small" severity="secondary" text @click="selectedMembers = []" />
   </div>
 
   <DataTable
     v-if="!isMobile"
+    v-model:selection="selectedMembers"
     :value="members"
     :loading="loading"
     lazy
     stripedRows
-    tableStyle="min-width: 64rem"
+    dataKey="id"
+    tableStyle="min-width: 72rem"
     class="p-datatable-sm"
     paginator
     :rows="lazyParams.rows"
@@ -54,6 +70,7 @@
         <span>Aucun licencié trouvé</span>
       </div>
     </template>
+    <Column selectionMode="multiple" headerStyle="width: 3rem" :exportable="false" />
     <Column header="Licencié" sortable field="firstName" style="width: 20%">
       <template #body="slotProps">
         <div class="flex align-items-center gap-3">
@@ -107,6 +124,32 @@
           class="text-xs"
         />
         <span v-else class="text-color-secondary text-sm">Aucune</span>
+      </template>
+    </Column>
+    <Column header="FSGT" style="width: 11%">
+      <template #body="slotProps">
+        <!--
+          La case n'est qu'un affichage : elle ne pilote jamais sa propre valeur,
+          sinon annuler le dialog la laisserait cochée à tort (PrimeVue garde un
+          état interne). `readonly` la fige, c'est la cellule qui porte le clic,
+          et seul un aller-retour serveur réussi change ce qu'on voit.
+        -->
+        <div
+          class="fsgt-cell"
+          role="button"
+          tabindex="0"
+          :aria-pressed="slotProps.data.fsgtRegistered ? 'true' : 'false'"
+          :aria-label="`Inscription FSGT de ${slotProps.data.firstName} ${slotProps.data.lastName}`"
+          @click="openFsgtDialog(slotProps.data)"
+          @keydown.enter.prevent="openFsgtDialog(slotProps.data)"
+          @keydown.space.prevent="openFsgtDialog(slotProps.data)"
+        >
+          <Checkbox :model-value="slotProps.data.fsgtRegistered" binary readonly tabindex="-1" />
+          <span v-if="slotProps.data.seasonLicenseNumber" class="fsgt-cell__number">
+            {{ slotProps.data.seasonLicenseNumber }}
+          </span>
+          <span v-else class="text-color-secondary text-sm">—</span>
+        </div>
       </template>
     </Column>
     <Column field="createdAt" header="Créé le" sortable style="width: 8%">
@@ -181,6 +224,12 @@
               class="text-xs"
             />
             <Tag v-if="member.hasLicenseDocument" value="Licence" severity="secondary" class="text-xs" />
+            <Tag
+              :value="member.fsgtRegistered ? 'FSGT' : 'Hors FSGT'"
+              :severity="member.fsgtRegistered ? 'success' : 'warn'"
+              class="text-xs"
+              @click.stop="openFsgtDialog(member)"
+            />
           </div>
         </div>
         <Button
@@ -228,6 +277,7 @@
 import type { DataTableSortEvent } from 'primevue/datatable';
 import ConfirmDeleteDialog from '~/components/dialogs/ConfirmDeleteDialog.vue';
 import CreateUpdateMemberDialog from '~/components/dialogs/CreateUpdateMemberDialog.vue';
+import FsgtRegistrationDialog from '~/components/dialogs/FsgtRegistrationDialog.vue';
 import MemberDetailsDialog from '~/components/dialogs/MemberDetailsDialog.vue';
 import MemberAvatar from '~/components/common/MemberAvatar.vue';
 import { MemberRepository } from '~/repository/member-repository';
@@ -254,6 +304,20 @@ const licensePaidOptions = [
   { label: 'Payée', value: LicensePaidFilter.PAID },
   { label: 'Non payée', value: LicensePaidFilter.UNPAID },
 ];
+// Inscription FSGT : 3 états, comme le filtre « payée ». La valeur undefined
+// n'étant pas sélectionnable dans un Select, on passe par une chaîne.
+const fsgtOptions = [
+  { label: 'Inscription FSGT : tous', value: 'all' },
+  { label: 'Inscrits FSGT', value: 'yes' },
+  { label: 'Non inscrits FSGT', value: 'no' },
+];
+const fsgtFilter = ref<'all' | 'yes' | 'no'>('all');
+const fsgtRegisteredParam = computed(() =>
+  fsgtFilter.value === 'all' ? undefined : fsgtFilter.value === 'yes',
+);
+
+const selectedMembers = ref<Member[]>([]);
+
 const route = useRoute();
 const queryPaid = String(route.query.licensePaid ?? '') as LicensePaidFilter;
 const licensePaidFilter = ref<LicensePaidFilter>(
@@ -286,8 +350,11 @@ watch(searchValue, () => {
   }, 300);
 });
 
-watch([selectedTeamId, licensePaidFilter, season], () => {
+watch([selectedTeamId, licensePaidFilter, season, fsgtFilter], () => {
   lazyParams.value.first = 0;
+  // La sélection porte sur des lignes qui ne sont peut-être plus dans la
+  // liste : la vider évite d'exporter des gens qu'on ne voit plus.
+  selectedMembers.value = [];
   fetchData();
 });
 
@@ -303,6 +370,7 @@ const fetchData = async () => {
       teamId: selectedTeamId.value || undefined,
       licensePaid: licensePaidFilter.value === LicensePaidFilter.ALL ? undefined : licensePaidFilter.value === LicensePaidFilter.PAID,
       season: season.value || undefined,
+      fsgtRegistered: fsgtRegisteredParam.value,
     });
     members.value = result.data;
     totalRecords.value = result.total;
@@ -329,7 +397,39 @@ const refresh = () => {
   fetchData();
 };
 
-defineExpose({ refresh });
+// Les filtres vivent ici, mais le bouton d'export est dans la toolbar de la
+// page : on les expose pour que l'export porte sur ce qui est affiché.
+const currentFilters = computed(() => ({
+  search: searchValue.value || undefined,
+  teamId: selectedTeamId.value || undefined,
+  licensePaid: licensePaidFilter.value === LicensePaidFilter.ALL
+    ? undefined
+    : licensePaidFilter.value === LicensePaidFilter.PAID,
+  season: season.value || undefined,
+  fsgtRegistered: fsgtRegisteredParam.value,
+}));
+
+const selectedMemberIds = computed(() => selectedMembers.value.map(m => m.id));
+
+const currentTeamName = computed(() =>
+  props.teams.find(t => t.id === selectedTeamId.value)?.name,
+);
+
+defineExpose({ refresh, currentFilters, currentTeamName, selectedMemberIds });
+
+// Cocher la case n'écrit rien directement : le numéro de licence est requis
+// pour déclarer l'inscription, donc on passe par le dialog.
+const openFsgtDialog = (member: Member) => {
+  show({
+    component: FsgtRegistrationDialog,
+    props: {
+      member,
+      season: season.value,
+      registered: member.fsgtRegistered ?? false,
+      onSaved: () => fetchData(),
+    },
+  });
+};
 
 const openDialog = (member?: Member, initialTab: 'fiche' | 'media' = 'fiche') => {
   if (member) {
@@ -410,9 +510,51 @@ onMounted(async () => {
     flex: 1 1 100%;
   }
 
+  .members-filters__fsgt {
+    flex: 1 1 100%;
+    width: auto;
+  }
+
   .members-filters__paid :deep(.p-togglebutton) {
     flex: 1;
   }
+}
+
+.members-filters__fsgt {
+  width: 15rem;
+}
+
+.members-selection {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 8px;
+  background: var(--p-surface-hover);
+  font-size: 0.875rem;
+}
+
+.fsgt-cell {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  border-radius: 6px;
+  padding: 0.25rem;
+  margin: -0.25rem;
+}
+
+.fsgt-cell:hover,
+.fsgt-cell:focus-visible {
+  background: var(--p-surface-hover);
+}
+
+.fsgt-cell__number {
+  font-size: 0.8rem;
+  color: var(--p-text-muted-color);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* Cartes mobile */

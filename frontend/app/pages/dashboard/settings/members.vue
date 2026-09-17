@@ -4,6 +4,16 @@
       <template #start>
         <Button label="Nouveau licencié" icon="pi pi-plus" @click="openCreateDialog()" />
       </template>
+      <template #end>
+        <Button
+          label="Exporter"
+          icon="pi pi-file-excel"
+          severity="secondary"
+          outlined
+          :disabled="loading"
+          @click="openExportDialog()"
+        />
+      </template>
     </Toolbar>
 
     <SkeletonLoader v-if="loading" type="table" />
@@ -23,6 +33,7 @@
 import SkeletonLoader from '~/components/common/skeleton/SkeletonLoader.vue';
 import MembersDatatable from '~/components/datatables/MembersDatatable.vue';
 import CreateUpdateMemberDialog from '~/components/dialogs/CreateUpdateMemberDialog.vue';
+import ExportMembersDialog from '~/components/dialogs/ExportMembersDialog.vue';
 import { TeamRepository } from '~/repository/team-repository';
 import type { Team } from '~/types/entity/Team';
 import { AppUserRole } from '~/types/entity/AppUser';
@@ -50,6 +61,19 @@ const openCreateDialog = () => {
       member: null,
       teams: teams.value,
       onSaved: () => datatableRef.value?.refresh(),
+    }
+  });
+};
+
+// L'export suit les filtres de la liste : on les lit sur le datatable au
+// moment du clic, pas à l'ouverture de la page.
+const openExportDialog = () => {
+  show({
+    component: ExportMembersDialog,
+    props: {
+      filters: datatableRef.value?.currentFilters ?? {},
+      teamName: datatableRef.value?.currentTeamName,
+      memberIds: datatableRef.value?.selectedMemberIds ?? [],
     }
   });
 };

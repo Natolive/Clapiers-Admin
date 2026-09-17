@@ -6,13 +6,19 @@ use App\Application\UseCase\Member\CreateUpdateMember\CreateUpdateMemberCommand;
 use App\Application\UseCase\Member\CreateUpdateMember\CreateUpdateMemberUseCase;
 use App\Application\UseCase\Member\DeleteMember\DeleteMemberCommand;
 use App\Application\UseCase\Member\DeleteMember\DeleteMemberUseCase;
+use App\Application\UseCase\Member\ExportMembers\ExportMembersCommand;
+use App\Application\UseCase\Member\ExportMembers\ExportMembersUseCase;
 use App\Application\UseCase\Member\GetAllMembersUseCase;
 use App\Application\UseCase\Member\GetMembersByTeam\GetMembersByTeamCommand;
 use App\Application\UseCase\Member\GetMembersByTeam\GetMembersByTeamUseCase;
 use App\Application\UseCase\Member\GetPaginatedMembers\GetPaginatedMembersCommand;
 use App\Application\UseCase\Member\GetPaginatedMembers\GetPaginatedMembersUseCase;
+use App\Application\UseCase\Member\SetFsgtRegistration\SetFsgtRegistrationCommand;
+use App\Application\UseCase\Member\SetFsgtRegistration\SetFsgtRegistrationUseCase;
+use App\Common\Exception\UseCaseException;
 use App\Common\Service\MemberMediaStorage;
 use App\Controller\Input\SeasonQuery;
+use App\Controller\Input\SetFsgtRegistrationInput;
 use App\Entity\Enum\AppUserRole;
 use App\Repository\MemberDocumentRepository;
 use App\Repository\MemberRepository;
@@ -55,6 +61,51 @@ class MemberController extends AbstractController
         GetPaginatedMembersUseCase $useCase
     ): Response {
         return $useCase->execute($command);
+    }
+
+    /**
+     * Export de la liste des licenciés. Mêmes filtres que /paginated (on exporte
+     * ce qu'on voit), plus `columns[]` pour choisir les colonnes du tableau et
+     * `files[]` les pièces de la médiathèque à joindre. Sans `columns[]`, toutes
+     * les colonnes ; sans `files[]`, un xlsx nu — sinon un zip (xlsx + pièces).
+     *
+     * `validationFailedStatusCode` est forcé : #[MapQueryString] répond 404 par
+     * défaut (contrairement à #[MapRequestPayload]), ce qui ferait passer une
+     * colonne ou une saison invalide pour une route inexistante.
+     */
+    #[Route('/export', name: 'export', methods: ['GET'])]
+    public function export(
+        #[MapQueryString(validationFailedStatusCode: Response::HTTP_UNPROCESSABLE_ENTITY)]
+        ?ExportMembersCommand $command,
+        ExportMembersUseCase $useCase,
+    ): Response {
+        // run() renvoie un fichier, donc execute() (wrapper JSON) est
+        // inutilisable : mapper les erreurs à la main.
+        try {
+            return $useCase->run($command ?? new ExportMembersCommand());
+        } catch (UseCaseException $e) {
+            return $this->json(['message' => $e->getMessage()], $e->getCode());
+        } catch (\Throwable) {
+            return $this->json(['message' => 'Unknown Error'], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * Déclare l'inscription FSGT du licencié pour une saison (celle en cours par
+     * défaut). L'information est portée par la licence de la saison.
+     */
+    #[Route('/{id}/fsgt', name: 'set_fsgt', methods: ['PUT'], requirements: ['id' => '\d+'])]
+    public function setFsgtRegistration(
+        int $id,
+        #[MapRequestPayload] SetFsgtRegistrationInput $input,
+        SetFsgtRegistrationUseCase $useCase,
+    ): Response {
+        return $useCase->execute(new SetFsgtRegistrationCommand(
+            $id,
+            $input->registered,
+            $input->licenseNumber,
+            $input->season,
+        ));
     }
 
     #[Route('/team/{teamId}', name: 'get_by_team', methods: ['GET'])]

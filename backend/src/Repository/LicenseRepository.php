@@ -30,6 +30,39 @@ class LicenseRepository extends ServiceEntityRepository
     }
 
     /**
+     * Licence de la saison de chaque membre, indexée par id de membre — une
+     * requête pour toute la liste, au lieu d'une par membre à l'export.
+     * Un membre n'a qu'une licence par saison ; si l'historique en contenait
+     * plusieurs, la plus récente gagne.
+     *
+     * @param list<int> $memberIds
+     *
+     * @return array<int, License>
+     */
+    public function findBySeasonIndexedByMember(array $memberIds, string $season): array
+    {
+        if ($memberIds === []) {
+            return [];
+        }
+
+        $licenses = $this->createQueryBuilder('l')
+            ->andWhere('l.member IN (:memberIds)')
+            ->andWhere('l.season = :season')
+            ->setParameter('memberIds', $memberIds)
+            ->setParameter('season', $season)
+            ->orderBy('l.id', 'ASC')
+            ->getQuery()
+            ->getResult();
+
+        $byMember = [];
+        foreach ($licenses as $license) {
+            $byMember[$license->getMember()->getId()] = $license;
+        }
+
+        return $byMember;
+    }
+
+    /**
      * @return License[]
      */
     public function findPaginated(int $page, int $limit, ?LicenseStatus $status = null, ?string $search = null, ?string $season = null): array
