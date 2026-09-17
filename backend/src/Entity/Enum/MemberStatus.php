@@ -11,4 +11,13 @@ enum MemberStatus: string
     case PENDING_VALIDATION = 'pending_validation';
     case ACTIVE = 'active';
     case REJECTED = 'rejected';
+
+    public function label(): string
+    {
+        return match ($this) {
+            self::PENDING_VALIDATION => 'En attente de validation',
+            self::ACTIVE             => 'Actif',
+            self::REJECTED           => 'Refusé',
+        };
+    }
 }

@@ -2,4 +2,9 @@ lexik_jwt_authentication:
     secret_key: '%kernel.project_dir%/config/jwt/private.pem'
     public_key: '%kernel.project_dir%/config/jwt/public.pem'
     pass_phrase: '' # or your private key passphrase
-    token_ttl: 3600 # 1 hour
+    # 7 jours. L'authentification est stateless et sans refresh token : ce TTL
+    # EST la durée de session, et il n'existe aucune révocation — un jeton volé
+    # reste valable jusqu'à son échéance. Choix assumé pour éviter la
+    # déconnexion en pleine saisie. Le cookie `auth_token` du front est aligné
+    # sur cette durée (frontend/app/stores/auth.store.ts).
+    token_ttl: 604800

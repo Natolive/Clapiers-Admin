@@ -8,6 +8,7 @@ use App\Entity\License;
 use App\Entity\Member;
 use App\Entity\Team;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\ORM\QueryBuilder;
 use Doctrine\ORM\Tools\Pagination\Paginator;
 use Doctrine\Persistence\ManagerRegistry;
 
@@ -22,29 +23,17 @@ class MemberRepository extends ServiceEntityRepository
     }
 
     /**
-     * @return array{data: Member[], total: int}
+     * Filtres de la liste des licenciés, partagés par l'affichage paginé et
+     * l'export : une seule définition de « qui fait partie de la liste ».
      */
-    public function findPaginated(
-        int $page,
-        int $limit,
-        string $sortField,
-        string $sortOrder,
-        ?string $search = null,
-        ?int $teamId = null,
-        ?bool $licensePaid = null,
-        ?string $season = null,
-    ): array {
-        $allowedFields = [
-            'firstName' => 'm.firstName',
-            'lastName' => 'm.lastName',
-            'email' => 'm.email',
-            'phoneNumber' => 'm.phoneNumber',
-            'createdAt' => 'm.createdAt',
-        ];
-
-        $orderColumn = $allowedFields[$sortField] ?? 'm.firstName';
-        $orderDir = strtolower($sortOrder) === 'desc' ? 'DESC' : 'ASC';
-
+    private function createFilteredQueryBuilder(
+        ?string $search,
+        ?int $teamId,
+        ?bool $licensePaid,
+        ?string $season,
+        ?bool $fsgtRegistered = null,
+        ?array $memberIds = null,
+    ): QueryBuilder {
         $qb = $this->createQueryBuilder('m');
 
         // La liste des licenciés n'affiche que les membres actifs : les demandes
@@ -81,6 +70,82 @@ class MemberRepository extends ServiceEntityRepository
                 $qb->setParameter('season', $season);
             }
         }
+
+        if ($fsgtRegistered !== null) {
+            // Inscrit à la FSGT = licence de la saison portant une date de
+            // déclaration. Jamais dérivé du numéro : un renouvellement arrive
+            // avec l'ancien, saisi par le demandeur (cf. License).
+            $seasonClause = $season !== null ? ' AND lf.season = :season' : '';
+            $exists = 'EXISTS (SELECT lf.id FROM '.License::class.' lf WHERE lf.member = m AND lf.fsgtRegisteredAt IS NOT NULL'.$seasonClause.')';
+            $qb->andWhere($fsgtRegistered ? $exists : 'NOT '.$exists);
+            if ($season !== null) {
+                $qb->setParameter('season', $season);
+            }
+        }
+
+        // Sélection explicite de lignes (cases cochées dans la liste) : elle
+        // s'ajoute aux filtres, elle ne les remplace pas — on n'exporte jamais
+        // quelqu'un qui n'est pas dans la liste affichée.
+        if ($memberIds !== null) {
+            $qb->andWhere('m.id IN (:selectedIds)')
+                ->setParameter('selectedIds', $memberIds);
+        }
+
+        return $qb;
+    }
+
+    /**
+     * Mêmes filtres que la liste paginée, mais sans pagination : l'export sort
+     * toute la population filtrée, triée par nom puis prénom.
+     *
+     * @param list<int>|null $memberIds restreint aux lignes cochées ; null = toute la liste
+     *
+     * @return Member[]
+     */
+    public function findForExport(
+        ?string $search = null,
+        ?int $teamId = null,
+        ?bool $licensePaid = null,
+        ?string $season = null,
+        ?bool $fsgtRegistered = null,
+        ?array $memberIds = null,
+    ): array {
+        return $this->createFilteredQueryBuilder($search, $teamId, $licensePaid, $season, $fsgtRegistered, $memberIds)
+            // Équipes jointes d'avance : sans ça, une requête par membre exporté.
+            ->leftJoin('m.teams', 'allTeams')
+            ->addSelect('allTeams')
+            ->orderBy('m.lastName', 'ASC')
+            ->addOrderBy('m.firstName', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
+     * @return array{data: Member[], total: int}
+     */
+    public function findPaginated(
+        int $page,
+        int $limit,
+        string $sortField,
+        string $sortOrder,
+        ?string $search = null,
+        ?int $teamId = null,
+        ?bool $licensePaid = null,
+        ?string $season = null,
+        ?bool $fsgtRegistered = null,
+    ): array {
+        $allowedFields = [
+            'firstName' => 'm.firstName',
+            'lastName' => 'm.lastName',
+            'email' => 'm.email',
+            'phoneNumber' => 'm.phoneNumber',
+            'createdAt' => 'm.createdAt',
+        ];
+
+        $orderColumn = $allowedFields[$sortField] ?? 'm.firstName';
+        $orderDir = strtolower($sortOrder) === 'desc' ? 'DESC' : 'ASC';
+
+        $qb = $this->createFilteredQueryBuilder($search, $teamId, $licensePaid, $season, $fsgtRegistered);
 
         $total = (clone $qb)
             ->select('COUNT(m.id)')

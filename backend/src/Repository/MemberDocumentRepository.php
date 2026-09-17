@@ -91,6 +91,44 @@ class MemberDocumentRepository extends ServiceEntityRepository
             ->getOneOrNullResult();
     }
 
+    /**
+     * Les slots par défaut de plusieurs membres en une requête, pour l'export :
+     * deux requêtes par membre et par pièce, c'est intenable sur une liste
+     * entière. Les slots de saison sont pris dans le dossier de `$season`, les
+     * slots racine dans leur dossier hors saison.
+     *
+     * @param list<int>    $memberIds
+     * @param list<string> $systemKeys
+     *
+     * @return array<int, array<string, MemberDocument>> id du membre => clé système => nœud
+     */
+    public function findDefaultSlotsForMembers(array $memberIds, string $season, array $systemKeys): array
+    {
+        if ($memberIds === [] || $systemKeys === []) {
+            return [];
+        }
+
+        $qb = $this->createQueryBuilder('d');
+        $nodes = $qb
+            ->join('d.parent', 'p')
+            ->where('d.member IN (:members)')
+            ->andWhere('d.systemKey IN (:keys)')
+            ->andWhere($qb->expr()->orX('p.season = :season', 'p.season IS NULL'))
+            ->setParameter('members', $memberIds)
+            ->setParameter('keys', $systemKeys)
+            ->setParameter('season', $season)
+            ->getQuery()
+            ->getResult();
+
+        $byMember = [];
+        foreach ($nodes as $node) {
+            // getId() sur le proxy du membre ne déclenche pas de requête.
+            $byMember[$node->getMember()->getId()][(string) $node->getSystemKey()] = $node;
+        }
+
+        return $byMember;
+    }
+
     /** Nœud appartenant bien au membre, adressé par son UUID public (ou null). */
     public function findOneOwnedBy(Member $member, string $uuid): ?MemberDocument
     {

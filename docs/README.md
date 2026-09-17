@@ -15,7 +15,7 @@ Each claim references `file:line` so you can jump straight to the source.
   HelloAsso checkout & webhook.
 - [members-and-mediatheque.md](members-and-mediatheque.md) — member entity &
   statuses, the médiathèque tree (folders/documents), file storage, media
-  operations.
+  operations, the Excel export of licenciés.
 - [teams-and-users.md](teams-and-users.md) — roles, coach↔team assignment,
   user↔member linking, my-team downloads, auth/password handling.
 - [seasons-and-stats.md](seasons-and-stats.md) — season format & September
