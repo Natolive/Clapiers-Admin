@@ -4,6 +4,7 @@ namespace App\Application\UseCase\License\GetLicenseReview;
 
 use App\Common\Command\CommandInterface;
 use App\Common\Exception\UseCaseException;
+use App\Common\Service\MemberMediaStorage;
 use App\Common\UseCase\AbstractUseCase;
 use App\Entity\Member;
 use App\Repository\LicenseRepository;
@@ -36,6 +37,7 @@ class GetLicenseReviewUseCase extends AbstractUseCase
         private readonly LicenseRepository $licenseRepository,
         private readonly MemberDocumentRepository $documentRepository,
         private readonly MemberRepository $memberRepository,
+        private readonly MemberMediaStorage $storage,
     ) {
     }
 
@@ -107,6 +109,7 @@ class GetLicenseReviewUseCase extends AbstractUseCase
             'originalName' => $uploaded ? $document->getOriginalName() : null,
             'mimeType' => $uploaded ? $document->getMimeType() : null,
             'size' => $uploaded ? $document->getSize() : null,
+            'url' => $uploaded ? $this->storage->signedUrl($document->getStoredName()) : null,
         ];
     }
 }

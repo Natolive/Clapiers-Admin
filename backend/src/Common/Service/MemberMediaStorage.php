@@ -4,10 +4,7 @@ namespace App\Common\Service;
 
 use App\Common\Exception\UseCaseException;
 use Psr\Log\LoggerInterface;
-use Symfony\Component\HttpFoundation\HeaderUtils;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
-use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\HttpFoundation\StreamedResponse;
 use Symfony\Component\Uid\Uuid;
 use Symfony\Contracts\HttpClient\Exception\ExceptionInterface as HttpExceptionInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
@@ -27,9 +24,16 @@ use Symfony\Contracts\HttpClient\ResponseInterface;
  * Pas de stockage local : le backend tourne en plusieurs pods k8s, et un
  * fichier écrit sur le disque d'un pod est introuvable depuis les autres.
  *
- * Les fichiers ne sont JAMAIS exposés publiquement : aucune pull zone CDN sur
- * la zone, qui n'est lisible qu'avec l'AccessKey ; les seuls accès en lecture
- * passent par les routes authentifiées qui appellent {@see self::response()}.
+ * Écritures et suppressions vont sur l'API Storage ; **toute lecture passe par
+ * la pull zone CDN**, signée — y compris celles du backend (recopie, export).
+ * Pas de repli sur l'API Storage : un seul chemin de lecture, donc un seul
+ * comportement à connaître. Sans pull zone configurée, plus rien ne se lit
+ * (502), comme pour une zone absente.
+ *
+ * Les fichiers ne sont JAMAIS exposés publiquement : la pull zone est
+ * verrouillée par la Token Authentication Bunny. Le navigateur reçoit des URL
+ * signées ({@see self::signedUrl()}) dans les payloads déjà protégés par les
+ * routes API — une URL qui fuite expire toute seule.
  *
  * @phpstan-type FileMeta array{storedName: string, originalName: string, mimeType: ?string, size: ?int}
  */
@@ -61,6 +65,16 @@ class MemberMediaStorage
 
     /** Un pod ne doit pas rester bloqué sur un incident Bunny. */
     private const TIMEOUT = 30;
+
+    /** Validité d'une URL CDN signée : le temps d'un téléchargement, pas plus. */
+    private const TOKEN_TTL = 300;
+
+    /**
+     * Vignettes et aperçus servis dans une page : assez long pour que le
+     * navigateur garde l'image en cache le temps qu'on consulte une liste,
+     * assez court pour qu'une URL recopiée ne survive pas à la session.
+     */
+    public const DISPLAY_TTL = 1800;
 
     public function __construct(
         private readonly HttpClientInterface $httpClient,
@@ -115,49 +129,25 @@ class MemberMediaStorage
     }
 
     /**
-     * Réponse de téléchargement du fichier, ou null s'il n'existe pas — chaque
-     * appelant garde sa propre forme de 404.
+     * URL CDN signée du fichier : le seul moyen de le lire, pour le navigateur
+     * comme pour le backend. Le `$ttl` se choisit selon la demande —
+     * {@see self::DISPLAY_TTL} pour ce qui s'affiche dans une liste, le défaut
+     * pour un fichier qu'on ouvre tout de suite.
+     *
+     * Null si le nœud n'a pas de fichier ou si aucune pull zone n'est
+     * configurée : un payload renvoie alors `null` (le front n'affiche rien)
+     * et une lecture serveur échoue en 502.
      */
-    public function response(string $storedName, ?string $mimeType = null, ?string $downloadName = null): ?Response
+    public function signedUrl(?string $storedName, int $ttl = self::TOKEN_TTL): ?string
     {
-        $bunny = $this->bunny('GET', $storedName, ['buffer' => false]);
-        if ($bunny->getStatusCode() === 404) {
+        $cdn = rtrim($this->config->get('cdnUrl'), '/');
+        if ($storedName === null || $storedName === '' || $cdn === '') {
             return null;
         }
 
-        $response = new StreamedResponse(function () use ($bunny): void {
-            foreach ($this->httpClient->stream($bunny) as $chunk) {
-                echo $chunk->getContent();
-            }
-        });
+        $path = self::SUBDIR.'/'.$storedName;
 
-        // Bunny renvoie tout en octet-stream : le vrai type vient de la base.
-        $response->headers->set('Content-Type', $mimeType ?? 'application/octet-stream');
-
-        $length = $bunny->getHeaders(false)['content-length'][0] ?? null;
-        if ($length !== null) {
-            $response->headers->set('Content-Length', $length);
-        }
-
-        if ($downloadName !== null) {
-            // Le nom d'origine vient de l'utilisateur : « Certificat médical.pdf »
-            // passe très bien en UTF-8 dans `filename*`, mais makeDisposition()
-            // exige en plus un repli ASCII pour les vieux clients et jette si on
-            // ne lui en donne pas. Substitution octet par octet (un caractère
-            // accentué donne donc deux « _ ») : sans le modificateur `/u`,
-            // preg_replace ne peut pas rendre null sur de l'UTF-8 invalide, et
-            // un repli vide relancerait l'exception qu'on cherche à éviter.
-            $response->headers->set(
-                'Content-Disposition',
-                HeaderUtils::makeDisposition(
-                    HeaderUtils::DISPOSITION_ATTACHMENT,
-                    $downloadName,
-                    (string) preg_replace('/[^\x20-\x7e]|%/', '_', $downloadName),
-                ),
-            );
-        }
-
-        return $response;
+        return $cdn.$path.$this->token($path, $ttl);
     }
 
     /**
@@ -231,25 +221,33 @@ class MemberMediaStorage
     }
 
     /**
-     * Un appel à la zone Bunny. Renvoie la réponse pour les 2xx et les 404 ;
-     * tout le reste (réseau, 401, 5xx) devient un 502 propre côté appelant.
+     * Un appel à Bunny : lecture par la pull zone si elle est configurée,
+     * écriture et suppression toujours par l'API Storage. Renvoie la réponse
+     * pour les 2xx et les 404 ; tout le reste (réseau, 401, 5xx) devient un 502
+     * propre côté appelant.
      *
      * @param array<string, mixed> $options
      */
     private function bunny(string $method, string $storedName, array $options = []): ResponseInterface
     {
-        $zone = $this->config->get('storageUrl');
-        if ($zone === '') {
-            $this->logger->error('Zone Bunny Storage non configurée', ['method' => $method]);
+        if ($method === 'GET') {
+            $url = $this->signedUrl($storedName);
+            $headers = [];
+        } else {
+            $zone = rtrim($this->config->get('storageUrl'), '/');
+            $url = $zone !== '' ? $zone.self::SUBDIR.'/'.$storedName : null;
+            $headers = ['AccessKey' => $this->config->get('storageKey')];
+        }
+
+        if ($url === null) {
+            $this->logger->error('Stockage Bunny non configuré', ['method' => $method]);
 
             throw new UseCaseException('Stockage de fichiers non configuré', 502);
         }
 
-        $url = rtrim($zone, '/').self::SUBDIR.'/'.$storedName;
-
         try {
             $response = $this->httpClient->request($method, $url, $options + [
-                'headers' => ['AccessKey' => $this->config->get('storageKey')],
+                'headers' => $headers,
                 'timeout' => self::TIMEOUT,
             ]);
             $status = $response->getStatusCode();
@@ -274,5 +272,23 @@ class MemberMediaStorage
         }
 
         return $response;
+    }
+
+    /**
+     * Query string de la Token Authentication Bunny : md5(clé + chemin +
+     * expiration) en base64 url-safe, sans le bourrage `=`. Sans clé, la pull
+     * zone est ouverte et l'URL part telle quelle.
+     */
+    private function token(string $path, int $ttl): string
+    {
+        $key = $this->config->get('tokenKey');
+        if ($key === '') {
+            return '';
+        }
+
+        $expires = time() + $ttl;
+        $token = rtrim(strtr(base64_encode(md5($key.$path.$expires, true)), '+/', '-_'), '=');
+
+        return '?token='.$token.'&expires='.$expires;
     }
 }

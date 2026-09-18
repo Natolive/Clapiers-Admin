@@ -222,47 +222,56 @@ duplicate record that is deleted right after.
 **There is no local-disk fallback, on purpose.** The backend runs as several k8s
 pods, so a file written to one pod's disk 404s from the others.
 
-**Zone and key are admin settings, not env vars** — same pattern as HelloAsso.
-`BunnyConfigProvider` (`src/Common/Service/`) reads `bunny_storage_url` /
-`bunny_storage_key` from the `setting` table and is the only source
-`MemberMediaStorage` consults. They are edited under *Paramètres → Stockage des
-fichiers* (`GET`/`PUT /api/settings/bunny`, `ROLE_SUPER_ADMIN`); the key is
-write-only — the API returns `storageKeyDefined`, never the value. An unconfigured
-zone fails every upload and download with a 502 instead of losing files.
+**Writes go to the Storage API, every read goes through the CDN.** `PUT`/`DELETE`
+hit `storageUrl` with the `AccessKey`; **every** `GET` — the browser's and the
+backend's own (copy, export) — hits the pull zone (`cdnUrl`), signed. There is
+no fallback to the Storage API for reads: one path, one behaviour. Without a
+pull zone nothing is readable (502 server-side, `null` in payloads).
+
+**Zone, CDN and keys are admin settings, not env vars** — same pattern as
+HelloAsso. `BunnyConfigProvider` (`src/Common/Service/`) reads
+`bunny_storage_url` / `bunny_storage_key` / `bunny_cdn_url` / `bunny_token_key`
+from the `setting` table and is the only source `MemberMediaStorage` consults.
+They are edited under *Paramètres → Stockage des fichiers*
+(`GET`/`PUT /api/settings/bunny`, `ROLE_SUPER_ADMIN`); both keys are
+write-only — the API returns `storageKeyDefined` / `tokenKeyDefined`, never the
+values. An unconfigured zone fails every upload with a 502 instead
+of losing files; an unconfigured pull zone fails every read the same way.
 
 In tests, `ApiTestCase::setUp()` writes a dummy zone into the `setting` table and
 `FakeBunnyStorageClient` (`when@test`, `config/services.yaml`) swaps only the HTTP
 transport for an in-memory zone — the real service stays under test, and nothing
 ever hits the network.
 
-**Files are never public.** No CDN pull zone is attached to the storage zone —
-the zone is only readable with the `AccessKey`, which lives in the backend. The
-only reads go through the authenticated routes below, all of which call
-`MemberMediaStorage::response()`:
+**The backend never streams a file any more.** The API hands the browser a
+**signed CDN URL** inside payloads it already guards, and the browser fetches
+the object straight from the edge. `MemberMediaStorage::signedUrl()` is the one
+place that builds them: `md5(tokenKey + path + expires)`, base64 url-safe with
+no padding, `?token=…&expires=…` — Bunny **Token Authentication**. TTL is chosen
+per use: `DISPLAY_TTL` (30 min) for anything shown in a list, 5 min for a file
+opened right away. A leaked URL expires on its own; `storedName` is still never
+exposed (nodes are addressed by UUID).
 
-| Route | Guard |
-| --- | --- |
-| `GET /api/member/{id}/profile-picture` | `ROLE_ADMIN`, + shares a team unless `ROLE_SUPER_ADMIN` |
-| `DELETE /api/member/{id}` | `ROLE_SUPER_ADMIN` |
-| `GET /api/member/{id}/media/node/{uuid}/download` | `ROLE_SUPER_ADMIN` |
-| `GET /api/team/my-team/license/{memberId}` | `ROLE_ADMIN` + shares a team |
+| Payload | Field | Guard on the endpoint |
+| --- | --- | --- |
+| `GET /api/member`, `/paginated`, `/team/{id}`, `PATCH /api/team/{id}/roster` | `profilePictureUrl` | `ROLE_SUPER_ADMIN` |
+| `GET /api/user/paginated` | `member.profilePictureUrl` | `ROLE_SUPER_ADMIN` |
+| `GET /api/team/my-team` | `profilePictureUrl`, `licenseUrl` | `ROLE_ADMIN`, own teams only |
+| `GET /api/member/{id}/media` | `url` per node | `ROLE_SUPER_ADMIN` |
+| `GET /api/license/{id}` (review) | `url` per expected piece | `ROLE_SUPER_ADMIN` |
 
-Nothing is ever served by URL: `response()` streams through the app with the
-Bunny `AccessKey` header, there is no pull zone and no signed link, and
-`MemberDocument::toArray()` never exposes `storedName` — nodes are addressed by
-UUID. Anonymous access to any of these is `401` (the `^/api` firewall);
+The guard moved from a download route to the payload that carries the URL: a
+coach only ever sees the members of his own teams in `/my-team`, so he only ever
+gets their URLs. Anonymous access is `401` (the `^/api` firewall);
 `^/api/public` only ever *uploads* files, it never reads one back.
 
-`response()` returns `null` when the file is missing (each caller keeps its own
-404 shape) and throws `UseCaseException(502)` on a Bunny outage. On the Bunny
-backend it streams (`StreamedResponse` over the HTTP client) and takes the
-`Content-Type` from the DB, since Bunny serves everything as octet-stream.
+The front consumes them through `useCdnFile()`: `open()` for a new tab,
+`download()` through a blob so the original filename survives — a `download`
+attribute is ignored on a cross-origin link, so **the pull zone must allow the
+dashboard origin** (Bunny → Pull Zone → Headers → CORS).
+
 `store()` uploads **before** the caller flushes, so a failed upload can't leave
 a DB row pointing at a missing file.
-
-The download name is the user's original filename, so `response()` always passes
-`makeDisposition()` an explicit ASCII fallback — given none, Symfony reuses the
-name itself and throws `InvalidArgumentException` on the first accent.
 
 The CSV game import (`POST /api/game/import`) does **not** use this service: it
 reads the multipart temp file in-memory within the same request and never stores
@@ -431,7 +440,7 @@ exportable with no change here (that file's promise still holds).
   stores exactly one per member in a root folder, so the same file comes out
   whichever season you export. There is no "photo of the season" to pick —
   making one would mean moving `identity_photo` into the season folders, which
-  the profile-picture route also depends on.
+  every `profilePictureUrl` in the API payloads also depends on.
 - **One query for all the slots**
   (`MemberDocumentRepository::findDefaultSlotsForMembers`): two queries per
   member per piece is untenable on a whole list.

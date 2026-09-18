@@ -265,9 +265,8 @@ stockage dans [`members-and-mediatheque.md`](members-and-mediatheque.md) :
   n'applique que les champs non vides (secret vide = inchangé) et refuse un
   corps vide (422). Pas de cache à purger : le stockage relit les réglages à
   chaque appel.
-- `cdnUrl` / `tokenKey` (pull zone + Token Authentication) sont saisissables
-  dès maintenant ; le stockage les utilisera pour servir les fichiers au
-  navigateur.
+- Écritures par l'API Storage, **toutes** les lectures par la pull zone CDN
+  signée : sans `cdnUrl`, plus rien ne se lit.
 
 ## Réglages d'inscription (table `setting`)
 

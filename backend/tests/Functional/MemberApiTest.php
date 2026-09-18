@@ -696,90 +696,61 @@ class MemberApiTest extends ApiTestCase
     // (ROLE_ADMIN) seulement les licenciés d'une de ses équipes. La photo est
     // une donnée personnelle, pas un trombinoscope ouvert.
 
-    public function testProfilePictureIsServedFromMediatheque(): void
+    public function testMemberListCarriesASignedCdnUrlForTheProfilePicture(): void
     {
         $member = $this->aMember()->persist();
         $this->givePhotoInMediatheque($member);
 
         $this->actingAsSuperAdmin();
-        $this->getJson('/api/member/'.$member->getId().'/profile-picture');
+        $this->getJson('/api/member');
 
-        $this->assertSame(200, $this->response()->getStatusCode());
+        $row = $this->rowFor($this->assertJsonResponse(200), $member->getId());
+        $url = $row['profilePictureUrl'];
+        $this->assertNotNull($url);
+        $this->assertSame(self::TEST_BUNNY_CDN_URL.'/member-media/pp.png', strtok($url, '?'));
+
+        parse_str((string) parse_url($url, PHP_URL_QUERY), $query);
+        $this->assertNotEmpty($query['token']);
+        $this->assertGreaterThan(time(), (int) $query['expires']);
     }
 
-    public function testProfilePictureRequiresAuthentication(): void
-    {
-        $member = $this->aMember()->persist();
-
-        $this->getJson('/api/member/'.$member->getId().'/profile-picture');
-
-        $this->assertJsonResponse(401);
-    }
-
-    public function testProfilePictureIsForbiddenForPlainUser(): void
-    {
-        $member = $this->aMember()->persist();
-
-        $this->actingAsUser();
-        $this->getJson('/api/member/'.$member->getId().'/profile-picture');
-
-        $this->assertJsonResponse(403);
-    }
-
-    public function testCoachSeesThePhotoOfHisTeamMember(): void
-    {
-        $team = $this->aTeam()->persist();
-        $member = $this->aMember()->inTeams($team)->persist();
-        $this->givePhotoInMediatheque($member);
-
-        $this->actingAs($this->aUser()->admin()->managing($team)->persist());
-        $this->getJson('/api/member/'.$member->getId().'/profile-picture');
-
-        $this->assertSame(200, $this->response()->getStatusCode());
-    }
-
-    public function testCoachCannotSeeThePhotoOfAnotherTeamsMember(): void
-    {
-        $myTeam = $this->aTeam()->persist();
-        $otherTeam = $this->aTeam()->persist();
-        $member = $this->aMember()->inTeams($otherTeam)->persist();
-        $this->givePhotoInMediatheque($member);
-
-        $this->actingAs($this->aUser()->admin()->managing($myTeam)->persist());
-        $this->getJson('/api/member/'.$member->getId().'/profile-picture');
-
-        $this->assertJsonResponse(403);
-    }
-
-    /** Un coach sans équipe n'a personne à voir — 403, pas une photo au hasard. */
-    public function testCoachWithoutATeamSeesNoPhoto(): void
-    {
-        $team = $this->aTeam()->persist();
-        $member = $this->aMember()->inTeams($team)->persist();
-        $this->givePhotoInMediatheque($member);
-
-        $this->actingAs($this->aUser()->admin()->persist());
-        $this->getJson('/api/member/'.$member->getId().'/profile-picture');
-
-        $this->assertJsonResponse(403);
-    }
-
-    public function testProfilePictureWithoutMediathequeFileReturns404(): void
+    public function testProfilePictureUrlIsNullWhenTheMemberHasNoPhoto(): void
     {
         $member = $this->aMember()->persist();
 
         $this->actingAsSuperAdmin();
-        $this->getJson('/api/member/'.$member->getId().'/profile-picture');
+        $this->getJson('/api/member');
 
-        $this->assertJsonResponse(404);
+        $this->assertNull($this->rowFor($this->assertJsonResponse(200), $member->getId())['profilePictureUrl']);
     }
 
-    public function testProfilePictureOnUnknownMemberReturns404(): void
+    /** Sans pull zone configurée, plus rien ne se lit : pas d'URL, pas de lien mort. */
+    public function testProfilePictureUrlIsNullWithoutAPullZone(): void
     {
-        $this->actingAsSuperAdmin();
-        $this->getJson('/api/member/999999/profile-picture');
+        $member = $this->aMember()->persist();
+        $this->givePhotoInMediatheque($member);
+        $this->configureBunny(self::TEST_BUNNY_URL, cdnUrl: '');
 
-        $this->assertJsonResponse(404);
+        $this->actingAsSuperAdmin();
+        $this->getJson('/api/member');
+
+        $this->assertNull($this->rowFor($this->assertJsonResponse(200), $member->getId())['profilePictureUrl']);
+    }
+
+    /**
+     * @param list<array<string, mixed>> $rows
+     *
+     * @return array<string, mixed>
+     */
+    private function rowFor(array $rows, ?int $memberId): array
+    {
+        foreach ($rows as $row) {
+            if ($row['id'] === $memberId) {
+                return $row;
+            }
+        }
+
+        $this->fail('Licencié absent de la liste');
     }
 
     /** Remplit le slot photo de profil dans la médiathèque du membre. */

@@ -15,6 +15,8 @@ export type MemberDocument = {
     originalName: string | null;
     mimeType: string | null;
     size: number | null;
+    /** URL CDN signée du fichier (null si le nœud n'en porte pas). */
+    url: string | null;
     children: MemberDocument[];
     createdAt: string;
     updatedAt: string;

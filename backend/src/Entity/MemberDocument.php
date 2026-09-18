@@ -232,7 +232,13 @@ class MemberDocument
         return $this;
     }
 
-    public function toArray(): array
+    /**
+     * @param ?\Closure(self): ?string $urlFor signe l'URL CDN d'un nœud
+     *                                          porteur de fichier (null = pas
+     *                                          de pull zone : le front retombe
+     *                                          sur la route de téléchargement)
+     */
+    public function toArray(?\Closure $urlFor = null): array
     {
         return [
             'id' => $this->getUuid(),
@@ -246,14 +252,15 @@ class MemberDocument
             'originalName' => $this->getOriginalName(),
             'mimeType' => $this->getMimeType(),
             'size' => $this->getSize(),
-            'children' => $this->sortedChildren(),
+            'url' => $this->hasFile() && $urlFor !== null ? $urlFor($this) : null,
+            'children' => $this->sortedChildren($urlFor),
             'createdAt' => $this->getCreatedAt()?->format(DATE_ATOM),
             'updatedAt' => $this->getUpdatedAt()?->format(DATE_ATOM),
         ];
     }
 
     /** Dossiers avant documents, puis par nom (ordre stable pour l'UI). */
-    private function sortedChildren(): array
+    private function sortedChildren(?\Closure $urlFor): array
     {
         $children = $this->getChildren()->toArray();
 
@@ -265,6 +272,6 @@ class MemberDocument
             return strcasecmp($a->getName(), $b->getName());
         });
 
-        return array_map(static fn (MemberDocument $node) => $node->toArray(), $children);
+        return array_map(static fn (MemberDocument $node) => $node->toArray($urlFor), $children);
     }
 }

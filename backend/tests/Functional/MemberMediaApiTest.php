@@ -220,7 +220,7 @@ class MemberMediaApiTest extends ApiTestCase
 
     // ── Fichier sur un slot existant : upload / download / delete ────────────
 
-    public function testFillDefaultSlotDownloadThenClear(): void
+    public function testFillDefaultSlotThenClearDrivesTheSignedUrl(): void
     {
         $member = $this->aMember()->persist();
         $this->actingAsSuperAdmin();
@@ -231,20 +231,24 @@ class MemberMediaApiTest extends ApiTestCase
         $filled = $this->assertJsonResponse(200);
         $this->assertTrue($filled['hasFile']);
 
-        // Download
-        $this->getJson('/api/member/'.$member->getId().'/media/node/'.$slot['id'].'/download');
-        $this->assertSame(200, $this->response()->getStatusCode());
+        // L'arbre porte l'URL CDN signée : c'est le seul chemin de lecture.
+        $filledSlot = $this->slot($this->tree($member->getId()), 'license');
+        $url = $filledSlot['url'];
+        $this->assertNotNull($url);
+        $this->assertStringStartsWith(self::TEST_BUNNY_CDN_URL.'/member-media/', $url);
+        parse_str((string) parse_url($url, PHP_URL_QUERY), $query);
+        $this->assertNotEmpty($query['token']);
+        $this->assertGreaterThan(time(), (int) $query['expires']);
 
-        // Suppression du fichier : le slot reste, vide
+        // Suppression du fichier : le slot reste, vide et sans URL
         $this->deleteJson('/api/member/'.$member->getId().'/media/node/'.$slot['id'].'/file');
         $cleared = $this->assertJsonResponse(200);
         $this->assertFalse($cleared['hasFile']);
-
-        $this->getJson('/api/member/'.$member->getId().'/media/node/'.$slot['id'].'/download');
-        $this->assertJsonResponse(404);
+        $this->assertNull($this->slot($this->tree($member->getId()), 'license')['url']);
     }
 
-    public function testDownloadOfAnAccentedFilename(): void
+    /** Le nom d'origine reste en base : c'est lui que le front pose au téléchargement. */
+    public function testAnAccentedFilenameIsKeptAsIs(): void
     {
         $member = $this->aMember()->persist();
         $this->actingAsSuperAdmin();
@@ -254,17 +258,8 @@ class MemberMediaApiTest extends ApiTestCase
             '/api/member/'.$member->getId().'/media/node/'.$slot['id'].'/file',
             $this->fakePdf('Certificat médical 100%.pdf'),
         );
-        $this->assertJsonResponse(200);
 
-        $this->getJson('/api/member/'.$member->getId().'/media/node/'.$slot['id'].'/download');
-        $this->assertSame(200, $this->response()->getStatusCode());
-
-        // Le nom réel passe en UTF-8 dans `filename*`, le repli ASCII substitue
-        // accents et « % » — sans lui, makeDisposition() jette une 500. La
-        // substitution est faite octet par octet, d'où deux « _ » pour le « é ».
-        $disposition = (string) $this->response()->headers->get('Content-Disposition');
-        $this->assertStringContainsString('filename="Certificat m__dical 100_.pdf"', $disposition);
-        $this->assertStringContainsString("filename*=utf-8''", $disposition);
+        $this->assertSame('Certificat médical 100%.pdf', $this->assertJsonResponse(200)['originalName']);
     }
 
     public function testReuploadReplacesTheOldFileOnDisk(): void

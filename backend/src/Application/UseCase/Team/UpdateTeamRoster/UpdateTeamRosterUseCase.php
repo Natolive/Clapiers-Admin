@@ -4,6 +4,7 @@ namespace App\Application\UseCase\Team\UpdateTeamRoster;
 
 use App\Common\Command\CommandInterface;
 use App\Common\Exception\UseCaseException;
+use App\Common\Service\MemberPhotoUrls;
 use App\Common\Service\SeasonProvider;
 use App\Common\UseCase\AbstractUseCase;
 use App\Entity\Member;
@@ -30,6 +31,7 @@ class UpdateTeamRosterUseCase extends AbstractUseCase
         private readonly MemberRepository $memberRepository,
         private readonly EntityManagerInterface $entityManager,
         private readonly SeasonProvider $seasonProvider,
+        private readonly MemberPhotoUrls $photoUrls,
     ) {
     }
 
@@ -60,13 +62,20 @@ class UpdateTeamRosterUseCase extends AbstractUseCase
         $season = $command->season ?? $this->seasonProvider->current();
         $members = $this->memberRepository->findByTeam($team, $season);
         $counts = $this->memberRepository->countActiveByTeam($season);
+        $photos = $this->photoUrls->forMembers($members, $season);
 
         return [
             ...$team->toArray(),
             'season' => $season,
             'memberCount' => $counts[$team->getId()]['members'] ?? 0,
             'paidCount' => $counts[$team->getId()]['paid'] ?? 0,
-            'members' => array_map(fn (Member $m) => $m->toArray($season), $members),
+            'members' => array_map(
+                fn (Member $m) => [
+                    ...$m->toArray($season),
+                    'profilePictureUrl' => $photos[$m->getId()] ?? null,
+                ],
+                $members,
+            ),
         ];
     }
 

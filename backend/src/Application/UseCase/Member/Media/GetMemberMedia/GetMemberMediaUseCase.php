@@ -5,8 +5,10 @@ namespace App\Application\UseCase\Member\Media\GetMemberMedia;
 use App\Common\Command\CommandInterface;
 use App\Common\Exception\UseCaseException;
 use App\Common\Service\MemberMediaSeeder;
+use App\Common\Service\MemberMediaStorage;
 use App\Common\Service\SeasonProvider;
 use App\Common\UseCase\AbstractUseCase;
+use App\Entity\MemberDocument;
 use App\Repository\MemberDocumentRepository;
 use App\Repository\MemberRepository;
 use Doctrine\ORM\EntityManagerInterface;
@@ -21,13 +23,14 @@ class GetMemberMediaUseCase extends AbstractUseCase
         private readonly MemberRepository $memberRepository,
         private readonly MemberDocumentRepository $documentRepository,
         private readonly MemberMediaSeeder $seeder,
+        private readonly MemberMediaStorage $storage,
         private readonly SeasonProvider $seasonProvider,
         private readonly EntityManagerInterface $entityManager,
     ) {
     }
 
     /**
-     * @return \App\Entity\MemberDocument[]
+     * @return list<array<string, mixed>>
      */
     public function run(?CommandInterface $command = null): array
     {
@@ -46,6 +49,16 @@ class GetMemberMediaUseCase extends AbstractUseCase
         $this->seeder->ensureSeason($member, $this->seasonProvider->current());
         $this->entityManager->flush();
 
-        return $this->documentRepository->findRootsByMember($member);
+        // Chaque nœud porteur de fichier repart avec son URL CDN signée :
+        // aperçu et vignettes se chargent au bord, sans repasser par le backend.
+        $urlFor = fn (MemberDocument $node): ?string => $this->storage->signedUrl(
+            $node->getStoredName(),
+            MemberMediaStorage::DISPLAY_TTL,
+        );
+
+        return array_map(
+            static fn (MemberDocument $root) => $root->toArray($urlFor),
+            $this->documentRepository->findRootsByMember($member),
+        );
     }
 }

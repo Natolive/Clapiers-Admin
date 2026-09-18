@@ -85,25 +85,18 @@ authenticated user).
 - Enables sorting/filtering users by their linked member's name in pagination,
   and embeds the member in `AppUser::toArray`.
 
-## My-team downloads (licence PDF, photo)
+## My-team files (licence PDF, photo)
 
-Both use cases enforce the same two-stage rule:
+There is no download route any more: `GET /api/team/my-team` (`ROLE_ADMIN`)
+carries `profilePictureUrl` and `licenseUrl` — signed CDN URLs — for each member
+it lists, and it only lists the members of the teams the caller coaches. A coach
+without a team gets an empty list, so the old two-stage 403 rule is now enforced
+by the listing itself.
 
-1. Caller must have ≥1 team, else **403**.
-2. The target member must **share a team** with the caller, else **403**.
-
-So any coach can download the licence/photo of **any** member of **any** team he
-coaches (not limited to members he personally linked). Files come from the média
-library: licence = current-season `license` slot (season-scoped); photo = root
-`identity_photo` slot (season-agnostic). Missing slot/file → 404.
-
-- These return a file response (a `StreamedResponse` piping the Bunny object),
-  so they **bypass the JSON `execute()` wrapper** and call `run()` directly,
-  catching `UseCaseException` → JSON and `\Throwable` → 500 by hand in the
-  controller. A Bunny outage surfaces as `UseCaseException(502)`; a file missing
-  from the zone is a 404.
-- Licence is served as an attachment (filename fallback `'licence'`); photo is
-  served inline.
+Files come from the média library: licence = current-season `license` slot
+(season-scoped); photo = root `identity_photo` slot (season-agnostic). No file
+in the slot → the field is `null`. See
+[`members-and-mediatheque.md`](members-and-mediatheque.md) for the signature.
 
 ## Password / auth handling
 

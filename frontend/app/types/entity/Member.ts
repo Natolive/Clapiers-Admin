@@ -13,6 +13,10 @@ export type Member = {
     hasLicenseDocument?: boolean;
     /** Présent dans « mon équipe » : photo de profil déposée dans la médiathèque. */
     hasProfilePicture?: boolean;
+    /** URL CDN signée de la photo de profil (null sans photo ou sans pull zone). */
+    profilePictureUrl?: string | null;
+    /** « Mon équipe » : URL CDN signée de la licence de la saison courante. */
+    licenseUrl?: string | null;
     licenseNumber: string | null;
     /** Liste paginée : inscription à la FSGT déclarée pour la saison filtrée. */
     fsgtRegistered?: boolean;

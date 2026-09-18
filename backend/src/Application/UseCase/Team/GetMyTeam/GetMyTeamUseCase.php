@@ -4,6 +4,8 @@ namespace App\Application\UseCase\Team\GetMyTeam;
 
 use App\Common\Command\CommandInterface;
 use App\Common\Exception\UseCaseException;
+use App\Common\Service\MemberMediaStorage;
+use App\Common\Service\MemberPhotoUrls;
 use App\Common\Service\SeasonProvider;
 use App\Common\UseCase\AbstractUseCase;
 use App\Entity\Member;
@@ -19,6 +21,8 @@ class GetMyTeamUseCase extends AbstractUseCase
         private readonly MemberRepository $memberRepository,
         private readonly MemberDocumentRepository $documentRepository,
         private readonly SeasonProvider $seasonProvider,
+        private readonly MemberPhotoUrls $photoUrls,
+        private readonly MemberMediaStorage $storage,
     ) {
     }
 
@@ -36,19 +40,29 @@ class GetMyTeamUseCase extends AbstractUseCase
         $groups = [];
 
         foreach ($command->user->getTeams() as $team) {
+            $members = $this->memberRepository->findByTeam($team, $season);
+            $photos = $this->photoUrls->forMembers($members, $season);
+
             $groups[] = [
                 'team' => $team->toArray(),
                 'members' => array_map(
-                    fn (Member $m) => [
-                        // "Licence payée" et présence des fichiers : toutes sur
-                        // la saison courante (médiathèque = source de vérité).
-                        ...$m->toArray($season),
-                        'hasLicenseDocument' => $this->documentRepository
-                            ->findDefaultSlot($m, $season, 'license')?->hasFile() ?? false,
-                        'hasProfilePicture' => $this->documentRepository
-                            ->findRootDocumentSlot($m, 'identity_photo')?->hasFile() ?? false,
-                    ],
-                    $this->memberRepository->findByTeam($team, $season)
+                    function (Member $m) use ($season, $photos): array {
+                        // "Licence payée" et pièces : toutes sur la saison
+                        // courante (médiathèque = source de vérité).
+                        $license = $this->documentRepository->findDefaultSlot($m, $season, 'license');
+
+                        return [
+                            ...$m->toArray($season),
+                            'hasLicenseDocument' => $license?->hasFile() ?? false,
+                            'hasProfilePicture' => isset($photos[$m->getId()]),
+                            'profilePictureUrl' => $photos[$m->getId()] ?? null,
+                            'licenseUrl' => $this->storage->signedUrl(
+                                $license?->getStoredName(),
+                                MemberMediaStorage::DISPLAY_TTL,
+                            ),
+                        ];
+                    },
+                    $members,
                 ),
             ];
         }

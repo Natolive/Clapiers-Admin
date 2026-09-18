@@ -508,59 +508,53 @@ class TeamApiTest extends ApiTestCase
         $this->assertJsonResponse(403);
     }
 
-    // ── GET /api/team/my-team/license/{memberId} ────────────────────────────
-
-    public function testCoachDownloadsLicenseOfHisTeamMember(): void
+    public function testMyTeamCarriesSignedCdnUrlsForThePhotoAndTheLicense(): void
     {
         $team = $this->aTeam()->persist();
-        $member = $this->aMember()->inTeams($team)->persist();
+        $member = $this->aMember()->inTeams($team)->licensedFor($this->currentSeason())->persist();
+        $this->givePhotoInMediatheque($member);
         $this->giveLicenseInMediatheque($member);
 
-        $coach = $this->aUser()->admin()->managing($team)->persist();
-        $this->actingAs($coach);
+        $this->actingAs($this->aUser()->admin()->managing($team)->persist());
+        $this->getJson('/api/team/my-team');
 
-        $this->getJson('/api/team/my-team/license/'.$member->getId());
-
-        $this->assertSame(200, $this->response()->getStatusCode());
+        $row = $this->assertJsonResponse(200)[0]['members'][0];
+        $this->assertTrue($row['hasProfilePicture']);
+        $this->assertTrue($row['hasLicenseDocument']);
+        $this->assertSignedCdnUrl($row['profilePictureUrl'], 'pp.png');
+        $this->assertSignedCdnUrl($row['licenseUrl'], 'lic.pdf');
     }
 
-    public function testCoachCannotDownloadLicenseOfAnotherTeamsMember(): void
+    /** Pas de pièce, pas d'URL : le front affiche les initiales, pas un lien mort. */
+    public function testMyTeamLeavesTheUrlsNullWithoutAnyFile(): void
+    {
+        $team = $this->aTeam()->persist();
+        $this->aMember()->inTeams($team)->licensedFor($this->currentSeason())->persist();
+
+        $this->actingAs($this->aUser()->admin()->managing($team)->persist());
+        $this->getJson('/api/team/my-team');
+
+        $row = $this->assertJsonResponse(200)[0]['members'][0];
+        $this->assertNull($row['profilePictureUrl']);
+        $this->assertNull($row['licenseUrl']);
+    }
+
+    /**
+     * La garde n'est plus sur une route de téléchargement mais sur la liste :
+     * le licencié d'une autre équipe n'apparaît pas, donc son URL non plus.
+     */
+    public function testACoachNeverSeesTheUrlsOfAnotherTeamsMember(): void
     {
         $myTeam = $this->aTeam()->persist();
         $otherTeam = $this->aTeam()->persist();
-        $member = $this->aMember()->inTeams($otherTeam)->persist();
+        $member = $this->aMember()->inTeams($otherTeam)->licensedFor($this->currentSeason())->persist();
+        $this->givePhotoInMediatheque($member);
         $this->giveLicenseInMediatheque($member);
 
-        $coach = $this->aUser()->admin()->managing($myTeam)->persist();
-        $this->actingAs($coach);
+        $this->actingAs($this->aUser()->admin()->managing($myTeam)->persist());
+        $this->getJson('/api/team/my-team');
 
-        $this->getJson('/api/team/my-team/license/'.$member->getId());
-
-        $this->assertJsonResponse(403);
-    }
-
-    public function testCoachWithoutTeamCannotDownloadAnyLicense(): void
-    {
-        $team = $this->aTeam()->persist();
-        $member = $this->aMember()->inTeams($team)->persist();
-
-        $this->actingAsAdmin();
-        $this->getJson('/api/team/my-team/license/'.$member->getId());
-
-        $this->assertJsonResponse(403);
-    }
-
-    public function testDownloadLicenseReturns404WhenMemberHasNoFile(): void
-    {
-        $team = $this->aTeam()->persist();
-        $member = $this->aMember()->inTeams($team)->persist();
-
-        $coach = $this->aUser()->admin()->managing($team)->persist();
-        $this->actingAs($coach);
-
-        $this->getJson('/api/team/my-team/license/'.$member->getId());
-
-        $this->assertJsonResponse(404);
+        $this->assertSame([], $this->assertJsonResponse(200)[0]['members']);
     }
 
     public function testUpdatingUnknownTeamReturns404(): void
@@ -623,6 +617,20 @@ class TeamApiTest extends ApiTestCase
         $slot = static::getContainer()->get(MemberDocumentRepository::class)
             ->findRootDocumentSlot($member, 'identity_photo');
         $this->attachFile($slot, 'pp.png', 'photo.png');
+    }
+
+    /** URL CDN signée : chemin de l'objet, jeton et expiration dans le futur. */
+    private function assertSignedCdnUrl(?string $url, string $storedName): void
+    {
+        $this->assertNotNull($url);
+        $this->assertSame(
+            self::TEST_BUNNY_CDN_URL.'/member-media/'.$storedName,
+            strtok($url, '?'),
+        );
+
+        parse_str((string) parse_url($url, PHP_URL_QUERY), $query);
+        $this->assertNotEmpty($query['token']);
+        $this->assertGreaterThan(time(), (int) $query['expires']);
     }
 
     private function attachFile(?object $slot, string $storedName, string $originalName): void
