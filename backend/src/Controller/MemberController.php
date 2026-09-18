@@ -16,11 +16,9 @@ use App\Application\UseCase\Member\GetPaginatedMembers\GetPaginatedMembersUseCas
 use App\Application\UseCase\Member\SetFsgtRegistration\SetFsgtRegistrationCommand;
 use App\Application\UseCase\Member\SetFsgtRegistration\SetFsgtRegistrationUseCase;
 use App\Common\Exception\UseCaseException;
-use App\Common\Service\MemberMediaStorage;
 use App\Controller\Input\SeasonQuery;
 use App\Controller\Input\SetFsgtRegistrationInput;
 use App\Entity\Enum\AppUserRole;
-use App\Repository\MemberDocumentRepository;
 use App\Repository\MemberRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -115,28 +113,4 @@ class MemberController extends AbstractController
         return $useCase->execute($command);
     }
 
-    #[Route('/{id}/profile-picture', name: 'profile_picture', methods: ['GET'])]
-    #[IsGranted(AppUserRole::ROLE_ADMIN)]
-    public function profilePicture(
-        int $id,
-        MemberRepository $memberRepository,
-        MemberDocumentRepository $documentRepository,
-        MemberMediaStorage $mediaStorage
-    ): Response {
-        $member = $memberRepository->find($id);
-        if (!$member) {
-            return $this->json(['error' => 'Profile picture not found'], 404);
-        }
-
-        // La médiathèque est la source unique : slot « Photo d'identité ».
-        $slot = $documentRepository->findRootDocumentSlot($member, 'identity_photo');
-        if ($slot && $slot->hasFile()) {
-            $response = $mediaStorage->response((string) $slot->getStoredName(), $slot->getMimeType());
-            if ($response !== null) {
-                return $response;
-            }
-        }
-
-        return $this->json(['error' => 'Profile picture not found'], 404);
-    }
 }

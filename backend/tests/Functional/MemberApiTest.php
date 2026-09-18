@@ -58,16 +58,17 @@ class MemberApiTest extends ApiTestCase
         $this->assertSame(['Alice'], array_column($body, 'firstName'));
     }
 
+    /**
+     * MemberController est SUPER_ADMIN de bout en bout. Un `#[IsGranted]` de
+     * méthode s'y **ajoute** au lieu de remplacer celui de la classe : la
+     * photo de profil, qui doit servir les coachs, vit donc dans son propre
+     * contrôleur (cf. les tests de photo plus bas).
+     */
     public function testAdminIsForbiddenOnEveryMemberRoute(): void
     {
-        // Class-level IsGranted(SUPER_ADMIN) applies even to methods that
-        // declare ROLE_ADMIN (both attributes are enforced)
         $this->actingAsAdmin();
 
         $this->getJson('/api/member');
-        $this->assertJsonResponse(403);
-
-        $this->getJson('/api/member/1/profile-picture');
         $this->assertJsonResponse(403);
 
         $this->deleteJson('/api/member/1');
@@ -690,25 +691,77 @@ class MemberApiTest extends ApiTestCase
     }
 
     // ── Photo d'identité : lecture depuis la médiathèque ─────────────────────
+    //
+    // La route sert deux publics : le SUPER_ADMIN voit tout le club, un coach
+    // (ROLE_ADMIN) seulement les licenciés d'une de ses équipes. La photo est
+    // une donnée personnelle, pas un trombinoscope ouvert.
 
     public function testProfilePictureIsServedFromMediatheque(): void
     {
         $member = $this->aMember()->persist();
-
-        static::getContainer()->get(MemberMediaSeeder::class)->ensureRootFolders($member);
-        $this->em()->flush();
-        $slot = static::getContainer()->get(MemberDocumentRepository::class)
-            ->findRootDocumentSlot($member, 'identity_photo');
-        $this->assertNotNull($slot);
-
-        static::getContainer()->get(FakeBunnyStorageClient::class)->seed('pp.png', 'PNGDATA');
-        $slot->setFile('pp.png', 'photo.png', 'image/png', 7);
-        $this->em()->flush();
+        $this->givePhotoInMediatheque($member);
 
         $this->actingAsSuperAdmin();
         $this->getJson('/api/member/'.$member->getId().'/profile-picture');
 
         $this->assertSame(200, $this->response()->getStatusCode());
+    }
+
+    public function testProfilePictureRequiresAuthentication(): void
+    {
+        $member = $this->aMember()->persist();
+
+        $this->getJson('/api/member/'.$member->getId().'/profile-picture');
+
+        $this->assertJsonResponse(401);
+    }
+
+    public function testProfilePictureIsForbiddenForPlainUser(): void
+    {
+        $member = $this->aMember()->persist();
+
+        $this->actingAsUser();
+        $this->getJson('/api/member/'.$member->getId().'/profile-picture');
+
+        $this->assertJsonResponse(403);
+    }
+
+    public function testCoachSeesThePhotoOfHisTeamMember(): void
+    {
+        $team = $this->aTeam()->persist();
+        $member = $this->aMember()->inTeams($team)->persist();
+        $this->givePhotoInMediatheque($member);
+
+        $this->actingAs($this->aUser()->admin()->managing($team)->persist());
+        $this->getJson('/api/member/'.$member->getId().'/profile-picture');
+
+        $this->assertSame(200, $this->response()->getStatusCode());
+    }
+
+    public function testCoachCannotSeeThePhotoOfAnotherTeamsMember(): void
+    {
+        $myTeam = $this->aTeam()->persist();
+        $otherTeam = $this->aTeam()->persist();
+        $member = $this->aMember()->inTeams($otherTeam)->persist();
+        $this->givePhotoInMediatheque($member);
+
+        $this->actingAs($this->aUser()->admin()->managing($myTeam)->persist());
+        $this->getJson('/api/member/'.$member->getId().'/profile-picture');
+
+        $this->assertJsonResponse(403);
+    }
+
+    /** Un coach sans équipe n'a personne à voir — 403, pas une photo au hasard. */
+    public function testCoachWithoutATeamSeesNoPhoto(): void
+    {
+        $team = $this->aTeam()->persist();
+        $member = $this->aMember()->inTeams($team)->persist();
+        $this->givePhotoInMediatheque($member);
+
+        $this->actingAs($this->aUser()->admin()->persist());
+        $this->getJson('/api/member/'.$member->getId().'/profile-picture');
+
+        $this->assertJsonResponse(403);
     }
 
     public function testProfilePictureWithoutMediathequeFileReturns404(): void
@@ -727,6 +780,20 @@ class MemberApiTest extends ApiTestCase
         $this->getJson('/api/member/999999/profile-picture');
 
         $this->assertJsonResponse(404);
+    }
+
+    /** Remplit le slot photo de profil dans la médiathèque du membre. */
+    private function givePhotoInMediatheque(Member $member): void
+    {
+        static::getContainer()->get(MemberMediaSeeder::class)->ensureRootFolders($member);
+        $this->em()->flush();
+        $slot = static::getContainer()->get(MemberDocumentRepository::class)
+            ->findRootDocumentSlot($member, 'identity_photo');
+        $this->assertNotNull($slot);
+
+        static::getContainer()->get(FakeBunnyStorageClient::class)->seed('pp.png', 'PNGDATA');
+        $slot->setFile('pp.png', 'photo.png', 'image/png', 7);
+        $this->em()->flush();
     }
 
     // ── Création avec licence ───────────────────────────────────────────────

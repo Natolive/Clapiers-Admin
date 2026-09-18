@@ -242,11 +242,16 @@ only reads go through the authenticated routes below, all of which call
 
 | Route | Guard |
 | --- | --- |
-| `GET /api/member/{id}/profile-picture` | `ROLE_ADMIN` |
+| `GET /api/member/{id}/profile-picture` | `ROLE_ADMIN`, + shares a team unless `ROLE_SUPER_ADMIN` |
 | `DELETE /api/member/{id}` | `ROLE_SUPER_ADMIN` |
 | `GET /api/member/{id}/media/node/{uuid}/download` | `ROLE_SUPER_ADMIN` |
 | `GET /api/team/my-team/license/{memberId}` | `ROLE_ADMIN` + shares a team |
-| `GET /api/team/my-team/member/{memberId}/profile-picture` | `ROLE_ADMIN` + shares a team |
+
+Nothing is ever served by URL: `response()` streams through the app with the
+Bunny `AccessKey` header, there is no pull zone and no signed link, and
+`MemberDocument::toArray()` never exposes `storedName` — nodes are addressed by
+UUID. Anonymous access to any of these is `401` (the `^/api` firewall);
+`^/api/public` only ever *uploads* files, it never reads one back.
 
 `response()` returns `null` when the file is missing (each caller keeps its own
 404 shape) and throws `UseCaseException(502)` on a Bunny outage. On the Bunny
@@ -469,8 +474,16 @@ exportable with no change here (that file's promise still holds).
 ## Security
 
 - **The whole Member API and the whole Média API are `ROLE_SUPER_ADMIN`**
-  (class-level), including média download. The one exception:
-  `profile-picture` is downgraded to `ROLE_ADMIN`.
+  (class-level), including média download.
+- **The profile picture is the one file a coach may read**, so it lives in its
+  own `MemberPhotoController` (`ROLE_ADMIN`). It cannot stay in
+  `MemberController`: a method-level `#[IsGranted]` **adds to** the class-level
+  one instead of replacing it, so the `ROLE_ADMIN` attribute it used to carry
+  was dead and coaches got a 403. `DownloadMemberPhotoUseCase` then does the
+  fine-grained part — a `ROLE_SUPER_ADMIN` sees the whole club, a coach only
+  members sharing one of their teams (403 otherwise), same rule as the licence
+  download. Médiathèque pieces (medical certificates, ID cards) stay
+  `ROLE_SUPER_ADMIN`.
 - **Profile picture = the média tree's root `identity_photo` slot** (season-
   independent) — there is no separate avatar field on Member.
 - UseCases throw `UseCaseException` with an explicit status (not
