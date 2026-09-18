@@ -6,6 +6,12 @@ on:
 
 jobs:
   deploy:
+    # Une workflow appelée ne reçoit que les permissions du job appelant, et
+    # `permissions` absent ne propage rien : sans cette ligne, le job `badges`
+    # de backend-tests.yml (contents: write) fait échouer la validation avant
+    # même le premier run.
+    permissions:
+      contents: write
     uses: ./.github/workflows/deploy.yml
     with:
       namespace: clapier-admin-prod
