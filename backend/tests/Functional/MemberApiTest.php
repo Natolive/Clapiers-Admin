@@ -729,6 +729,133 @@ class MemberApiTest extends ApiTestCase
         $this->assertJsonResponse(404);
     }
 
+    // ── Création avec licence ───────────────────────────────────────────────
+
+    /**
+     * Le vrai besoin : une fiche créée à la main sans licence n'apparaît dans
+     * aucune liste, toutes scopées à la saison. Le bloc `license` la rend
+     * visible tout de suite.
+     */
+    public function testCreateMemberWithALicenseMakesItVisibleInTheSeason(): void
+    {
+        $team = $this->aTeam()->persist();
+
+        $this->actingAsSuperAdmin();
+        $this->postJson('/api/member', $this->memberPayload([
+            'teamIds' => [$team->getId()],
+            'license' => ['amount' => 9000, 'helloAssoTierId' => 7],
+        ]));
+
+        $body = $this->assertJsonResponse(200);
+
+        $license = $this->em()->getRepository(License::class)
+            ->findOneBy(['member' => $body['id'], 'season' => $this->currentSeason()]);
+        $this->assertNotNull($license);
+        $this->assertSame(LicenseStatus::VALIDEE, $license->getStatus());
+        $this->assertSame(9000, $license->getAmount());
+        $this->assertNotNull($license->getApprovedAt());
+        $this->assertNotNull($license->getAccessToken(), 'Le lien de paiement doit rester renvoyable');
+        $this->assertEmailCount(0, 'Pas de mail sans demande explicite');
+
+        $this->getJson('/api/member/paginated?season='.$this->currentSeason());
+        $this->assertSame(['Lucie'], array_column($this->assertJsonResponse(200)['data'], 'firstName'));
+    }
+
+    public function testCreateMemberWithoutTheLicenseBlockCreatesNoLicense(): void
+    {
+        $team = $this->aTeam()->persist();
+
+        $this->actingAsSuperAdmin();
+        $this->postJson('/api/member', $this->memberPayload(['teamIds' => [$team->getId()]]));
+
+        $body = $this->assertJsonResponse(200);
+        $this->assertNull(
+            $this->em()->getRepository(License::class)->findOneBy(['member' => $body['id']]),
+        );
+    }
+
+    public function testCreateMemberCanSendThePaymentLinkEmail(): void
+    {
+        $team = $this->aTeam()->persist();
+
+        $this->actingAsSuperAdmin();
+        $this->postJson('/api/member', $this->memberPayload([
+            'teamIds' => [$team->getId()],
+            'license' => ['amount' => 9000, 'helloAssoTierId' => 7, 'sendPaymentEmail' => true],
+        ]));
+
+        $body = $this->assertJsonResponse(200);
+        $license = $this->em()->getRepository(License::class)->findOneBy(['member' => $body['id']]);
+
+        $this->assertEmailCount(1);
+        $this->assertEmailHtmlBodyContains($this->getMailerMessage(), '/licence/'.$license->getAccessToken());
+    }
+
+    /** Le mail annonce un montant : sans tarif il annoncerait 0 €. */
+    public function testSendingThePaymentEmailWithoutAnAmountIsRejected(): void
+    {
+        $team = $this->aTeam()->persist();
+
+        $this->actingAsSuperAdmin();
+        $this->postJson('/api/member', $this->memberPayload([
+            'teamIds' => [$team->getId()],
+            'license' => ['sendPaymentEmail' => true],
+        ]));
+
+        $body = $this->assertJsonResponse(400);
+        $this->assertStringContainsString('tarif', $body['message']);
+        $this->assertEmailCount(0);
+    }
+
+    public function testCreateMemberWithAnInvalidLicenseSeasonIsRejected(): void
+    {
+        $team = $this->aTeam()->persist();
+
+        $this->actingAsSuperAdmin();
+        $this->postJson('/api/member', $this->memberPayload([
+            'teamIds' => [$team->getId()],
+            'license' => ['season' => '2026'],
+        ]));
+
+        $this->assertJsonResponse(422);
+    }
+
+    /** Rattrapage d'une fiche déjà créée sans licence, par la modification. */
+    public function testUpdatingAMemberCanAddTheMissingLicense(): void
+    {
+        $team = $this->aTeam()->persist();
+        $member = $this->aMember()->inTeams($team)->persist();
+
+        $this->actingAsSuperAdmin();
+        $this->putJson('/api/member', $this->memberPayload([
+            'id' => $member->getId(),
+            'teamIds' => [$team->getId()],
+            'license' => ['season' => '2020-2021'],
+        ]));
+
+        $this->assertJsonResponse(200);
+        $this->assertNotNull(
+            $this->em()->getRepository(License::class)
+                ->findOneBy(['member' => $member->getId(), 'season' => '2020-2021']),
+        );
+    }
+
+    public function testAddingASecondLicenseForTheSameSeasonIsRejected(): void
+    {
+        $team = $this->aTeam()->persist();
+        $member = $this->aMember()->inTeams($team)->licensedFor($this->currentSeason())->persist();
+
+        $this->actingAsSuperAdmin();
+        $this->putJson('/api/member', $this->memberPayload([
+            'id' => $member->getId(),
+            'teamIds' => [$team->getId()],
+            'license' => [],
+        ]));
+
+        $body = $this->assertJsonResponse(409);
+        $this->assertStringContainsString('déjà une licence', $body['message']);
+    }
+
     // ── Helpers ─────────────────────────────────────────────────────────────
 
     private function currentSeason(): string

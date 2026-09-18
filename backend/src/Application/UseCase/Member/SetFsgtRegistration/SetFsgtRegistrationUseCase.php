@@ -63,11 +63,11 @@ class SetFsgtRegistrationUseCase extends AbstractUseCase
                 );
             }
 
-            $license->setLicenseNumber($number);
-            $license->setFsgtRegisteredAt(new \DateTimeImmutable('now'));
-            // La fiche membre porte le dernier numéro connu, comme le fait déjà
-            // la soumission de demande — sinon les deux divergent.
+            // Le numéro est attribué à la personne et la suit d'une saison à
+            // l'autre : il vit sur le membre, seule la date d'inscription est
+            // saisonnière.
             $member->setLicenseNumber($number);
+            $license->setFsgtRegisteredAt(new \DateTimeImmutable('now'));
         } else {
             $license->setFsgtRegisteredAt(null);
         }
@@ -85,7 +85,7 @@ class SetFsgtRegistrationUseCase extends AbstractUseCase
             'season' => $license->getSeason(),
             'fsgtRegistered' => $license->isFsgtRegistered(),
             'fsgtRegisteredAt' => $license->getFsgtRegisteredAt()?->format(DATE_ATOM),
-            'licenseNumber' => $license->getLicenseNumber(),
+            'licenseNumber' => $license->getMember()->getLicenseNumber(),
         ];
     }
 }

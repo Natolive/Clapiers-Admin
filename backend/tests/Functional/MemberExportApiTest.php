@@ -199,8 +199,8 @@ class MemberExportApiTest extends ApiTestCase
         $season = $this->currentSeason();
         $member = $this->aMember()->named('Jean', 'Dupont')->licensedFor($season, LicenseStatus::PAYEE)->persist();
 
+        $member->setLicenseNumber('L-2026-001');
         $license = $this->licenseOf($member, $season);
-        $license->setLicenseNumber('L-2026-001');
         $license->setAmount(12550);
         $license->setApprovedAt(new \DateTimeImmutable('2026-09-10'));
         $license->setHealthDeclaration(true);
@@ -456,7 +456,7 @@ class MemberExportApiTest extends ApiTestCase
         $this->actingAsSuperAdmin();
         $season = $this->currentSeason();
         $member = $this->aMember()->named('Jean', 'Dupont')->licensedFor($season)->persist();
-        $this->licenseOf($member, $season)->setLicenseNumber('ANCIEN');
+        $member->setLicenseNumber('ANCIEN');
         $this->em()->flush();
 
         $this->getJson('/api/member/export?columns[]=licenseNumber&columns[]=fsgtRegistered');

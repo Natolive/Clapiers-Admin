@@ -13,9 +13,10 @@ use App\Tests\Support\ApiTestCase;
 /**
  * PUT /api/member/{id}/fsgt — déclaration de l'inscription à la FSGT.
  *
- * L'information est portée par la licence de la saison : on est inscrit pour
+ * L'inscription est portée par la licence de la saison : on est inscrit pour
  * une saison, pas une fois pour toutes. Elle ne se déduit surtout pas du numéro
- * de licence, qu'un renouvellement apporte déjà depuis le formulaire public.
+ * de licence, qu'un renouvellement apporte déjà depuis le formulaire public —
+ * ce numéro, lui, est unique et vit sur le membre, d'où qu'on le saisisse.
  */
 class MemberFsgtApiTest extends ApiTestCase
 {
@@ -42,7 +43,7 @@ class MemberFsgtApiTest extends ApiTestCase
 
     // ── Cocher / décocher ───────────────────────────────────────────────────
 
-    public function testRegisteringStampsTheSeasonLicenseAndStoresTheNumber(): void
+    public function testRegisteringStampsTheSeasonLicenseAndStoresTheNumberOnTheMember(): void
     {
         $this->actingAsSuperAdmin();
         $member = $this->licensedMember();
@@ -58,25 +59,9 @@ class MemberFsgtApiTest extends ApiTestCase
         $this->assertSame($this->currentSeason(), $body['season']);
         $this->assertNotNull($body['fsgtRegisteredAt']);
 
-        $license = $this->licenseOf($member, $this->currentSeason());
-        $this->assertTrue($license->isFsgtRegistered());
-        $this->assertSame('FSGT-12345', $license->getLicenseNumber());
-    }
-
-    /** La fiche membre garde le dernier numéro connu, comme à la soumission. */
-    public function testRegisteringMirrorsTheNumberOnTheMemberRecord(): void
-    {
-        $this->actingAsSuperAdmin();
-        $member = $this->licensedMember();
-
-        $this->putJson('/api/member/'.$member->getId().'/fsgt', [
-            'registered' => true,
-            'licenseNumber' => 'FSGT-999',
-        ]);
-        $this->assertJsonResponse(200);
-
+        $this->assertTrue($this->licenseOf($member, $this->currentSeason())->isFsgtRegistered());
         $this->em()->refresh($member);
-        $this->assertSame('FSGT-999', $member->getLicenseNumber());
+        $this->assertSame('FSGT-12345', $member->getLicenseNumber());
     }
 
     /** Décocher corrige une erreur de saisie : le numéro ne doit pas disparaître. */
@@ -186,7 +171,7 @@ class MemberFsgtApiTest extends ApiTestCase
 
     // ── Liste paginée ───────────────────────────────────────────────────────
 
-    public function testPaginatedListExposesTheFsgtFlagAndSeasonNumber(): void
+    public function testPaginatedListExposesTheFsgtFlagAndTheLicenseNumber(): void
     {
         $this->actingAsSuperAdmin();
         $member = $this->licensedMember();
@@ -194,7 +179,7 @@ class MemberFsgtApiTest extends ApiTestCase
         $this->getJson('/api/member/paginated');
         $row = $this->assertJsonResponse(200)['data'][0];
         $this->assertFalse($row['fsgtRegistered']);
-        $this->assertNull($row['seasonLicenseNumber']);
+        $this->assertNull($row['licenseNumber']);
 
         $this->putJson('/api/member/'.$member->getId().'/fsgt', ['registered' => true, 'licenseNumber' => 'FSGT-7']);
         $this->assertJsonResponse(200);
@@ -202,7 +187,7 @@ class MemberFsgtApiTest extends ApiTestCase
         $this->getJson('/api/member/paginated');
         $row = $this->assertJsonResponse(200)['data'][0];
         $this->assertTrue($row['fsgtRegistered']);
-        $this->assertSame('FSGT-7', $row['seasonLicenseNumber']);
+        $this->assertSame('FSGT-7', $row['licenseNumber']);
     }
 
     /**
@@ -213,14 +198,35 @@ class MemberFsgtApiTest extends ApiTestCase
     {
         $this->actingAsSuperAdmin();
         $member = $this->licensedMember();
-        $this->licenseOf($member, $this->currentSeason())->setLicenseNumber('ANCIEN-NUMERO');
+        $member->setLicenseNumber('ANCIEN-NUMERO');
         $this->em()->flush();
 
         $this->getJson('/api/member/paginated');
 
         $row = $this->assertJsonResponse(200)['data'][0];
-        $this->assertSame('ANCIEN-NUMERO', $row['seasonLicenseNumber']);
+        $this->assertSame('ANCIEN-NUMERO', $row['licenseNumber']);
         $this->assertFalse($row['fsgtRegistered']);
+    }
+
+    /**
+     * Le bug d'origine : un numéro sur la fiche, un autre dans la colonne FSGT.
+     * Il n'y a plus qu'un seul numéro, celui du membre — quelle que soit la
+     * porte par laquelle on l'a saisi.
+     */
+    public function testTheNumberEditedOnTheMemberIsTheOneListedInTheFsgtColumn(): void
+    {
+        $this->actingAsSuperAdmin();
+        $member = $this->licensedMember();
+        $this->putJson('/api/member/'.$member->getId().'/fsgt', ['registered' => true, 'licenseNumber' => 'AVANT']);
+        $this->assertJsonResponse(200);
+
+        $member->setLicenseNumber('APRES');
+        $this->em()->flush();
+
+        $this->getJson('/api/member/paginated');
+        $row = $this->assertJsonResponse(200)['data'][0];
+        $this->assertSame('APRES', $row['licenseNumber']);
+        $this->assertTrue($row['fsgtRegistered'], "Corriger le numéro ne retire pas l'inscription");
     }
 
     public function testPaginatedListCanBeFilteredOnTheFsgtFlag(): void

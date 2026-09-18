@@ -30,7 +30,6 @@ class LicenseTest extends TestCase
             ->setAccessToken('tok-123')
             ->setTokenExpiresAt(new \DateTimeImmutable('2026-09-30T12:00:00+00:00'))
             ->setMedicalCertificateFileName('cert.pdf')
-            ->setLicenseNumber('LIC-42')
             ->setApprovedAt(new \DateTimeImmutable('2026-07-01T09:00:00+00:00'))
             ->setRejectionReason(null);
 
@@ -42,7 +41,7 @@ class LicenseTest extends TestCase
         $this->assertSame(7, $array['helloAssoTierId']);
         $this->assertSame('tok-123', $array['accessToken']);
         $this->assertSame('cert.pdf', $array['medicalCertificateFileName']);
-        $this->assertSame('LIC-42', $array['licenseNumber']);
+        $this->assertArrayNotHasKey('licenseNumber', $array);
         $this->assertNull($array['rejectionReason']);
         $this->assertSame('Marie', $array['member']['firstName']);
         $this->assertStringContainsString('2026-09-30', $array['tokenExpiresAt']);

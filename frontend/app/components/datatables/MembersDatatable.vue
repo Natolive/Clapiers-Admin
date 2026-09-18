@@ -141,8 +141,8 @@
           @keydown.space.prevent="openFsgtDialog(slotProps.data)"
         >
           <Checkbox :model-value="slotProps.data.fsgtRegistered" binary readonly tabindex="-1" />
-          <span v-if="slotProps.data.seasonLicenseNumber" class="fsgt-cell__number">
-            {{ slotProps.data.seasonLicenseNumber }}
+          <span v-if="slotProps.data.licenseNumber" class="fsgt-cell__number">
+            {{ slotProps.data.licenseNumber }}
           </span>
           <span v-else class="text-color-secondary text-sm">—</span>
         </div>

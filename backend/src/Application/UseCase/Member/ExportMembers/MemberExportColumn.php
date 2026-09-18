@@ -113,9 +113,7 @@ enum MemberExportColumn: string
                 static fn (Team $team) => $team->getName(),
                 $member->getTeams()->toArray(),
             )),
-            // Le n° porté par la licence de la saison fait foi ; celui de la
-            // fiche membre n'est qu'un repli pour les fiches saisies à la main.
-            self::LICENSE_NUMBER => $license?->getLicenseNumber() ?? $member->getLicenseNumber() ?? '',
+            self::LICENSE_NUMBER => $member->getLicenseNumber() ?? '',
             self::FSGT_REGISTERED => self::yesNo($license?->isFsgtRegistered() ?? false),
             self::FSGT_REGISTERED_AT => $license?->getFsgtRegisteredAt()?->format('d/m/Y') ?? '',
             self::LICENSE_STATUS => $license?->getStatus()->label() ?? '',
