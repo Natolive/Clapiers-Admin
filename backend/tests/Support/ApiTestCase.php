@@ -48,9 +48,10 @@ abstract class ApiTestCase extends WebTestCase
         $this->client = static::createClient();
         FakeBunnyStorageClient::clear();
 
-        // Le stockage médiathèque se configure en base : sans zone, tout upload
-        // ou téléchargement répond 502. FakeBunnyStorageClient intercepte les
-        // appels, donc les URL n'ont pas besoin d'exister.
+        // Le stockage médiathèque se configure en base : sans zone (écriture) ni
+        // pull zone (lecture), tout upload ou téléchargement répond 502.
+        // FakeBunnyStorageClient intercepte les appels, donc les URL n'ont pas
+        // besoin d'exister.
         $this->configureBunny(self::TEST_BUNNY_URL);
     }
 

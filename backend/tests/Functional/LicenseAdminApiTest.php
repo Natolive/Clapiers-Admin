@@ -105,9 +105,15 @@ class LicenseAdminApiTest extends ApiTestCase
         $this->assertNull($byKey['id_card']['nodeId']);
         $this->assertFalse($byKey['attestation']['uploaded']);
 
-        // Le nodeId renvoyé est réellement téléchargeable via la médiathèque du membre.
-        $this->client->request('GET', "/api/member/{$body['memberId']}/media/node/{$byKey['identity_photo']['nodeId']}/download");
-        $this->assertSame(200, $this->client->getResponse()->getStatusCode());
+        // Chaque pièce déposée repart avec son URL CDN signée, seule voie de lecture.
+        $url = $byKey['identity_photo']['url'];
+        $this->assertNotNull($url);
+        $this->assertStringStartsWith(self::TEST_BUNNY_CDN_URL.'/member-media/', $url);
+        parse_str((string) parse_url($url, PHP_URL_QUERY), $query);
+        $this->assertNotEmpty($query['token']);
+        $this->assertGreaterThan(time(), (int) $query['expires']);
+
+        $this->assertNull($byKey['id_card']['url']);
     }
 
     public function testGetReviewRequiresAuthentication(): void

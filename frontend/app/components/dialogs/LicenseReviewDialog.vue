@@ -78,7 +78,6 @@
                 size="small"
                 severity="secondary"
                 outlined
-                :loading="viewing === doc.key"
                 @click="view(doc)"
               />
               <Button
@@ -110,7 +109,6 @@
 import ApproveLicenseDialog from '~/components/dialogs/ApproveLicenseDialog.vue'
 import RejectLicenseDialog from '~/components/dialogs/RejectLicenseDialog.vue'
 import { LicenseAdminRepository, type LicenseReviewDocument } from '~/repository/license-admin-repository'
-import { MemberMediaRepository } from '~/repository/member-media-repository'
 import type { License } from '~/types/entity/License'
 import type { MemberGender } from '~/types/enum/MemberGender'
 import { MemberGenderLabels } from '~/types/enum/MemberGender'
@@ -125,16 +123,14 @@ const props = withDefaults(defineProps<{
 const emit = defineEmits<{ 'update:visible': [value: boolean] }>()
 
 const repo = new LicenseAdminRepository()
-const mediaRepo = new MemberMediaRepository()
+const cdn = useCdnFile()
 const toast = usePVToastService()
 const { show } = useDialogManager()
 
 const documents = ref<LicenseReviewDocument[]>([])
-const memberId = ref<number>(props.license.member.id)
 const loading = ref(true)
 const error = ref('')
 const downloading = ref<string | null>(null)
-const viewing = ref<string | null>(null)
 
 const statusLabel = (status: LicenseStatus) => LicenseStatusLabels[status] ?? status
 const statusSeverity = (status: string): string => ({
@@ -161,7 +157,6 @@ onMounted(async () => {
   try {
     const review = await repo.getReview(props.license.id)
     documents.value = review.documents
-    memberId.value = review.memberId
   } catch {
     error.value = 'Impossible de charger les pièces du dossier.'
   } finally {
@@ -170,10 +165,10 @@ onMounted(async () => {
 })
 
 const download = async (doc: LicenseReviewDocument) => {
-  if (!doc.nodeId) return
+  if (!doc.url) return
   downloading.value = doc.key
   try {
-    await mediaRepo.download(memberId.value, doc.nodeId, doc.originalName ?? doc.label)
+    await cdn.download(doc.url, doc.originalName ?? doc.label)
   } catch {
     toast.add({ severity: 'error', summary: 'Téléchargement impossible', detail: doc.label, life: 4000 })
   } finally {
@@ -181,17 +176,10 @@ const download = async (doc: LicenseReviewDocument) => {
   }
 }
 
-// Nouvel onglet, même route authentifiée que le téléchargement.
-const view = async (doc: LicenseReviewDocument) => {
-  if (!doc.nodeId) return
-  viewing.value = doc.key
-  try {
-    await mediaRepo.view(memberId.value, doc.nodeId)
-  } catch (e: any) {
-    toast.add({ severity: 'error', summary: 'Aperçu impossible', detail: e?.message ?? doc.label, life: 4000 })
-  } finally {
-    viewing.value = null
-  }
+// Nouvel onglet : la pièce est servie par le CDN, signée.
+const view = (doc: LicenseReviewDocument) => {
+  if (!doc.url) return
+  cdn.open(doc.url)
 }
 
 const approve = () => {

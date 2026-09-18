@@ -23,6 +23,8 @@ export interface LicenseReviewDocument {
     originalName: string | null;
     mimeType: string | null;
     size: number | null;
+    /** URL CDN signée de la pièce (null si elle n'a pas été déposée). */
+    url: string | null;
 }
 
 export interface LicenseReviewExistingMember {

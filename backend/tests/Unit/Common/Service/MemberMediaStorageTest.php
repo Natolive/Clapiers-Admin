@@ -94,8 +94,8 @@ class MemberMediaStorageTest extends TestCase
         self::assertSame('42/abc.pdf', $stored);
         // Pas de DELETE : l'original ne part qu'une fois le nouveau nom commité.
         self::assertSame(['GET', 'PUT'], array_column($calls, 'method'));
-        self::assertStringEndsWith('/member-media/17/abc.pdf', $calls[0]['url']);
-        self::assertStringEndsWith('/member-media/42/abc.pdf', $calls[1]['url']);
+        self::assertSame('https://zone-test.b-cdn.net/member-media/17/abc.pdf', $calls[0]['url']);
+        self::assertSame('https://storage.bunnycdn.com/zone-test/member-media/42/abc.pdf', $calls[1]['url']);
         self::assertSame('contenu-pdf', $calls[1]['options']['body']);
     }
 
@@ -115,43 +115,6 @@ class MemberMediaStorageTest extends TestCase
         self::assertSame('17/abc.pdf', $storage->copyTo('17/abc.pdf', 42));
     }
 
-    public function testResponseStreamsTheFileWithTheMimeTypeFromDatabase(): void
-    {
-        $storage = $this->makeStorage(new MockHttpClient(new MockResponse(
-            'contenu-pdf',
-            ['response_headers' => ['content-length' => '11', 'content-type' => 'application/octet-stream']],
-        )));
-
-        $response = $storage->response('abc.pdf', 'application/pdf', 'licence.pdf');
-
-        self::assertInstanceOf(StreamedResponse::class, $response);
-        self::assertSame('application/pdf', $response->headers->get('Content-Type'));
-        self::assertSame('11', $response->headers->get('Content-Length'));
-        self::assertStringContainsString('attachment', (string) $response->headers->get('Content-Disposition'));
-        self::assertStringContainsString('licence.pdf', (string) $response->headers->get('Content-Disposition'));
-
-        ob_start();
-        $response->sendContent();
-        self::assertSame('contenu-pdf', ob_get_clean());
-    }
-
-    public function testResponseReturnsNullWhenBunnyDoesNotHaveTheFile(): void
-    {
-        $storage = $this->makeStorage(new MockHttpClient(new MockResponse('', ['http_code' => 404])));
-
-        self::assertNull($storage->response('missing.pdf', 'application/pdf'));
-    }
-
-    public function testResponseSurfacesA502OnBunnyError(): void
-    {
-        $storage = $this->makeStorage(new MockHttpClient(new MockResponse('', ['http_code' => 500])));
-
-        $this->expectException(UseCaseException::class);
-        $this->expectExceptionCode(502);
-
-        $storage->response('abc.pdf');
-    }
-
     public function testDeleteCallsBunnyAndToleratesAnAlreadyMissingFile(): void
     {
         /** @var list<array{method: string, url: string, options: array<string, mixed>}> $calls */
@@ -165,7 +128,53 @@ class MemberMediaStorageTest extends TestCase
         self::assertSame('https://storage.bunnycdn.com/zone-test/member-media/abc.pdf', $calls[0]['url']);
     }
 
-    public function testAnUnconfiguredZoneFailsWithoutAnyHttpCall(): void
+    public function testAnUnconfiguredPullZoneFailsEveryReadWithoutAnyHttpCall(): void
+    {
+        $storage = $this->makeStorage(
+            new MockHttpClient(function (): never {
+                self::fail('Aucun appel HTTP attendu tant que la pull zone n\'est pas configurée');
+            }),
+            cdn: '',
+        );
+
+        self::assertNull($storage->signedUrl('42/abc.pdf'));
+
+        $this->expectException(UseCaseException::class);
+        $this->expectExceptionCode(502);
+
+        $storage->contents('42/abc.pdf');
+    }
+
+    public function testReadsGoThroughTheCdnWithASignedUrlWhenAPullZoneIsConfigured(): void
+    {
+        /** @var list<array{method: string, url: string, options: array<string, mixed>}> $calls */
+        $calls = [];
+        $storage = $this->makeStorage(
+            $this->recorder($calls, new MockResponse('contenu-pdf')),
+            tokenKey: 'cle-token',
+        );
+
+        self::assertSame('contenu-pdf', $storage->contents('42/abc.pdf'));
+
+        self::assertCount(1, $calls);
+        // Pas d'AccessKey vers le CDN : c'est le token qui fait foi.
+        self::assertNotContains('AccessKey: secret-key', $calls[0]['options']['headers']);
+
+        $query = [];
+        parse_str((string) parse_url($calls[0]['url'], PHP_URL_QUERY), $query);
+        self::assertSame(
+            'https://zone-test.b-cdn.net/member-media/42/abc.pdf',
+            strtok($calls[0]['url'], '?'),
+        );
+        self::assertGreaterThan(time(), (int) $query['expires']);
+        // Signature Bunny : md5(clé + chemin + expiration), base64 url-safe non bourré.
+        self::assertSame(
+            rtrim(strtr(base64_encode(md5('cle-token/member-media/42/abc.pdf'.$query['expires'], true)), '+/', '-_'), '='),
+            $query['token'],
+        );
+    }
+
+    public function testAnUnconfiguredStorageZoneFailsEveryWrite(): void
     {
         $storage = $this->makeStorage(
             new MockHttpClient(function (): never {
@@ -177,7 +186,7 @@ class MemberMediaStorageTest extends TestCase
         $this->expectException(UseCaseException::class);
         $this->expectExceptionCode(502);
 
-        $storage->response('abc.pdf');
+        $storage->delete('42/abc.pdf');
     }
 
     public function testDeleteOfNullStoredNameMakesNoCall(): void
@@ -208,11 +217,18 @@ class MemberMediaStorageTest extends TestCase
     private function makeStorage(
         HttpClientInterface $httpClient,
         string $zone = 'https://storage.bunnycdn.com/zone-test',
+        string $cdn = 'https://zone-test.b-cdn.net',
+        string $tokenKey = '',
     ): MemberMediaStorage {
+        $values = [
+            'storageUrl' => $zone,
+            'storageKey' => 'secret-key',
+            'cdnUrl' => $cdn,
+            'tokenKey' => $tokenKey,
+        ];
+
         $config = $this->createStub(BunnyConfigProvider::class);
-        $config->method('get')->willReturnCallback(
-            static fn (string $field): string => $field === 'storageUrl' ? $zone : 'secret-key',
-        );
+        $config->method('get')->willReturnCallback(static fn (string $field): string => $values[$field]);
 
         return new MemberMediaStorage($httpClient, new NullLogger(), $config);
     }

@@ -4,6 +4,7 @@ namespace App\Application\UseCase\Member\GetMembersByTeam;
 
 use App\Common\Command\CommandInterface;
 use App\Common\Exception\UseCaseException;
+use App\Common\Service\MemberPhotoUrls;
 use App\Common\Service\SeasonProvider;
 use App\Common\UseCase\AbstractUseCase;
 use App\Entity\Member;
@@ -20,6 +21,7 @@ class GetMembersByTeamUseCase extends AbstractUseCase
         private readonly MemberRepository $memberRepository,
         private readonly TeamRepository $teamRepository,
         private readonly SeasonProvider $seasonProvider,
+        private readonly MemberPhotoUrls $photoUrls,
     ) {
     }
 
@@ -40,9 +42,15 @@ class GetMembersByTeamUseCase extends AbstractUseCase
         // licenciés pour cette saison ; le flag « payée » suit la même saison.
         $season = $command->season ?: $this->seasonProvider->current();
 
+        $members = $this->memberRepository->findByTeam($team, $season);
+        $photos = $this->photoUrls->forMembers($members, $season);
+
         return array_map(
-            fn (Member $m) => $m->toArray($season),
-            $this->memberRepository->findByTeam($team, $season),
+            fn (Member $m) => [
+                ...$m->toArray($season),
+                'profilePictureUrl' => $photos[$m->getId()] ?? null,
+            ],
+            $members,
         );
     }
 }

@@ -149,6 +149,7 @@ import ConfirmDeleteDialog from '~/components/dialogs/ConfirmDeleteDialog.vue';
 const props = defineProps<{ memberId: number }>();
 
 const repo = new MemberMediaRepository();
+const cdn = useCdnFile();
 const { show } = useDialogManager();
 const toast = usePVToastService();
 
@@ -295,16 +296,18 @@ function clearFile(node: MemberDocument): void {
 }
 
 async function download(node: MemberDocument): Promise<void> {
-  await repo.download(props.memberId, node.id, node.originalName ?? node.name);
+  if (!node.url) return;
+  await cdn.download(node.url, node.originalName ?? node.name);
 }
 
 // Nouvel onglet : la visionneuse PDF / image du navigateur fait le rendu.
-async function view(node: MemberDocument): Promise<void> {
-  try {
-    await repo.view(props.memberId, node.id);
-  } catch (e: any) {
-    toast.add({ severity: 'error', summary: 'Aperçu impossible', detail: e?.message, life: 4000 });
+function view(node: MemberDocument): void {
+  if (!node.url) {
+    toast.add({ severity: 'error', summary: 'Aperçu impossible', detail: 'Stockage non configuré.', life: 4000 });
+    return;
   }
+
+  cdn.open(node.url);
 }
 
 // ── Renommer ────────────────────────────────────────────────────────────────

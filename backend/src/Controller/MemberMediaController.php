@@ -18,10 +18,8 @@ use App\Application\UseCase\Member\Media\RenameNode\RenameNodePayload;
 use App\Application\UseCase\Member\Media\RenameNode\RenameNodeUseCase;
 use App\Application\UseCase\Member\Media\UploadDocumentFile\UploadDocumentFileCommand;
 use App\Application\UseCase\Member\Media\UploadDocumentFile\UploadDocumentFileUseCase;
-use App\Entity\Enum\AppUserRole;
-use App\Repository\MemberDocumentRepository;
-use App\Repository\MemberRepository;
 use App\Common\Service\MemberMediaStorage;
+use App\Entity\Enum\AppUserRole;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\Request;
@@ -110,34 +108,4 @@ class MemberMediaController extends AbstractController
         return $useCase->execute(new DeleteNodeCommand($id, $uuid));
     }
 
-    #[Route('/node/{uuid}/download', name: 'download', methods: ['GET'])]
-    public function download(
-        int $id,
-        string $uuid,
-        MemberRepository $memberRepository,
-        MemberDocumentRepository $documentRepository,
-        MemberMediaStorage $storage,
-    ): Response {
-        $member = $memberRepository->find($id);
-        if (!$member) {
-            return $this->json(['error' => 'Document introuvable'], Response::HTTP_NOT_FOUND);
-        }
-
-        $node = $documentRepository->findOneOwnedBy($member, $uuid);
-        if (!$node || !$node->hasFile()) {
-            return $this->json(['error' => 'Document introuvable'], Response::HTTP_NOT_FOUND);
-        }
-
-        $response = $storage->response(
-            (string) $node->getStoredName(),
-            $node->getMimeType(),
-            $node->getOriginalName() ?? $node->getName(),
-        );
-
-        if ($response === null) {
-            return $this->json(['error' => 'Document introuvable'], Response::HTTP_NOT_FOUND);
-        }
-
-        return $response;
-    }
 }

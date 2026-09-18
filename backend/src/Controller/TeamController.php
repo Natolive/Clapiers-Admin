@@ -10,11 +10,8 @@ use App\Application\UseCase\Team\GetAllTeams\GetAllTeamsCommand;
 use App\Application\UseCase\Team\GetAllTeams\GetAllTeamsUseCase;
 use App\Application\UseCase\Team\UpdateTeamRoster\UpdateTeamRosterCommand;
 use App\Application\UseCase\Team\UpdateTeamRoster\UpdateTeamRosterUseCase;
-use App\Application\UseCase\Team\DownloadMyTeamMemberLicense\DownloadMyTeamMemberLicenseCommand;
-use App\Application\UseCase\Team\DownloadMyTeamMemberLicense\DownloadMyTeamMemberLicenseUseCase;
 use App\Application\UseCase\Team\GetMyTeam\GetMyTeamCommand;
 use App\Application\UseCase\Team\GetMyTeam\GetMyTeamUseCase;
-use App\Common\Exception\UseCaseException;
 use App\Controller\Input\SeasonQuery;
 use App\Controller\Input\UpdateTeamRosterInput;
 use App\Entity\AppUser;
@@ -78,26 +75,4 @@ class TeamController extends AbstractController
         return $useCase->execute($command);
     }
 
-    #[Route('/my-team/license/{memberId}', name: 'download_my_team_license', methods: ['GET'])]
-    #[IsGranted(AppUserRole::ROLE_ADMIN)]
-    public function downloadMyTeamMemberLicense(
-        int $memberId,
-        DownloadMyTeamMemberLicenseUseCase $useCase
-    ): Response {
-        /** @var AppUser $user */
-        $user = $this->getUser();
-        $command = new DownloadMyTeamMemberLicenseCommand($user, $memberId);
-
-        // run() returns a file response (stream Bunny ou fichier local), donc
-        // execute() (wrapper JSON) est inutilisable : mapper les erreurs à la main
-        try {
-            return $useCase->run($command);
-        } catch (UseCaseException $e) {
-            return $this->json(['message' => $e->getMessage()], $e->getCode());
-        } catch (\Throwable) {
-            // e.g. fichier disparu entre la vérification du use case et la
-            // construction de la réponse : garder la forme d'erreur JSON
-            return $this->json(['message' => 'Unknown Error'], Response::HTTP_INTERNAL_SERVER_ERROR);
-        }
-    }
 }

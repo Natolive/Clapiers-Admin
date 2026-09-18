@@ -3,6 +3,7 @@
 namespace App\Application\UseCase\Member\GetPaginatedMembers;
 
 use App\Common\Command\CommandInterface;
+use App\Common\Service\MemberPhotoUrls;
 use App\Common\Service\SeasonProvider;
 use App\Common\UseCase\AbstractUseCase;
 use App\Entity\Member;
@@ -20,6 +21,7 @@ class GetPaginatedMembersUseCase extends AbstractUseCase
         private readonly MemberDocumentRepository $documentRepository,
         private readonly LicenseRepository $licenseRepository,
         private readonly SeasonProvider $seasonProvider,
+        private readonly MemberPhotoUrls $photoUrls,
     ) {
     }
 
@@ -45,9 +47,11 @@ class GetPaginatedMembersUseCase extends AbstractUseCase
             $season,
         );
 
+        $photos = $this->photoUrls->forMembers($result['data'], $season);
+
         return [
             'data' => array_map(
-                function (Member $member) use ($season, $licenses) {
+                function (Member $member) use ($season, $licenses, $photos) {
                     $license = $licenses[$member->getId()] ?? null;
 
                     return [
@@ -57,6 +61,7 @@ class GetPaginatedMembersUseCase extends AbstractUseCase
                         'hasLicenseDocument' => $this->documentRepository
                             ->findDefaultSlot($member, $season, 'license')?->hasFile() ?? false,
                         'fsgtRegistered' => $license?->isFsgtRegistered() ?? false,
+                        'profilePictureUrl' => $photos[$member->getId()] ?? null,
                     ];
                 },
                 $result['data'],

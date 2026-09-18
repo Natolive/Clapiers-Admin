@@ -125,25 +125,25 @@ definePageMeta({
 
 useHead({ title: 'Mon équipe' });
 
-const file = useAuthenticatedFile();
+const cdn = useCdnFile();
 const toast = usePVToastService();
 
 const groups = ref<MyTeamGroup[]>([]);
 const loading = ref(true);
 
-const licensePath = (member: Member) => `/team/my-team/license/${member.id}`;
-
 const downloadLicense = async (member: Member) => {
-  await file.download(licensePath(member), `licence-${member.lastName}-${member.firstName}`);
+  if (!member.licenseUrl) return;
+  await cdn.download(member.licenseUrl, `licence-${member.lastName}-${member.firstName}`);
 };
 
 // Nouvel onglet : visionneuse du navigateur, pas de viewer embarqué.
-const viewLicense = async (member: Member) => {
-  try {
-    await file.view(licensePath(member));
-  } catch (e: any) {
-    toast.add({ severity: 'error', summary: 'Aperçu impossible', detail: e?.message, life: 4000 });
+const viewLicense = (member: Member) => {
+  if (!member.licenseUrl) {
+    toast.add({ severity: 'error', summary: 'Aperçu impossible', detail: 'Stockage non configuré.', life: 4000 });
+    return;
   }
+
+  cdn.open(member.licenseUrl);
 };
 
 onMounted(async () => {

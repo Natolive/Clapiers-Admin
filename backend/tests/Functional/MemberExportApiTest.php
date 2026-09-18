@@ -788,13 +788,14 @@ class MemberExportApiTest extends ApiTestCase
         $this->assertSame([sprintf('licencies-%s.xlsx', $season)], $this->archiveEntries());
     }
 
-    /** Une zone HS doit échouer franchement, pas livrer une archive vide. */
+    /** Un stockage HS doit échouer franchement, pas livrer une archive vide. */
     public function testAnUnavailableStorageZoneFailsTheExport(): void
     {
         $this->actingAsSuperAdmin();
         $member = $this->aMember()->named('Jean', 'Dupont')->licensedFor($this->currentSeason())->persist();
         $this->attachFile($member->getId(), 'license', $this->fakePdf());
-        $this->configureBunny('');
+        // L'export relit les pièces : c'est la pull zone qui doit manquer.
+        $this->configureBunny('', cdnUrl: '');
 
         $this->getJson('/api/member/export?columns[]=lastName&files[]=license');
 

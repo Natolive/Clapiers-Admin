@@ -55,17 +55,4 @@ export class MemberMediaRepository {
         });
     }
 
-    /** Télécharge le fichier d'un document via un blob authentifié. */
-    async download(memberId: number, nodeId: string, fileName: string): Promise<void> {
-        await useAuthenticatedFile().download(this.filePath(memberId, nodeId), fileName);
-    }
-
-    /** Ouvre le fichier dans un onglet (même route authentifiée). */
-    async view(memberId: number, nodeId: string): Promise<void> {
-        await useAuthenticatedFile().view(this.filePath(memberId, nodeId));
-    }
-
-    private filePath(memberId: number, nodeId: string): string {
-        return `/member/${memberId}/media/node/${nodeId}/download`;
-    }
 }

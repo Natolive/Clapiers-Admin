@@ -12,9 +12,10 @@ use App\Repository\SettingRepository;
  * chaîne vide, et une zone non configurée fait échouer proprement les uploads
  * et téléchargements (502) au lieu d'envoyer les fichiers dans le vide.
  *
- * `cdnUrl` / `tokenKey` décrivent la pull zone CDN et sa Token Authentication :
- * ils sont saisissables dès maintenant, le stockage s'en servira pour servir
- * les fichiers au navigateur.
+ * Écritures et suppressions passent par l'API Storage (`storageUrl` +
+ * `storageKey`) ; les lectures par la pull zone (`cdnUrl`, signée avec
+ * `tokenKey` si la Token Authentication est activée) quand elle est
+ * renseignée, sinon par l'API Storage.
  */
 class BunnyConfigProvider
 {
