@@ -58,15 +58,13 @@ class License
     #[ORM\Column(nullable: true)]
     private ?bool $healthDeclaration = null;
 
-    #[ORM\Column(length: 50, nullable: true)]
-    private ?string $licenseNumber = null;
-
     /**
      * Date d'inscription du licencié auprès de la FSGT pour cette saison — donc
-     * null tant que le club ne l'a pas déclaré. Distinct de `licenseNumber` :
-     * un renouvellement arrive avec son ancien numéro, saisi par le demandeur
-     * lui-même dans le formulaire public, ce qui ne prouve rien sur la saison
-     * en cours. Seul ce champ dit « déclaré à la fédération cette saison ».
+     * null tant que le club ne l'a pas déclaré. C'est la seule part saisonnière
+     * de l'affaire : le numéro, lui, est attribué à la personne et vit sur le
+     * membre (`Member::licenseNumber`). Un renouvellement arrive avec son
+     * ancien numéro, saisi par le demandeur dans le formulaire public, ce qui
+     * ne prouve rien sur la saison en cours.
      */
     #[ORM\Column(type: 'datetime_immutable', nullable: true)]
     private ?\DateTimeImmutable $fsgtRegisteredAt = null;
@@ -202,18 +200,6 @@ class License
         return $this;
     }
 
-    public function getLicenseNumber(): ?string
-    {
-        return $this->licenseNumber;
-    }
-
-    public function setLicenseNumber(?string $licenseNumber): static
-    {
-        $this->licenseNumber = $licenseNumber;
-
-        return $this;
-    }
-
     public function getFsgtRegisteredAt(): ?\DateTimeImmutable
     {
         return $this->fsgtRegisteredAt;
@@ -268,7 +254,6 @@ class License
             'tokenExpiresAt' => $this->getTokenExpiresAt()?->format(DATE_ATOM),
             'medicalCertificateFileName' => $this->getMedicalCertificateFileName(),
             'healthDeclaration' => $this->getHealthDeclaration(),
-            'licenseNumber' => $this->getLicenseNumber(),
             'fsgtRegistered' => $this->isFsgtRegistered(),
             'fsgtRegisteredAt' => $this->getFsgtRegisteredAt()?->format(DATE_ATOM),
             'approvedAt' => $this->getApprovedAt()?->format(DATE_ATOM),

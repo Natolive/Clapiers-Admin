@@ -67,7 +67,7 @@ const emit = defineEmits<{ 'update:visible': [value: boolean] }>();
 const repository = new MemberRepository();
 // Pré-rempli avec le numéro déjà connu : un renouvellement l'apporte souvent
 // depuis le formulaire public, autant ne pas le faire retaper.
-const licenseNumber = ref(props.member.seasonLicenseNumber ?? props.member.licenseNumber ?? '');
+const licenseNumber = ref(props.member.licenseNumber ?? '');
 const loading = ref(false);
 const error = ref('');
 

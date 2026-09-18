@@ -28,8 +28,11 @@ Fields worth knowing:
   strings ⇒ adult / no legal rep** — there's no null and no minor flag. Neither
   the address details nor the legal rep are settable via the admin Member CRUD;
   they come only from the public licence request.
-- **`licenseNumber`** (nullable free string) is distinct from the `License`
-  entities collection.
+- **`licenseNumber`** (nullable free string) is the FSGT number, and the
+  **only** place it is stored. The federation issues it to the person and a
+  renewal reuses it, so it is not season-scoped; the `License` carries only the
+  season-scoped `fsgtRegisteredAt`. It used to be duplicated on the licence,
+  which made the fiche and the list's FSGT column drift apart.
 - **`isLicensePaid($season)`** is derived (no stored column): true if any
   `License` is `PAYEE` (restricted to `$season` if given). `toArray($season)`
   threads the season through so `licensePaid` reflects the requested season.
@@ -292,21 +295,21 @@ declared). `PUT /api/member/{id}/fsgt` (`ROLE_SUPER_ADMIN`,
 
 - **It is NOT derivable from `licenseNumber`** — the trap the whole column
   exists for. The public inscription form lets the applicant type their own
-  number ("N° de licence (si renouvellement)"), and
-  `SubmitLicenseRequestUseCase` stores it on both the member and the licence.
-  So a renewal carries a number from day one while nobody has been declared to
-  the FSGT for the new season. Only `fsgtRegisteredAt` means "declared".
-  Regression test:
+  number ("N° de licence (si renouvellement)"), which
+  `SubmitLicenseRequestUseCase` stores on the member. So a renewal carries a
+  number from day one while nobody has been declared to the FSGT for the new
+  season. Only `fsgtRegisteredAt` means "declared". Regression test:
   `MemberFsgtApiTest::testAnExistingLicenseNumberDoesNotCountAsRegistered`.
 - **Ticking requires a number** (400 otherwise): the federation issues it, and
   an unverifiable registration is worth nothing. **Unticking keeps the number** —
   fixing a mis-click must not destroy data.
-- Registering mirrors the number onto `Member::$licenseNumber`, exactly as
-  submission already does, so the fiche keeps the last known number.
+- The number written here is `Member::$licenseNumber`, the same field the fiche
+  edits — one number, whichever door you came through. Regression test:
+  `MemberFsgtApiTest::testTheNumberEditedOnTheMemberIsTheOneListedInTheFsgtColumn`.
 - No licence for the requested season → **404**: there is nothing to declare.
-- The paginated list exposes `fsgtRegistered` and `seasonLicenseNumber` (the
-  season's number, distinct from the fiche's), both resolved in **one** query
-  via `LicenseRepository::findBySeasonIndexedByMember`.
+- The paginated list exposes `fsgtRegistered` (resolved in **one** query via
+  `LicenseRepository::findBySeasonIndexedByMember`) next to the member's
+  `licenseNumber`.
 - Filter `?fsgtRegistered=true|false` on the list **and** the export — it lives
   in the shared `createFilteredQueryBuilder`, so both got it at once.
 
@@ -336,6 +339,35 @@ declared). `PUT /api/member/{id}/fsgt` (`ROLE_SUPER_ADMIN`,
 
 See [seasons-and-stats.md](seasons-and-stats.md) for dashboard stats built on
 this population.
+
+### Creating a licencié by hand, with the licence
+
+A fiche created without a licence passes `status = ACTIVE` but fails the season
+gate above, so it is **invisible everywhere** — the classic "je l'ai créé et il
+n'apparaît pas". `POST/PUT /api/member` therefore accepts an optional `license`
+block (`NewMemberLicense`, validated with `#[Assert\Valid]`):
+
+```json
+{ "...member fields": "…", "license": { "season": "2026-2027", "helloAssoTierId": 7, "amount": 9000, "sendPaymentEmail": false } }
+```
+
+- Block absent ⇒ fiche only, exactly as before. Present ⇒ a licence for the
+  season, **`VALIDEE` straight away**: an admin typing a fiche by hand has no
+  dossier to review, and `VALIDEE` is what `activeMembership()` counts.
+- `season` defaults to the current one. A licence already existing for that
+  season ⇒ **409**, so a double submit can't create two.
+- The **access token is always generated**: it carries the payment magic link,
+  sent now or re-sent later from the licence requests screen.
+- `sendPaymentEmail` ⇒ the same `LicensePaymentLinkMailer` as an approval. It
+  announces an amount, so **no tarif ⇒ 400** rather than a mail saying 0 €.
+- It also works on **update**, which is the only way to fix a fiche created
+  before this existed. The admin form exposes it in both modes (as the last
+  wizard step when creating, as a plain section when editing).
+- The admin form (`member-form.vue`) is **stepped only when creating**
+  (Identité → Coordonnées → Club → Licence); editing an existing fiche keeps
+  the flat form, including inside the member details panel. An invalid field on
+  a hidden step sends the wizard back to that step on submit — otherwise
+  "Enregistrer" would silently do nothing.
 
 ## Export of licenciés (xlsx, or zip with the pieces)
 
@@ -370,8 +402,8 @@ this population.
   cell **empty**, never `0`. Booleans are `Oui`/`Non`, dates `jj/mm/aaaa`.
 - **Licence columns come from the licence of the exported season**, fetched in
   one query (`LicenseRepository::findBySeasonIndexedByMember`) — never by
-  walking `Member::$licenses` per row. `licenseNumber` falls back to the
-  member's own field for hand-entered fiches.
+  walking `Member::$licenses` per row. `licenseNumber` is the member's, since
+  that is the only place it lives.
 
 ### Which pieces come out — and for which season
 

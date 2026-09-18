@@ -1,7 +1,17 @@
 <template>
-  <Form :resolver="resolver" :initialValues="initialValues" @submit="onFormSubmit" v-slot="$form" class="flex flex-column gap-4">
+  <Form ref="form" :resolver="resolver" :initialValues="initialValues" @submit="onFormSubmit" v-slot="$form" class="flex flex-column gap-4">
 
-    <div class="form-section">
+    <!-- Étapes : seulement à la création, là où il y a beaucoup à saisir d'un coup -->
+    <ol v-if="stepped" class="steps">
+      <li v-for="(s, i) in STEPS" :key="s.key" :class="{ done: i < stepIndex, active: i === stepIndex }">
+        <span class="steps__dot">{{ i + 1 }}</span>
+        <span class="steps__label">{{ s.label }}</span>
+      </li>
+    </ol>
+
+    <Message v-if="stepError" severity="error" :closable="false">{{ stepError }}</Message>
+
+    <div v-show="showStep('identity')" class="form-section">
       <h4 class="form-section__title">Identité</h4>
 
       <div class="form-row-2">
@@ -39,7 +49,7 @@
       </div>
     </div>
 
-    <div class="form-section">
+    <div v-show="showStep('contact')" class="form-section">
       <h4 class="form-section__title">Contact</h4>
 
       <div class="form-row-2">
@@ -56,7 +66,7 @@
       </div>
     </div>
 
-    <div class="form-section">
+    <div v-show="showStep('contact')" class="form-section">
       <h4 class="form-section__title">Adresse</h4>
 
       <div class="flex flex-column gap-2">
@@ -79,7 +89,7 @@
       </div>
     </div>
 
-    <div class="form-section">
+    <div v-show="showStep('club')" class="form-section">
       <h4 class="form-section__title">Club</h4>
 
       <div class="form-row-2">
@@ -112,9 +122,64 @@
       </div>
     </div>
 
+    <div v-show="showStep('license')" class="form-section">
+      <h4 class="form-section__title">Licence FSGT</h4>
+
+      <div class="flex align-items-center gap-2">
+        <Checkbox v-model="withLicense" inputId="withLicense" binary :disabled="loading" @update:modelValue="onWithLicense" />
+        <label for="withLicense">Créer la demande de licence pour la saison</label>
+        <Select
+          v-model="licenseSeason"
+          :options="seasons"
+          :disabled="loading || !withLicense"
+          class="w-8rem"
+        />
+      </div>
+      <small class="text-color-secondary">
+        Validée d'emblée : sans licence sur la saison, la fiche n'apparaît dans aucune liste.
+      </small>
+
+      <template v-if="withLicense">
+        <div class="flex flex-column gap-2">
+          <label for="tier" class="font-semibold">Tarif <span class="text-color-secondary font-normal">(requis pour l'e-mail)</span></label>
+          <Select
+            v-model="selectedTier"
+            inputId="tier"
+            :options="tiers"
+            option-label="label"
+            :loading="loadingTiers"
+            :disabled="loading"
+            show-clear
+            placeholder="Choisir un tarif"
+            fluid
+          >
+            <template #option="{ option }">{{ option.label }} — {{ formatAmount(option.amount) }}</template>
+            <template #value="{ value }">
+              <span v-if="value">{{ value.label }} — {{ formatAmount(value.amount) }}</span>
+              <span v-else>Choisir un tarif</span>
+            </template>
+          </Select>
+          <small v-if="!loadingTiers && tiers.length === 0" class="text-color-secondary">
+            Aucun tarif HelloAsso trouvé — la licence sera créée sans montant.
+          </small>
+        </div>
+
+        <div class="flex align-items-center gap-2">
+          <Checkbox v-model="sendPaymentEmail" inputId="sendPaymentEmail" binary :disabled="loading" />
+          <label for="sendPaymentEmail">Envoyer l'e-mail « licence validée » avec le lien de paiement</label>
+        </div>
+        <small class="text-color-secondary">
+          Décoché : rien n'est envoyé. Le lien reste renvoyable depuis les demandes de licence.
+        </small>
+      </template>
+    </div>
+
     <div class="form-actions">
       <Button v-if="showCancel" type="button" label="Annuler" severity="secondary" outlined :disabled="loading" @click="emit('cancel')" />
-      <Button type="submit" label="Enregistrer" :loading="loading" />
+      <span class="form-actions__spacer" />
+      <Button v-if="stepped && stepIndex > 0" type="button" label="Précédent" severity="secondary" outlined :disabled="loading" @click="prev" />
+      <Button v-if="stepped && !isLastStep" type="button" label="Suivant" icon="pi pi-arrow-right" icon-pos="right" @click="next" />
+      <Button v-else type="submit" label="Enregistrer" :loading="loading" />
     </div>
   </Form>
 </template>
@@ -131,6 +196,7 @@ import { MemberGender, MemberGenderOptions } from '~/types/enum/MemberGender';
 import PhoneInput from '~/components/form/input/PhoneInput.vue';
 import SelectInput from '~/components/form/input/SelectInput.vue';
 import DatePickerInput from '~/components/form/input/DatePickerInput.vue';
+import { LicenseAdminRepository, type LicenseTier } from '~/repository/license-admin-repository';
 
 const props = defineProps({
   loading: Boolean,
@@ -145,9 +211,82 @@ const emit = defineEmits<{
     licenseNumber: string | null;
     addressStreet: string; addressZip: string; addressCity: string;
     gender: MemberGender; birthDate: string; nationality: string;
+    license?: { season: string; helloAssoTierId: number | null; amount: number | null; sendPaymentEmail: boolean };
   }): void;
   (e: 'cancel'): void;
 }>();
+
+// ── Étapes ────────────────────────────────────────────────────────────────
+// Seulement à la création : la modification ouvre une fiche déjà remplie, et
+// la découper en 4 écrans ne ferait qu'ajouter des clics.
+const STEPS = [
+  { key: 'identity', label: 'Identité', fields: ['firstName', 'lastName', 'gender', 'birthDate', 'nationality'] },
+  { key: 'contact', label: 'Coordonnées', fields: ['email', 'phoneNumber', 'addressStreet', 'addressZip', 'addressCity'] },
+  { key: 'club', label: 'Club', fields: ['teamIds'] },
+  { key: 'license', label: 'Licence', fields: [] },
+] as const;
+
+const form = ref<any>(null);
+const stepped = computed(() => !props.member);
+const stepIndex = ref(0);
+const stepError = ref('');
+const isLastStep = computed(() => stepIndex.value === STEPS.length - 1);
+const showStep = (key: string) => !stepped.value || STEPS[stepIndex.value]?.key === key;
+
+const prev = () => {
+  stepError.value = '';
+  stepIndex.value--;
+};
+
+const next = async () => {
+  const fields = STEPS[stepIndex.value]?.fields ?? [];
+  await Promise.all(fields.map((f) => form.value?.validate(f)));
+  const invalid = fields.find((f) => form.value?.states?.[f]?.invalid);
+  if (invalid) {
+    stepError.value = form.value?.states?.[invalid]?.error?.message || 'Veuillez corriger les champs en rouge.';
+    return;
+  }
+
+  stepError.value = '';
+  stepIndex.value++;
+  if (STEPS[stepIndex.value]?.key === 'license') loadTiers();
+};
+
+// ── Licence de la saison ──────────────────────────────────────────────────
+// Hors du <Form> : rien à valider par zod, et le tarif est un objet (id +
+// montant figé) que le back veut décomposé.
+const { selected: selectedSeason, seasons, load: loadSeasons } = useSeasonFilter();
+const withLicense = ref(!props.member);
+const licenseSeason = ref('');
+const sendPaymentEmail = ref(false);
+const tiers = ref<LicenseTier[]>([]);
+const selectedTier = ref<LicenseTier | null>(null);
+const loadingTiers = ref(false);
+let tiersRequested = false;
+
+const formatAmount = (cents: number) => (cents / 100).toFixed(2).replace('.', ',') + ' €';
+
+const loadTiers = async () => {
+  if (tiersRequested) return;
+  tiersRequested = true;
+  loadingTiers.value = true;
+  try {
+    tiers.value = await new LicenseAdminRepository().getTiers();
+  } catch {
+    tiers.value = [];
+  } finally {
+    loadingTiers.value = false;
+  }
+};
+
+const onWithLicense = (on: boolean) => { if (on) loadTiers(); };
+
+// Saison proposée : celle du filtre de la liste, sinon la courante côté back
+// (chaîne vide = « laisse le serveur décider »).
+onMounted(async () => {
+  await loadSeasons();
+  licenseSeason.value = selectedSeason.value;
+});
 
 // Le type du slot FormField n'expose pas onChange (présent au runtime)
 const onTeamsChange = (field: any, value: number[]) => field.onChange({ value });
@@ -194,7 +333,21 @@ const initialValues = computed(() => ({
 }));
 
 const onFormSubmit = (event: FormSubmitEvent<Record<string, any>>) => {
-  if (!event.valid) return;
+  // Une erreur peut venir d'une étape masquée : y ramener, sinon le bouton
+  // « Enregistrer » ne fait rien et rien n'explique pourquoi.
+  if (!event.valid) {
+    const step = STEPS.findIndex((s) => s.fields.some((f) => (event as any).states?.[f]?.invalid));
+    if (stepped.value && step >= 0) stepIndex.value = step;
+    stepError.value = 'Veuillez corriger les champs en rouge.';
+    return;
+  }
+
+  // Le mail annonce un montant : sans tarif il annoncerait 0 € (le back refuse).
+  if (withLicense.value && sendPaymentEmail.value && !selectedTier.value) {
+    stepError.value = "Choisissez un tarif pour envoyer le lien de paiement.";
+    return;
+  }
+  stepError.value = '';
 
   const v = event.values as MemberFormValues;
   emit('formSubmit', {
@@ -210,11 +363,63 @@ const onFormSubmit = (event: FormSubmitEvent<Record<string, any>>) => {
     gender:        v.gender,
     birthDate:     formatLocalDate(v.birthDate),
     nationality:   v.nationality,
+    ...(withLicense.value ? {
+      license: {
+        season: licenseSeason.value,
+        helloAssoTierId: selectedTier.value?.id ?? null,
+        amount: selectedTier.value?.amount ?? null,
+        sendPaymentEmail: sendPaymentEmail.value,
+      },
+    } : {}),
   });
 };
 </script>
 
 <style scoped>
+.steps {
+  display: flex;
+  gap: 0.5rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  flex-wrap: wrap;
+}
+
+.steps li {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  color: var(--p-text-muted-color);
+}
+
+.steps li + li::before {
+  content: '';
+  width: 1rem;
+  height: 1px;
+  background: var(--p-surface-border);
+}
+
+.steps__dot {
+  display: grid;
+  place-items: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  border: 1px solid var(--p-surface-border);
+  font-size: 0.75rem;
+}
+
+.steps li.active { color: var(--p-primary-color); font-weight: 600; }
+.steps li.active .steps__dot { border-color: var(--p-primary-color); }
+.steps li.done .steps__dot {
+  background: var(--p-primary-color);
+  border-color: var(--p-primary-color);
+  color: var(--p-primary-contrast-color);
+}
+
+.form-actions__spacer { flex: 1; }
+
 .form-section {
   display: flex;
   flex-direction: column;

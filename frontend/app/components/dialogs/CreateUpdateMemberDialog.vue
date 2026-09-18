@@ -29,6 +29,8 @@ type MemberPayload = {
   licenseNumber: string | null;
   addressStreet: string; addressZip: string; addressCity: string;
   gender: MemberGender; birthDate: string; nationality: string;
+  /** Licence de la saison à créer avec la fiche ; absent = fiche seule. */
+  license?: { season: string; helloAssoTierId: number | null; amount: number | null; sendPaymentEmail: boolean };
 };
 
 interface Props {
@@ -71,9 +73,21 @@ const handleSubmit = async (values: MemberPayload) => {
     const saved = await memberRepository.createUpdate(payload);
     emit('saved', saved);
     emit('update:visible', false);
-    toast.add({ severity: 'success', summary: 'Licencié enregistré', life: 2500 });
-  } catch {
-    toast.add({ severity: 'error', summary: 'Erreur', detail: 'Impossible d\'enregistrer le licencié', life: 4000 });
+    toast.add({
+      severity: 'success',
+      summary: 'Licencié enregistré',
+      detail: values.license?.sendPaymentEmail ? 'Le lien de paiement a été envoyé par e-mail.' : undefined,
+      life: 2500,
+    });
+  } catch (e: any) {
+    // Le back renvoie des refus parlants (tarif manquant, licence déjà là) :
+    // les masquer derrière « Erreur » laisse l'admin sans rien à corriger.
+    toast.add({
+      severity: 'error',
+      summary: 'Erreur',
+      detail: e?.data?.message || 'Impossible d\'enregistrer le licencié',
+      life: 4000,
+    });
   } finally {
     loading.value = false;
   }
