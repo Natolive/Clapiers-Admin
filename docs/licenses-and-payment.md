@@ -257,11 +257,17 @@ stockage dans [`members-and-mediatheque.md`](members-and-mediatheque.md) :
 |-------|-------------|
 | `storageUrl` | `bunny_storage_url` |
 | `storageKey` | `bunny_storage_key` |
+| `cdnUrl` | `bunny_cdn_url` |
+| `tokenKey` | `bunny_token_key` |
 
-- `GET /api/settings/bunny` (super-admin) renvoie l'URL de la zone et
-  `storageKeyDefined`, **jamais la clé**. `PUT` n'applique que les champs non
-  vides (clé vide = inchangée) et refuse un corps vide (422). Pas de cache à
-  purger : le stockage relit les réglages à chaque appel.
+- `GET /api/settings/bunny` (super-admin) renvoie les deux URL,
+  `storageKeyDefined` et `tokenKeyDefined`, **jamais les secrets**. `PUT`
+  n'applique que les champs non vides (secret vide = inchangé) et refuse un
+  corps vide (422). Pas de cache à purger : le stockage relit les réglages à
+  chaque appel.
+- `cdnUrl` / `tokenKey` (pull zone + Token Authentication) sont saisissables
+  dès maintenant ; le stockage les utilisera pour servir les fichiers au
+  navigateur.
 
 ## Réglages d'inscription (table `setting`)
 

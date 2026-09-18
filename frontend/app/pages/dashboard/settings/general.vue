@@ -130,11 +130,12 @@
             </TabPanel>
             <TabPanel value="storage">
               <div class="setting-block">
-                <h3 class="setting-title">Stockage des fichiers (Bunny Storage)</h3>
+                <h3 class="setting-title">Stockage des fichiers (Bunny)</h3>
                 <p class="setting-help">
                   Zone Bunny où sont rangées les pièces de la médiathèque (licences,
-                  certificats, photos). Laissée vide, la clé garde sa valeur actuelle.
-                  Sans ces réglages, aucun envoi ni téléchargement de fichier ne fonctionne.
+                  certificats, photos) et pull zone CDN par laquelle elles sont relues.
+                  Laissés vides, les secrets gardent leur valeur actuelle.
+                  Sans la zone, aucun envoi ni téléchargement de fichier ne fonctionne.
                 </p>
 
                 <div v-if="bunnyLoading" class="text-color-secondary">Chargement…</div>
@@ -160,6 +161,24 @@
                         :placeholder="bunny.storageKeyDefined ? '•••••••• (inchangée)' : 'Non renseignée'"
                       />
                       <small class="setting-note">Bunny → Storage → FTP &amp; API Access → Password</small>
+                    </div>
+                    <div class="field">
+                      <label for="bunny-cdn-url">URL du CDN</label>
+                      <InputText id="bunny-cdn-url" v-model="bunny.cdnUrl" fluid placeholder="https://ma-zone.b-cdn.net" />
+                      <small class="setting-note">Pull zone branchée sur la zone de stockage. Vide = lecture directe par l'API Storage.</small>
+                    </div>
+                    <div class="field">
+                      <label for="bunny-token-key">Clé de Token Authentication</label>
+                      <Password
+                        input-id="bunny-token-key"
+                        v-model="bunnyTokenKey"
+                        :feedback="false"
+                        toggle-mask
+                        fluid
+                        autocomplete="new-password"
+                        :placeholder="bunny.tokenKeyDefined ? '•••••••• (inchangée)' : 'Non renseignée'"
+                      />
+                      <small class="setting-note">Bunny → Pull Zone → Security → Token Authentication Key</small>
                     </div>
                   </div>
 
@@ -289,8 +308,9 @@ const saveHelloAsso = async () => {
   }
 }
 
-const bunny = ref<BunnyConfig>({ storageUrl: '', storageKeyDefined: false })
+const bunny = ref<BunnyConfig>({ storageUrl: '', storageKeyDefined: false, cdnUrl: '', tokenKeyDefined: false })
 const bunnyKey = ref('')
+const bunnyTokenKey = ref('')
 const bunnyLoading = ref(true)
 const bunnySaving = ref(false)
 const bunnyError = ref('')
@@ -303,8 +323,11 @@ const saveBunny = async () => {
     bunny.value = await repo.setBunnyConfig({
       storageUrl: bunny.value.storageUrl,
       storageKey: bunnyKey.value || undefined,
+      cdnUrl: bunny.value.cdnUrl || undefined,
+      tokenKey: bunnyTokenKey.value || undefined,
     })
     bunnyKey.value = ''
+    bunnyTokenKey.value = ''
     toast.add({ severity: 'success', summary: 'Stockage', detail: 'Configuration enregistrée', life: 3000 })
   } catch (e: any) {
     bunnyError.value = e?.data?.message || 'Enregistrement impossible.'

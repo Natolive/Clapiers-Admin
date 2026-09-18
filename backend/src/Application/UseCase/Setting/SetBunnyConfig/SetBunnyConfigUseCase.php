@@ -27,6 +27,8 @@ class SetBunnyConfigUseCase extends AbstractUseCase
         $changes = array_filter([
             'storageUrl' => $command->storageUrl,
             'storageKey' => $command->storageKey,
+            'cdnUrl' => $command->cdnUrl,
+            'tokenKey' => $command->tokenKey,
         ], static fn (?string $value) => $value !== null && $value !== '');
 
         if ($changes === []) {

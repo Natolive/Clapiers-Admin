@@ -6,8 +6,8 @@ use App\Common\Command\CommandInterface;
 use Symfony\Component\Validator\Constraints as Assert;
 
 /**
- * Champs omis (ou vides) = inchangés. Une clé d'accès vide signifie « garder
- * celle déjà enregistrée » : le formulaire ne la réaffiche jamais.
+ * Champs omis (ou vides) = inchangés. Un secret vide signifie « garder celui
+ * déjà enregistré » : le formulaire ne les réaffiche jamais.
  */
 class SetBunnyConfigCommand implements CommandInterface
 {
@@ -19,6 +19,14 @@ class SetBunnyConfigCommand implements CommandInterface
 
         #[Assert\Length(max: 255)]
         public readonly ?string $storageKey = null,
+
+        #[Assert\NotBlank(allowNull: true)]
+        #[Assert\Url(requireTld: true)]
+        #[Assert\Length(max: 255)]
+        public readonly ?string $cdnUrl = null,
+
+        #[Assert\Length(max: 255)]
+        public readonly ?string $tokenKey = null,
     ) {
     }
 }
