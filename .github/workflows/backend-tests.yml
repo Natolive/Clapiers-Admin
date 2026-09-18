@@ -5,11 +5,11 @@ on:
     paths:
       - 'backend/**'
       - '.github/workflows/backend-tests.yml'
-  push:
-    branches: [ main ]
-    paths:
-      - 'backend/**'
-      - '.github/workflows/backend-tests.yml'
+  # Appelée par deploy.yml avant tout build d'image : un push direct sur
+  # preprod ne passe par aucune PR, et c'était le seul chemin vers un
+  # déploiement sans qu'un seul test ait tourné. Pas de déclencheur `push`
+  # ici : sur main la suite tournerait deux fois, et les badges avec.
+  workflow_call:
 
 # Read-only by default: composer install runs third-party code, which must
 # never see a write-scoped token. The badges job re-scopes its own permission.
@@ -58,12 +58,15 @@ jobs:
           # in .git/config within this job
           persist-credentials: false
 
-      - name: Setup PHP 8.4 with Xdebug coverage
+      - name: Setup PHP 8.4 with coverage
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.4'
           extensions: pdo_pgsql, pgsql, intl
-          coverage: xdebug
+          # pcov et non xdebug : seule la couverture de lignes est demandée
+          # (pas de pathCoverage dans phpunit.dist.xml), et xdebug instrumente
+          # tout l'exécution — c'est le poste de coût dominant du job.
+          coverage: pcov
           tools: composer:v2
           # Aligné sur docker/prod/php.ini : le runner est à 2M par défaut, et
           # BrowserKit remplace tout fichier au-dessus de upload_max_filesize
@@ -94,8 +97,6 @@ jobs:
           php bin/console -e test doctrine:migrations:migrate -n --allow-no-migration
 
       - name: Run test suite with coverage
-        env:
-          XDEBUG_MODE: coverage
         run: |
           php bin/phpunit \
             --coverage-clover var/coverage/clover.xml \

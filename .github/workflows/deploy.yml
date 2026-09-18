@@ -1,0 +1,219 @@
+name: Build & deploy
+
+# Pipeline unique, appelée par main.yml (prod) et preprod.yml (preprod). Les
+# deux ne diffèrent que par le namespace, le tag d'image et l'URL d'API : les
+# garder en double, c'est ce qui a fait dériver la prod (les migrations y
+# tournaient encore après le rollout, six mois après le correctif de preprod).
+on:
+  workflow_call:
+    inputs:
+      namespace:
+        description: Namespace Kubernetes cible
+        required: true
+        type: string
+      tag-prefix:
+        description: Préfixe des tags Docker Hub (preprod | stable)
+        required: true
+        type: string
+      api-base:
+        description: URL publique de l'API, injectée au build du front
+        required: true
+        type: string
+
+jobs:
+  changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # base: main → sur preprod, tout ce qui n'est pas encore en prod ; sur
+      # main, l'action compare au commit précédent (base == branche poussée).
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          base: main
+          filters: |
+            backend:
+              - 'backend/**'
+            frontend:
+              - 'frontend/**'
+
+  # La suite tourne AVANT le build : un push direct sur preprod ne passe par
+  # aucune PR, donc c'était le seul chemin sans le moindre test exécuté.
+  tests:
+    name: Backend tests
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
+    # Le workflow appelé se rabaisse lui-même à contents:read pour tout ce qui
+    # exécute du code tiers ; seul son job badges réclame l'écriture.
+    permissions:
+      contents: write
+    uses: ./.github/workflows/backend-tests.yml
+
+  build-backend:
+    name: Build Backend
+    needs: [changes, tests]
+    if: needs.changes.outputs.backend == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        with:
+          driver: docker-container
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_PASSWORD }}
+
+      - name: Build & Push backend Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: backend/
+          file: backend/Dockerfile.prod
+          push: true
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/clapiers-admin:${{ inputs.tag-prefix }}-backend
+          cache-from: type=gha,scope=${{ inputs.tag-prefix }}-backend
+          cache-to: type=gha,mode=max,scope=${{ inputs.tag-prefix }}-backend
+          sbom: true
+          provenance: true
+          network: host
+
+  build-frontend:
+    name: Build Frontend
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        with:
+          driver: docker-container
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_PASSWORD }}
+
+      - name: Setup env frontend
+        run: |
+          echo 'NUXT_PUBLIC_API_BASE=${{ inputs.api-base }}' > frontend/.env
+          echo 'NUXT_PUBLIC_RECAPTCHA_SITE_KEY=6LfHh-4sAAAAAEX2r_rk4ivvEUvxxYQ1ut9etJCc' >> frontend/.env
+
+      - name: Build & Push frontend Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: frontend/
+          file: frontend/Dockerfile.prod
+          push: true
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/clapiers-admin:${{ inputs.tag-prefix }}-frontend
+          cache-from: type=gha,scope=${{ inputs.tag-prefix }}-frontend
+          cache-to: type=gha,mode=max,scope=${{ inputs.tag-prefix }}-frontend
+          sbom: true
+          provenance: true
+          network: host
+
+  # Les deux deploys attendent les deux builds : livrer un front qui appelle
+  # une API non déployée, c'est la moitié d'une release.
+  #
+  # `!cancelled()` et non `always()` : un build en échec laissait passer le
+  # rollout, qui redémarrait les pods sur l'image précédente — un déploiement
+  # fantôme dans un run vert.
+  deploy-frontend:
+    name: Deploy Frontend
+    runs-on: ubuntu-latest
+    needs: [changes, tests, build-backend, build-frontend]
+    if: >-
+      ${{ !cancelled()
+      && needs.changes.outputs.frontend == 'true'
+      && needs.tests.result != 'failure'
+      && needs.build-backend.result != 'failure'
+      && needs.build-frontend.result == 'success' }}
+    steps:
+      - name: Configure kubectl
+        uses: azure/k8s-set-context@v3
+        with:
+          method: kubeconfig
+          kubeconfig: ${{ secrets.KUBECONFIG_SECRET }}
+
+      - name: Rollout restart
+        run: kubectl rollout restart deployment/clapieradmin-frontend -n ${{ inputs.namespace }}
+
+  deploy-backend:
+    name: Deploy Backend
+    runs-on: ubuntu-latest
+    needs: [changes, tests, build-backend, build-frontend]
+    if: >-
+      ${{ !cancelled()
+      && needs.changes.outputs.backend == 'true'
+      && needs.build-frontend.result != 'failure'
+      && needs.build-backend.result == 'success' }}
+    steps:
+      - name: Configure kubectl
+        uses: azure/k8s-set-context@v3
+        with:
+          method: kubeconfig
+          kubeconfig: ${{ secrets.KUBECONFIG_SECRET }}
+
+      # La migration part AVANT le redémarrage. L'inverse laissait 1-2 min où
+      # les nouveaux pods lisaient des tables encore absentes (inscription_draft
+      # en septembre 2026) : toute inscription tombait en 500 pendant ce temps.
+      #
+      # L'ancien pod n'a pas le nouveau fichier de migration, donc `kubectl exec`
+      # dedans ne peut pas la jouer : on lance un Job jetable copié du template du
+      # Deployment — même image fraîchement poussée, même env, mêmes volumes (dont
+      # le ConfigMap php.ini) — débarrassé de ses labels pour que le Service ne
+      # lui envoie pas de trafic, et de ses probes/ports qui n'ont pas de sens
+      # pour une commande. Une migration en échec bloque le rollout : l'ancien
+      # code continue de tourner sur l'ancien schéma, rien n'est cassé.
+      - name: Run migrations from the new image
+        run: |
+          NS=${{ inputs.namespace }}
+          # Un nom par tentative : un re-run ne doit pas retomber sur le Job
+          # (peut-être en échec) de la précédente.
+          JOB=migrate-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}
+          kubectl get deployment/clapieradmin-backend-php -n "$NS" -o json | jq --arg job "$JOB" '{
+            apiVersion: "batch/v1", kind: "Job",
+            metadata: {name: $job, namespace: .metadata.namespace},
+            spec: {
+              backoffLimit: 0, ttlSecondsAfterFinished: 3600,
+              template: (.spec.template
+                | .metadata = {labels: {job: $job}}
+                | .spec.restartPolicy = "Never"
+                | .spec.containers = [.spec.containers[0]
+                    | del(.livenessProbe, .readinessProbe, .startupProbe, .lifecycle, .ports, .args)
+                    | .imagePullPolicy = "Always"
+                    | .command = ["bin/console", "doctrine:migrations:migrate", "--no-interaction"]])
+            }
+          }' | kubectl apply -f -
+          # Pod resté Pending (image, ConfigMap absent) : `logs` n'a rien à
+          # dire, c'est `describe` qui porte la raison.
+          kubectl wait --for=condition=complete job/"$JOB" -n "$NS" --timeout=300s \
+            || { kubectl describe job/"$JOB" -n "$NS"; kubectl logs job/"$JOB" -n "$NS" || true; exit 1; }
+          kubectl logs job/"$JOB" -n "$NS"
+
+      - name: Rollout restart
+        run: kubectl rollout restart deployment/clapieradmin-backend-php -n ${{ inputs.namespace }}
+
+      - name: Wait for rollout
+        run: kubectl rollout status deployment/clapieradmin-backend-php -n ${{ inputs.namespace }}
