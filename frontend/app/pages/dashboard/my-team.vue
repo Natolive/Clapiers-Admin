@@ -67,13 +67,12 @@
                       <div class="flex align-items-center gap-2">
                         <i class="pi pi-id-card text-color-secondary"></i>
                         <span class="text-sm">Licence</span>
+                        <span v-if="member.licenseNumber" class="text-sm text-color-secondary">
+                          n° {{ member.licenseNumber }}
+                        </span>
                       </div>
                       <div class="flex align-items-center gap-2">
-                        <Tag
-                          :value="member.licensePaid ? 'Payée' : 'Non payée'"
-                          :severity="member.licensePaid ? 'success' : 'warn'"
-                          class="text-xs"
-                        />
+                        <LicensePaidTag :paid="member.licensePaid" />
                         <template v-if="member.hasLicenseDocument">
                           <Button
                             icon="pi pi-eye"
@@ -116,6 +115,7 @@
 <script setup lang="ts">
 import SkeletonLoader from '~/components/common/skeleton/SkeletonLoader.vue';
 import MemberAvatar from '~/components/common/MemberAvatar.vue';
+import LicensePaidTag from '~/components/common/LicensePaidTag.vue';
 import { TeamRepository } from '~/repository/team-repository';
 import type { MyTeamGroup } from '~/repository/team-repository';
 import type { Member } from '~/types/entity/Member';
