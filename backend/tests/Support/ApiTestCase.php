@@ -39,6 +39,8 @@ abstract class ApiTestCase extends WebTestCase
 {
     protected const TEST_BUNNY_URL = 'https://storage.bunnycdn.test/zone-test';
 
+    protected const TEST_BUNNY_CDN_URL = 'https://zone-test.b-cdn.test';
+
     protected KernelBrowser $client;
 
     protected function setUp(): void
@@ -48,16 +50,22 @@ abstract class ApiTestCase extends WebTestCase
 
         // Le stockage médiathèque se configure en base : sans zone, tout upload
         // ou téléchargement répond 502. FakeBunnyStorageClient intercepte les
-        // appels, donc l'URL n'a pas besoin d'exister.
+        // appels, donc les URL n'ont pas besoin d'exister.
         $this->configureBunny(self::TEST_BUNNY_URL);
     }
 
-    /** Zone Bunny en base ; chaîne vide = « non configuré ». */
-    protected function configureBunny(string $url, string $key = 'test-key'): void
-    {
+    /** Réglages Bunny en base ; chaîne vide = « non configuré ». */
+    protected function configureBunny(
+        string $url,
+        string $key = 'test-key',
+        ?string $cdnUrl = self::TEST_BUNNY_CDN_URL,
+        string $tokenKey = 'test-token-key',
+    ): void {
         $settings = static::getContainer()->get(SettingRepository::class);
         $settings->set(BunnyConfigProvider::KEYS['storageUrl'], $url);
         $settings->set(BunnyConfigProvider::KEYS['storageKey'], $key);
+        $settings->set(BunnyConfigProvider::KEYS['cdnUrl'], $cdnUrl ?? '');
+        $settings->set(BunnyConfigProvider::KEYS['tokenKey'], $tokenKey);
     }
 
     protected function em(): EntityManagerInterface

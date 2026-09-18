@@ -241,17 +241,20 @@ class SettingApiTest extends ApiTestCase
         $this->assertSame(self::TEST_BUNNY_URL, $body['storageUrl']);
         $this->assertTrue($body['storageKeyDefined']);
         $this->assertArrayNotHasKey('storageKey', $body);
+        $this->assertArrayNotHasKey('tokenKey', $body);
     }
 
     public function testGetBunnyIsEmptyWhenNothingIsConfigured(): void
     {
-        $this->configureBunny('', '');
+        $this->configureBunny('', '', cdnUrl: '', tokenKey: '');
         $this->actingAsSuperAdmin();
         $this->getJson('/api/settings/bunny');
 
         $body = $this->assertJsonResponse(200);
         $this->assertSame('', $body['storageUrl']);
         $this->assertFalse($body['storageKeyDefined']);
+        $this->assertSame('', $body['cdnUrl']);
+        $this->assertFalse($body['tokenKeyDefined']);
     }
 
     public function testSetBunnyPersistsAndKeepsTheKeyWhenLeftEmpty(): void
@@ -262,19 +265,26 @@ class SettingApiTest extends ApiTestCase
         $this->putJson('/api/settings/bunny', [
             'storageUrl' => 'https://storage.bunnycdn.com/clapiersvb',
             'storageKey' => 'cle-secrete',
+            'cdnUrl' => 'https://clapiersvb.b-cdn.net',
+            'tokenKey' => 'cle-token',
         ]);
         $body = $this->assertJsonResponse(200);
         $this->assertSame('https://storage.bunnycdn.com/clapiersvb', $body['storageUrl']);
         $this->assertTrue($body['storageKeyDefined']);
+        $this->assertSame('https://clapiersvb.b-cdn.net', $body['cdnUrl']);
+        $this->assertTrue($body['tokenKeyDefined']);
 
-        // Clé vide = on garde celle enregistrée.
+        // Secrets vides = on garde ceux enregistrés.
         $this->putJson('/api/settings/bunny', [
             'storageUrl' => 'https://storage.bunnycdn.com/clapiersvb-preprod',
             'storageKey' => '',
+            'tokenKey' => '',
         ]);
         $body = $this->assertJsonResponse(200);
         $this->assertSame('https://storage.bunnycdn.com/clapiersvb-preprod', $body['storageUrl']);
         $this->assertTrue($body['storageKeyDefined']);
+        $this->assertSame('https://clapiersvb.b-cdn.net', $body['cdnUrl']);
+        $this->assertTrue($body['tokenKeyDefined']);
 
         $this->getJson('/api/settings/bunny');
         $this->assertSame(
@@ -288,6 +298,9 @@ class SettingApiTest extends ApiTestCase
         $this->actingAsSuperAdmin();
 
         $this->putJson('/api/settings/bunny', ['storageUrl' => 'pas-une-url']);
+        $this->assertJsonResponse(422);
+
+        $this->putJson('/api/settings/bunny', ['cdnUrl' => 'pas-une-url']);
         $this->assertJsonResponse(422);
 
         $this->putJson('/api/settings/bunny', []);

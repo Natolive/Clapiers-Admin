@@ -5,11 +5,16 @@ namespace App\Common\Service;
 use App\Repository\SettingRepository;
 
 /**
- * Configuration Bunny Storage, entièrement en administration (table `setting`) :
+ * Configuration Bunny (Storage + pull zone CDN), entièrement en administration
+ * (table `setting`) :
  * plus aucune variable d'environnement. Point d'entrée unique — le stockage
  * ({@see MemberMediaStorage}) ne lit rien d'autre. Une valeur absente vaut
  * chaîne vide, et une zone non configurée fait échouer proprement les uploads
  * et téléchargements (502) au lieu d'envoyer les fichiers dans le vide.
+ *
+ * `cdnUrl` / `tokenKey` décrivent la pull zone CDN et sa Token Authentication :
+ * ils sont saisissables dès maintenant, le stockage s'en servira pour servir
+ * les fichiers au navigateur.
  */
 class BunnyConfigProvider
 {
@@ -17,6 +22,8 @@ class BunnyConfigProvider
     public const KEYS = [
         'storageUrl' => 'bunny_storage_url',
         'storageKey' => 'bunny_storage_key',
+        'cdnUrl' => 'bunny_cdn_url',
+        'tokenKey' => 'bunny_token_key',
     ];
 
     public function __construct(
@@ -31,7 +38,7 @@ class BunnyConfigProvider
     }
 
     /**
-     * Vue admin : la clé d'accès n'est jamais renvoyée — seule son existence.
+     * Vue admin : les secrets ne sont jamais renvoyés — seule leur existence.
      *
      * @return array<string, string|bool>
      */
@@ -40,6 +47,8 @@ class BunnyConfigProvider
         return [
             'storageUrl' => $this->get('storageUrl'),
             'storageKeyDefined' => $this->get('storageKey') !== '',
+            'cdnUrl' => $this->get('cdnUrl'),
+            'tokenKeyDefined' => $this->get('tokenKey') !== '',
         ];
     }
 

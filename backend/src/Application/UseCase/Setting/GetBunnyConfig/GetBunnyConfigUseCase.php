@@ -7,8 +7,9 @@ use App\Common\Service\BunnyConfigProvider;
 use App\Common\UseCase\AbstractUseCase;
 
 /**
- * Configuration Bunny Storage pour l'écran de réglages. La clé d'accès n'est
- * jamais renvoyée : seul `storageKeyDefined` dit si elle est renseignée.
+ * Configuration Bunny (Storage + CDN) pour l'écran de réglages. Les secrets ne
+ * sont jamais renvoyés : seuls `storageKeyDefined` et `tokenKeyDefined` disent
+ * s'ils sont renseignés.
  *
  * @extends AbstractUseCase<null>
  */
