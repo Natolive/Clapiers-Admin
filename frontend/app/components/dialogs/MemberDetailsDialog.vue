@@ -20,7 +20,7 @@
             <h2 class="member-name">{{ currentMember.firstName }} {{ currentMember.lastName }}</h2>
             <span class="member-team">{{ (currentMember.teams ?? []).map(t => t.name).join(' · ') || '—' }}</span>
             <div class="member-badges">
-              <Tag :value="currentMember.licensePaid ? 'Licence payée' : 'Licence non payée'" :severity="currentMember.licensePaid ? 'success' : 'danger'" />
+              <LicensePaidTag :paid="currentMember.licensePaid" :small="false" />
               <Tag v-if="currentMember.licenseNumber" :value="`N° ${currentMember.licenseNumber}`" severity="secondary" />
             </div>
           </div>
@@ -104,10 +104,7 @@
 
             <!-- Statut de paiement (dérivé de la licence, lecture seule) -->
             <div class="license-toggle">
-              <Tag
-                :value="currentMember.licensePaid ? 'Licence payée' : 'Licence non payée'"
-                :severity="currentMember.licensePaid ? 'success' : 'danger'"
-              />
+              <LicensePaidTag :paid="currentMember.licensePaid" :small="false" />
             </div>
 
             <Button
@@ -139,6 +136,7 @@ import type { Member } from '~/types/entity/Member';
 import type { Team } from '~/types/entity/Team';
 import { MemberGenderLabels } from '~/types/enum/MemberGender';
 import MemberAvatar from '~/components/common/MemberAvatar.vue';
+import LicensePaidTag from '~/components/common/LicensePaidTag.vue';
 import MemberForm from '~/components/forms/member-form.vue';
 import MemberMedia from '~/components/members/MemberMedia.vue';
 import { MemberRepository } from '~/repository/member-repository';
