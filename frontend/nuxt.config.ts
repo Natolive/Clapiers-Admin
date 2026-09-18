@@ -63,7 +63,7 @@ export default defineNuxtConfig({
                         logo: 'https://clapiersvb.fr/og-image.png',
                         sport: 'Volleyball',
                         email: 'info@clapiersvb.fr',
-                        telephone: '+33609851673',
+                        telephone: '+33769987177',
                         address: {
                             '@type': 'PostalAddress',
                             streetAddress: '1 Rue du Paraguay',

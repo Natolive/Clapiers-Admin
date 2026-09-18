@@ -17,11 +17,11 @@
               <span class="method-value">info@clapiersvb.fr</span>
             </div>
           </a>
-          <a href="tel:+33609851673" class="method">
+          <a href="tel:+33769987177" class="method">
             <div class="method-icon"><i class="pi pi-phone"></i></div>
             <div class="method-content">
               <span class="method-label">Téléphone</span>
-              <span class="method-value">+33 6 09 85 16 73</span>
+              <span class="method-value">+33 7 69 98 71 77</span>
             </div>
           </a>
           <div class="method">
