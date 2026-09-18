@@ -39,7 +39,7 @@ class GetPaginatedMembersUseCase extends AbstractUseCase
         );
 
         // Une requête pour toutes les licences de la page : l'inscription FSGT
-        // et son numéro sont portés par la licence de la saison.
+        // est portée par la licence de la saison.
         $licenses = $this->licenseRepository->findBySeasonIndexedByMember(
             array_map(static fn (Member $m) => (int) $m->getId(), $result['data']),
             $season,
@@ -57,9 +57,6 @@ class GetPaginatedMembersUseCase extends AbstractUseCase
                         'hasLicenseDocument' => $this->documentRepository
                             ->findDefaultSlot($member, $season, 'license')?->hasFile() ?? false,
                         'fsgtRegistered' => $license?->isFsgtRegistered() ?? false,
-                        // Le numéro de la saison ; celui de la fiche ne sert que
-                        // de repli pour les membres saisis à la main.
-                        'seasonLicenseNumber' => $license?->getLicenseNumber(),
                     ];
                 },
                 $result['data'],

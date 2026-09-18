@@ -16,8 +16,6 @@ export type Member = {
     licenseNumber: string | null;
     /** Liste paginée : inscription à la FSGT déclarée pour la saison filtrée. */
     fsgtRegistered?: boolean;
-    /** Liste paginée : le n° porté par la licence de la saison (≠ celui de la fiche). */
-    seasonLicenseNumber?: string | null;
     address: {
         street: string;
         zip: string;

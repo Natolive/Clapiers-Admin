@@ -94,7 +94,6 @@ class SubmitLicenseRequestUseCase extends AbstractUseCase
         $license->setMember($member);
         $license->setSeason($this->seasonProvider->current());
         $license->setStatus(LicenseStatus::SOUMISE);
-        $license->setLicenseNumber($command->licenseNumber);
         $license->setHealthDeclaration($command->healthDeclaration);
         $license->setAccessToken(bin2hex(random_bytes(32)));
 
