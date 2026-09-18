@@ -38,6 +38,9 @@ class CreateUpdateMemberCommand implements CommandInterface
         #[Assert\Length(max: 50)]
         public readonly ?string $licenseNumber = null,
         public readonly ?int $id = null,
+        /** Licence à créer avec la fiche ; null = fiche seule. */
+        #[Assert\Valid]
+        public readonly ?NewMemberLicense $license = null,
     ) {
     }
 }
