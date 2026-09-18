@@ -158,7 +158,7 @@ const filtersSummary = computed(() => {
 
   const parts = [`Saison ${props.filters.season || 'courante'}`];
   if (props.teamName) parts.push(`équipe « ${props.teamName} »`);
-  if (props.filters.licensePaid !== undefined) parts.push(props.filters.licensePaid ? 'licence payée' : 'licence non payée');
+  if (props.filters.licensePaid !== undefined) parts.push(props.filters.licensePaid ? 'licence payée' : 'licence impayée');
   if (props.filters.search) parts.push(`recherche « ${props.filters.search} »`);
 
   return `Export des licenciés affichés : ${parts.join(' · ')}.`;

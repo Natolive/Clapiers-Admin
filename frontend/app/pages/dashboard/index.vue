@@ -98,7 +98,7 @@
                     </div>
                     <div class="legend">
                         <span class="legend__item"><span class="dot" style="background:#22c55e" />Payée ({{ stats.members.withLicense }})</span>
-                        <span class="legend__item"><span class="dot" style="background:#f97316" />Non payée ({{ stats.members.withoutLicense }})</span>
+                        <span class="legend__item"><span class="dot" style="background:#f97316" />Impayée ({{ stats.members.withoutLicense }})</span>
                     </div>
                 </article>
 

@@ -12,7 +12,7 @@
         </div>
         <div class="team-stat" :class="{ 'team-stat--alert': unpaid > 0 }">
           <span class="team-stat__value">{{ unpaid }}</span>
-          <span class="team-stat__label">licences non payées</span>
+          <span class="team-stat__label">licences impayées</span>
         </div>
         <div class="team-stat" :class="{ 'team-stat--alert': withoutCoach > 0 }">
           <span class="team-stat__value">{{ withoutCoach }}</span>

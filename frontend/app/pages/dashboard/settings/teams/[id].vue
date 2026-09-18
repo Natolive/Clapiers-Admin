@@ -41,7 +41,7 @@
         </div>
         <div class="team-metric" :class="{ 'team-metric--alert': unpaid > 0 }">
           <span class="team-metric__value">{{ unpaid }}</span>
-          <span class="team-metric__label">licences non payées</span>
+          <span class="team-metric__label">licences impayées</span>
         </div>
         <div class="team-metric">
           <span class="team-metric__value">{{ games.length }}</span>

@@ -42,11 +42,7 @@
         <button type="button" class="roster-row__name" @click="emit('open', member)">
           {{ member.firstName }} {{ member.lastName }}
         </button>
-        <Tag
-          :value="member.licensePaid ? 'Payée' : 'Non payée'"
-          :severity="member.licensePaid ? 'success' : 'danger'"
-          class="text-xs"
-        />
+        <LicensePaidTag :paid="member.licensePaid" />
         <Button
           icon="pi pi-user-minus"
           severity="danger"
@@ -64,6 +60,7 @@
 
 <script setup lang="ts">
 import MemberAvatar from '~/components/common/MemberAvatar.vue';
+import LicensePaidTag from '~/components/common/LicensePaidTag.vue';
 import { MemberRepository } from '~/repository/member-repository';
 import type { Member } from '~/types/entity/Member';
 import type { Team } from '~/types/entity/Team';

@@ -50,8 +50,8 @@
     lazy
     stripedRows
     dataKey="id"
-    tableStyle="min-width: 72rem"
-    class="p-datatable-sm"
+    tableStyle="min-width: 60rem"
+    class="p-datatable-sm members-table"
     paginator
     :rows="lazyParams.rows"
     :totalRecords="totalRecords"
@@ -73,7 +73,7 @@
     <Column selectionMode="multiple" headerStyle="width: 3rem" :exportable="false" />
     <Column header="Licencié" sortable field="firstName" style="width: 20%">
       <template #body="slotProps">
-        <div class="flex align-items-center gap-3">
+        <div class="flex align-items-center gap-2">
           <MemberAvatar
             :member="slotProps.data"
             size="normal"
@@ -107,11 +107,7 @@
     </Column>
     <Column header="Payée" style="width: 8%">
       <template #body="slotProps">
-        <Tag
-          :value="slotProps.data.licensePaid ? 'Payée' : 'Non payée'"
-          :severity="slotProps.data.licensePaid ? 'success' : 'danger'"
-          class="text-xs"
-        />
+        <LicensePaidTag :paid="slotProps.data.licensePaid" />
       </template>
     </Column>
     <Column header="Licence" style="width: 10%">
@@ -152,11 +148,6 @@
         </div>
       </template>
     </Column>
-    <Column field="createdAt" header="Créé le" sortable style="width: 8%">
-      <template #body="slotProps">
-        {{ new Date(slotProps.data.createdAt).toLocaleDateString('fr-FR') }}
-      </template>
-    </Column>
     <Column header="Actions" style="width: 10%">
       <template #body="slotProps">
         <div class="flex align-items-center">
@@ -165,6 +156,7 @@
             severity="secondary"
             text
             rounded
+            size="small"
             @click="openDialog(slotProps.data)"
             v-tooltip.top="'Modifier'"
           />
@@ -174,6 +166,7 @@
             severity="secondary"
             text
             rounded
+            size="small"
             @click="openDialog(slotProps.data, 'media')"
             v-tooltip.top="'Médiathèque'"
           />
@@ -183,6 +176,7 @@
             severity="danger"
             text
             rounded
+            size="small"
             @click="confirmDelete(slotProps.data)"
             v-tooltip.top="'Supprimer'"
           />
@@ -195,7 +189,7 @@
   <div v-else class="member-cards">
     <template v-if="loading">
       <div v-for="i in 5" :key="i" class="member-card">
-        <Skeleton shape="circle" size="3rem" />
+        <Skeleton shape="circle" size="2.25rem" />
         <div class="member-card__main">
           <Skeleton width="60%" height="1rem" class="mb-2" />
           <Skeleton width="40%" height="0.75rem" />
@@ -213,16 +207,12 @@
         @click="openDialog(member)"
         @keydown.enter="openDialog(member)"
       >
-        <MemberAvatar :member="member" size="large" />
+        <MemberAvatar :member="member" size="normal" />
         <div class="member-card__main">
           <span class="member-card__name">{{ member.firstName }} {{ member.lastName }}</span>
           <span class="member-card__meta">{{ memberTeamsLabel(member) }} · {{ member.phoneNumber }}</span>
           <div class="member-card__tags">
-            <Tag
-              :value="member.licensePaid ? 'Licence payée' : 'Non payée'"
-              :severity="member.licensePaid ? 'success' : 'danger'"
-              class="text-xs"
-            />
+            <LicensePaidTag :paid="member.licensePaid" />
             <Tag v-if="member.hasLicenseDocument" value="Licence" severity="secondary" class="text-xs" />
             <Tag
               :value="member.fsgtRegistered ? 'FSGT' : 'Hors FSGT'"
@@ -238,6 +228,7 @@
           severity="secondary"
           text
           rounded
+          size="small"
           class="member-card__media"
           @click.stop="openDialog(member, 'media')"
           v-tooltip.left="'Médiathèque'"
@@ -248,6 +239,7 @@
           severity="danger"
           text
           rounded
+          size="small"
           @click.stop="confirmDelete(member)"
           v-tooltip.left="'Supprimer'"
         />
@@ -280,6 +272,7 @@ import CreateUpdateMemberDialog from '~/components/dialogs/CreateUpdateMemberDia
 import FsgtRegistrationDialog from '~/components/dialogs/FsgtRegistrationDialog.vue';
 import MemberDetailsDialog from '~/components/dialogs/MemberDetailsDialog.vue';
 import MemberAvatar from '~/components/common/MemberAvatar.vue';
+import LicensePaidTag from '~/components/common/LicensePaidTag.vue';
 import { MemberRepository } from '~/repository/member-repository';
 import type { Member } from '~/types/entity/Member';
 import type { Team } from '~/types/entity/Team';
@@ -295,14 +288,21 @@ const memberRepository = new MemberRepository();
 const members = ref<Member[]>([]);
 const totalRecords = ref(0);
 const loading = ref(false);
-const searchValue = ref('');
-const selectedTeamId = ref<number | null>(null);
-// 3 états : tous / payée / non payée (undefined côté API = pas de filtre),
+
+// Filtres, pagination et tri vivent dans l'URL : recharger la page ou partager
+// le lien redonne la même vue.
+const route = useRoute();
+const router = useRouter();
+const query = route.query;
+
+const searchValue = ref(String(query.search ?? ''));
+const selectedTeamId = ref<number | null>(query.teamId ? Number(query.teamId) : null);
+// 3 états : tous / payée / impayée (undefined côté API = pas de filtre),
 // initialisés depuis ?licensePaid= pour les liens du tableau de bord.
 const licensePaidOptions = [
   { label: 'Tous', value: LicensePaidFilter.ALL },
   { label: 'Payée', value: LicensePaidFilter.PAID },
-  { label: 'Non payée', value: LicensePaidFilter.UNPAID },
+  { label: 'Impayée', value: LicensePaidFilter.UNPAID },
 ];
 // Inscription FSGT : 3 états, comme le filtre « payée ». La valeur undefined
 // n'étant pas sélectionnable dans un Select, on passe par une chaîne.
@@ -311,19 +311,22 @@ const fsgtOptions = [
   { label: 'Inscrits FSGT', value: 'yes' },
   { label: 'Non inscrits FSGT', value: 'no' },
 ];
-const fsgtFilter = ref<'all' | 'yes' | 'no'>('all');
+const fsgtFilter = ref<'all' | 'yes' | 'no'>(
+  query.fsgt === 'yes' || query.fsgt === 'no' ? query.fsgt : 'all',
+);
 const fsgtRegisteredParam = computed(() =>
   fsgtFilter.value === 'all' ? undefined : fsgtFilter.value === 'yes',
 );
 
 const selectedMembers = ref<Member[]>([]);
 
-const route = useRoute();
-const queryPaid = String(route.query.licensePaid ?? '') as LicensePaidFilter;
+const queryPaid = String(query.licensePaid ?? '') as LicensePaidFilter;
 const licensePaidFilter = ref<LicensePaidFilter>(
   Object.values(LicensePaidFilter).includes(queryPaid) ? queryPaid : LicensePaidFilter.ALL,
 );
 const { selected: season, load: loadSeasons } = useSeasonFilter();
+// La saison est un état partagé entre les vues : l'URL a le dernier mot ici.
+if (query.season) season.value = String(query.season);
 let searchTimeout: ReturnType<typeof setTimeout> | null = null;
 
 const isMobile = useIsMobile();
@@ -335,12 +338,31 @@ const teamOptions = computed(() =>
 const memberTeamsLabel = (member: Member) =>
   (member.teams ?? []).map(t => t.name).join(' · ') || '—';
 
+const rowsPerPage = Number(query.rows) || 10;
+const sortQuery = String(query.sort ?? 'firstName');
 const lazyParams = ref({
-  first: 0,
-  rows: 10,
-  sortField: 'firstName',
-  sortOrder: 1 as 1 | -1,
+  first: (Math.max(1, Number(query.page) || 1) - 1) * rowsPerPage,
+  rows: rowsPerPage,
+  sortField: sortQuery.replace(/^-/, ''),
+  sortOrder: (sortQuery.startsWith('-') ? -1 : 1) as 1 | -1,
 });
+
+watch([searchValue, selectedTeamId, licensePaidFilter, fsgtFilter, season, lazyParams], () => {
+  const page = Math.floor(lazyParams.value.first / lazyParams.value.rows) + 1;
+  const next: Record<string, string | undefined> = {
+    search: searchValue.value || undefined,
+    teamId: selectedTeamId.value ? String(selectedTeamId.value) : undefined,
+    licensePaid: licensePaidFilter.value === LicensePaidFilter.ALL ? undefined : licensePaidFilter.value,
+    fsgt: fsgtFilter.value === 'all' ? undefined : fsgtFilter.value,
+    season: season.value || undefined,
+    page: page > 1 ? String(page) : undefined,
+    rows: lazyParams.value.rows === 10 ? undefined : String(lazyParams.value.rows),
+    sort: lazyParams.value.sortField === 'firstName' && lazyParams.value.sortOrder === 1
+      ? undefined
+      : `${lazyParams.value.sortOrder === -1 ? '-' : ''}${lazyParams.value.sortField}`,
+  };
+  router.replace({ query: Object.fromEntries(Object.entries(next).filter(([, v]) => v !== undefined)) });
+}, { deep: true });
 
 watch(searchValue, () => {
   if (searchTimeout) clearTimeout(searchTimeout);
@@ -524,6 +546,28 @@ onMounted(async () => {
   width: 15rem;
 }
 
+/* Table dense : plus de lignes visibles sans scroller. */
+.members-table :deep(.p-datatable-thead > tr > th),
+.members-table :deep(.p-datatable-tbody > tr > td) {
+  padding: 0.35rem 0.5rem;
+  font-size: 0.85rem;
+}
+
+.members-table :deep(.p-avatar) {
+  width: 1.75rem;
+  height: 1.75rem;
+  font-size: 0.7rem;
+}
+
+.members-table :deep(.p-tag) {
+  padding: 0.05rem 0.35rem;
+}
+
+.members-table :deep(.p-button.p-button-icon-only) {
+  width: 1.75rem;
+  height: 1.75rem;
+}
+
 .members-selection {
   display: flex;
   align-items: center;
@@ -561,14 +605,19 @@ onMounted(async () => {
 .member-cards {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.375rem;
+}
+
+.member-card :deep(.p-button.p-button-icon-only) {
+  width: 1.75rem;
+  height: 1.75rem;
 }
 
 .member-card {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  padding: 0.75rem;
+  gap: 0.5rem;
+  padding: 0.5rem 0.625rem;
   border: 1px solid var(--p-surface-border);
   border-radius: 10px;
   background: var(--p-surface-card);
@@ -596,6 +645,7 @@ onMounted(async () => {
 }
 
 .member-card__name {
+  font-size: 0.9rem;
   font-weight: 600;
   color: var(--p-text-color);
   overflow: hidden;
@@ -604,7 +654,7 @@ onMounted(async () => {
 }
 
 .member-card__meta {
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   color: var(--p-text-muted-color);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -613,9 +663,13 @@ onMounted(async () => {
 
 .member-card__tags {
   display: flex;
-  gap: 0.375rem;
+  gap: 0.25rem;
   flex-wrap: wrap;
-  margin-top: 0.15rem;
+  margin-top: 0.1rem;
+}
+
+.member-card__tags :deep(.p-tag) {
+  padding: 0.05rem 0.35rem;
 }
 
 .member-card__chevron {
