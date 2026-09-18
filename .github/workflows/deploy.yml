@@ -19,6 +19,13 @@ on:
         description: URL publique de l'API, injectée au build du front
         required: true
         type: string
+      attestations:
+        description: >-
+          SBOM + provenance sur les images. Coûte un scan complet par image, ce
+          qui n'a pas de sens sur une preprod redéployée plusieurs fois par jour.
+        required: false
+        default: false
+        type: boolean
 
 jobs:
   changes:
@@ -89,8 +96,8 @@ jobs:
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/clapiers-admin:${{ inputs.tag-prefix }}-backend
           cache-from: type=gha,scope=${{ inputs.tag-prefix }}-backend
           cache-to: type=gha,mode=max,scope=${{ inputs.tag-prefix }}-backend
-          sbom: true
-          provenance: true
+          sbom: ${{ inputs.attestations }}
+          provenance: ${{ inputs.attestations }}
           network: host
 
   build-frontend:
@@ -129,8 +136,8 @@ jobs:
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/clapiers-admin:${{ inputs.tag-prefix }}-frontend
           cache-from: type=gha,scope=${{ inputs.tag-prefix }}-frontend
           cache-to: type=gha,mode=max,scope=${{ inputs.tag-prefix }}-frontend
-          sbom: true
-          provenance: true
+          sbom: ${{ inputs.attestations }}
+          provenance: ${{ inputs.attestations }}
           network: host
 
   # Les deux deploys attendent les deux builds : livrer un front qui appelle

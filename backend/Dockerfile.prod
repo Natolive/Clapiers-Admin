@@ -11,48 +11,49 @@ RUN apk add --no-cache \
         libzip-dev \
         oniguruma-dev
 
-RUN docker-php-ext-configure pgsql -with-pgsql=/usr/include/postgresql/
-RUN docker-php-ext-install \
-    intl \
-    mbstring \
-    pdo_pgsql \
-    pgsql \
-    zip
+# `docker-php-ext-configure` extrait les sources de PHP dans /usr/src : 490 Mo
+# que l'image traînait jusqu'en prod, tirés à chaque pull de pod. D'où le
+# `docker-php-source delete` — et le tout dans un seul RUN, sinon la couche
+# intermédiaire garde les sources même après suppression.
+RUN docker-php-ext-configure pgsql -with-pgsql=/usr/include/postgresql/ \
+ && docker-php-ext-install \
+        intl \
+        mbstring \
+        pdo_pgsql \
+        pgsql \
+        zip \
+ && docker-php-source delete
 
 WORKDIR /app
 
 COPY --from=composer:latest /usr/bin/composer /usr/local/bin/composer
-COPY composer.json .
-COPY composer.lock .
-RUN composer install --no-scripts
-
-COPY . .
+COPY composer.json composer.lock ./
+# --no-dev : phpunit, les fixtures et maker-bundle n'ont rien à faire dans
+# l'image de prod (doctrine-migrations-bundle est en `require`, le Job de
+# migration du déploiement reste servi).
+# --optimize-autoloader : classmap figée, sinon chaque classe coûte un
+# parcours de dossiers à l'exécution.
+RUN composer install --no-dev --no-scripts --prefer-dist --no-progress --optimize-autoloader
 
 ARG USER=appuser
 
-RUN \
-    adduser -D ${USER} && \
-    chown -R ${USER}:${USER} /data/caddy && \
-    chown -R ${USER}:${USER} /config/caddy && \
-    chown -R ${USER}:${USER} /app
+# Tout ce qui ne dépend pas des sources passe avant leur copie : ces couches
+# restent en cache d'un commit à l'autre, y compris la génération du certificat.
+RUN adduser -D ${USER} && \
+    mkdir -p /etc/frankenphp /etc/ssl/certs && \
+    openssl req -x509 -newkey rsa:4096 \
+      -keyout /etc/ssl/certs/selfsigned.key \
+      -out /etc/ssl/certs/selfsigned.crt \
+      -sha256 -days 365 -nodes \
+      -subj "/CN=0.0.0.0" && \
+    chown -R ${USER}:${USER} /data/caddy /config/caddy /etc/frankenphp /etc/ssl/certs && \
+    chown ${USER}:${USER} /app
 
-
-RUN mkdir -p /etc/frankenphp && \
-    chown -R ${USER}:${USER} /etc/frankenphp
-
-
-RUN mkdir -p /etc/ssl/certs
-
-RUN openssl req -x509 -newkey rsa:4096 \
-  -keyout /etc/ssl/certs/selfsigned.key \
-  -out /etc/ssl/certs/selfsigned.crt \
-  -sha256 -days 365 -nodes \
-  -subj "/CN=0.0.0.0"
-RUN chown -R ${USER}:${USER} /etc/ssl/certs
 COPY docker/prod/Caddyfile /etc/frankenphp/Caddyfile
 
-USER ${USER}
-
-WORKDIR /app
-
+# --chown plutôt qu'un `chown -R /app` après coup : le chown récursif réécrit
+# chaque fichier et empilait une copie complète de l'app dans une couche de
+# plus. `vendor` reste à root, personne n'a besoin d'y écrire.
 COPY --chown=${USER}:${USER} . .
+
+USER ${USER}

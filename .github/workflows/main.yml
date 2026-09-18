@@ -17,4 +17,5 @@ jobs:
       namespace: clapier-admin-prod
       tag-prefix: stable
       api-base: https://clapiersvb.fr/api
+      attestations: true
     secrets: inherit

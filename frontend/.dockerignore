@@ -1,0 +1,14 @@
+# Le contexte partait entier : 305 Mo de node_modules locaux recopiés dans
+# l'image, et surtout n'importe quelle réinstallation locale invalidait le
+# cache de `COPY . .` côté CI. Les dépendances sont installées dans l'image,
+# jamais importées depuis la machine qui build.
+node_modules
+.nuxt
+.output
+.git
+*.log
+
+# `.env` n'est PAS ignoré : la CI l'écrit avant le build et les NUXT_PUBLIC_*
+# sont figées à la compilation.
+.env.local
+.env.*.local
