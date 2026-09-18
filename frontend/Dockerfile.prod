@@ -1,14 +1,19 @@
 FROM node:lts-alpine AS builder
 WORKDIR /app
 COPY package*.json ./
-RUN npm install
+# `ci` et non `install` : lit le package-lock sans le résoudre, et repart d'un
+# node_modules propre.
+RUN npm ci
 COPY . .
 RUN npm run build
 
 FROM node:lts-alpine
 WORKDIR /app
-COPY --from=builder /app ./
-RUN npm install
+# Nitro produit un bundle autonome : ses dépendances sont déjà dans
+# .output/server/node_modules. L'image copiait tout /app puis relançait un
+# `npm install` complet — une deuxième installation pour rien, et les
+# devDependencies embarquées en prod.
+COPY --from=builder /app/.output ./.output
 
 ENV NODE_ENV=production
 EXPOSE 3000

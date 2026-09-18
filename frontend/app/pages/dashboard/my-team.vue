@@ -42,11 +42,7 @@
             <Card>
               <template #content>
                 <div class="flex flex-column align-items-center gap-3">
-                  <MemberAvatar
-                    :member="member"
-                    size="xlarge"
-                    :src="photoUrl(member)"
-                  />
+                  <MemberAvatar :member="member" size="xlarge" />
                   <div class="text-center">
                     <p class="text-xl font-semibold m-0">{{ member.firstName }} {{ member.lastName }}</p>
                   </div>
@@ -134,12 +130,6 @@ const toast = usePVToastService();
 
 const groups = ref<MyTeamGroup[]>([]);
 const loading = ref(true);
-
-// URL de la photo (endpoint coach protégé par équipe) : l'avatar s'y branche.
-const photoUrl = (member: Member) => {
-  const config = useRuntimeConfig();
-  return `${config.public.apiBase}/team/my-team/member/${member.id}/profile-picture`;
-};
 
 const licensePath = (member: Member) => `/team/my-team/license/${member.id}`;
 

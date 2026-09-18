@@ -98,9 +98,12 @@ jobs:
 
       - name: Run test suite with coverage
         run: |
+          # Pas de --coverage-html : sa génération et l'upload de ses milliers
+          # de petits fichiers pesaient plus que la suite elle-même, pour une
+          # information que coverage.txt donne déjà, classe par classe, dans le
+          # résumé du job.
           php bin/phpunit \
             --coverage-clover var/coverage/clover.xml \
-            --coverage-html var/coverage/html \
             --log-junit var/coverage/junit.xml \
             --coverage-text=var/coverage/coverage.txt
           cat var/coverage/coverage.txt
@@ -152,7 +155,7 @@ jobs:
             echo "</details>"
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Upload test reports (junit + coverage html + clover)
+      - name: Upload test reports (junit + clover + texte)
         uses: actions/upload-artifact@v6
         if: always()
         with:
@@ -161,7 +164,6 @@ jobs:
             backend/var/coverage/junit.xml
             backend/var/coverage/clover.xml
             backend/var/coverage/coverage.txt
-            backend/var/coverage/html
           retention-days: 30
 
   badges:

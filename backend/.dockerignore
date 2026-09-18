@@ -2,3 +2,11 @@
 # Real values are injected at runtime (k8s); committed .env holds only defaults.
 .env.local
 .env.*.local
+
+# Le contexte partait entier : 79 Mo de vendor et 67 Mo de var recopiés
+# par-dessus l'install `--no-dev` de l'image, et le moindre fichier de cache
+# local invalidait le cache de `COPY . .` côté CI.
+vendor
+var
+.git
+tests
