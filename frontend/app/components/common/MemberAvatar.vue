@@ -1,11 +1,16 @@
 <template>
   <div class="member-avatar-wrapper">
-    <Avatar
-      v-if="member.profilePictureUrl"
-      :image="member.profilePictureUrl"
-      shape="circle"
-      :size="size"
-    />
+    <!-- `img` posée à la main plutôt que via `:image` : PrimeVue ne permet pas
+         d'ajouter `loading="lazy"`, or une liste de licenciés tirerait sinon
+         toutes les photos du CDN, y compris celles hors écran. -->
+    <Avatar v-if="member.profilePictureUrl" shape="circle" :size="size">
+      <img
+        :src="member.profilePictureUrl"
+        :alt="initials"
+        loading="lazy"
+        decoding="async"
+      >
+    </Avatar>
     <Avatar
       v-else
       :label="initials"
@@ -44,6 +49,9 @@ const initials = computed(() => {
 
 /* Photo non carrée : on affiche le carré central au lieu d'étirer l'image. */
 .member-avatar-wrapper :deep(.p-avatar img) {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
   object-fit: cover;
   object-position: center;
 }

@@ -278,6 +278,13 @@ class MemberMediaStorage
      * Query string de la Token Authentication Bunny : md5(clé + chemin +
      * expiration) en base64 url-safe, sans le bourrage `=`. Sans clé, la pull
      * zone est ouverte et l'URL part telle quelle.
+     *
+     * L'expiration est **alignée sur des fenêtres fixes** de `$ttl` : deux
+     * rendus rapprochés de la même liste produisent la même URL, donc le
+     * navigateur (et le cache du CDN) la réutilisent. Avec un `time() + ttl`
+     * recalculé à chaque appel, chaque image était une URL neuve : plus aucun
+     * cache possible, et tout le trombinoscope retéléchargé à chaque écran.
+     * Validité effective : entre `$ttl` et `2 × $ttl`.
      */
     private function token(string $path, int $ttl): string
     {
@@ -286,7 +293,7 @@ class MemberMediaStorage
             return '';
         }
 
-        $expires = time() + $ttl;
+        $expires = (intdiv(time(), $ttl) + 2) * $ttl;
         $token = rtrim(strtr(base64_encode(md5($key.$path.$expires, true)), '+/', '-_'), '=');
 
         return '?token='.$token.'&expires='.$expires;
