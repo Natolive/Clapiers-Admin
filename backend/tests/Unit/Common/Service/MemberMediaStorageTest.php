@@ -189,6 +189,23 @@ class MemberMediaStorageTest extends TestCase
         $storage->delete('42/abc.pdf');
     }
 
+    /**
+     * Le cache navigateur — et celui du CDN — dépendent d'une URL stable : deux
+     * rendus de la même liste ne doivent pas produire deux URL différentes,
+     * sinon chaque avatar est retéléchargé à chaque écran.
+     */
+    public function testTheSignedUrlIsStableBetweenTwoCloseCalls(): void
+    {
+        $storage = $this->makeStorage(new MockHttpClient(), tokenKey: 'cle-token');
+
+        $first = $storage->signedUrl('42/abc.pdf', MemberMediaStorage::DISPLAY_TTL);
+        self::assertSame($first, $storage->signedUrl('42/abc.pdf', MemberMediaStorage::DISPLAY_TTL));
+
+        // …et reste valable au moins le TTL demandé.
+        parse_str((string) parse_url((string) $first, PHP_URL_QUERY), $query);
+        self::assertGreaterThanOrEqual(time() + MemberMediaStorage::DISPLAY_TTL, (int) $query['expires']);
+    }
+
     public function testDeleteOfNullStoredNameMakesNoCall(): void
     {
         $this->expectNotToPerformAssertions();
