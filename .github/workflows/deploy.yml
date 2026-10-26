@@ -92,6 +92,9 @@ jobs:
         with:
           context: backend/
           file: backend/Dockerfile.prod
+          # Toujours re-tirer l'image PHP de base : les correctifs de sécurité
+          # arrivent par le tag flottant php8.4.
+          pull: true
           push: true
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/clapiers-admin:${{ inputs.tag-prefix }}-backend
           cache-from: type=gha,scope=${{ inputs.tag-prefix }}-backend
