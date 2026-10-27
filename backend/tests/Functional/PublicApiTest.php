@@ -150,4 +150,27 @@ class PublicApiTest extends ApiTestCase
         $body = $this->assertJsonResponse(200);
         $this->assertCount(1, $body);
     }
+
+    /**
+     * Régression prod : un match d'une équipe soft-supprimée faisait planter
+     * toute la plage (proxy `team` introuvable → 500 sur la vue mois/année).
+     */
+    public function testGamesOfDeletedTeamsAreHidden(): void
+    {
+        $kept = $this->aTeam()->persist();
+        $deleted = $this->aTeam()->persist();
+        $game = $this->aGame()->forTeam($kept)->home()->onDate('+3 days')->persist();
+        $this->aGame()->forTeam($deleted)->home()->onDate('+4 days')->persist();
+        $this->em()->remove($deleted);
+        $this->em()->flush();
+        $this->em()->clear();
+
+        $this->getJson('/api/public/games');
+        $body = $this->assertJsonResponse(200);
+        $this->assertSame([$game->getId()], array_column($body, 'id'));
+
+        $this->getJson('/api/public/home-games');
+        $body = $this->assertJsonResponse(200);
+        $this->assertSame([$game->getId()], array_column($body, 'id'));
+    }
 }

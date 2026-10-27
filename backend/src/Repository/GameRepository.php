@@ -37,7 +37,7 @@ class GameRepository extends ServiceEntityRepository
      */
     public function findAllByDateRange(?string $start, ?string $end): array
     {
-        $qb = $this->createQueryBuilder('g')
+        $qb = $this->withLiveTeam()
             ->orderBy('g.date', 'ASC');
 
         $this->applyDateRange($qb, $start, $end);
@@ -50,7 +50,7 @@ class GameRepository extends ServiceEntityRepository
      */
     public function findUpcomingHomeGames(int $limit = 10): array
     {
-        return $this->createQueryBuilder('g')
+        return $this->withLiveTeam()
             ->andWhere('g.venue = :venue')
             ->andWhere('g.date >= :today')
             ->setParameter('venue', \App\Entity\Enum\GameVenue::HOME)
@@ -122,6 +122,18 @@ class GameRepository extends ServiceEntityRepository
         }
 
         return (int) $qb->getQuery()->getSingleScalarResult();
+    }
+
+    /**
+     * Matchs joints à leur équipe : le filtre SoftDeleteable s'applique à la
+     * jointure et écarte les matchs d'une équipe supprimée. Sans ça, le proxy
+     * `team` est introuvable au `toArray()` et toute la plage part en 500.
+     */
+    private function withLiveTeam(): \Doctrine\ORM\QueryBuilder
+    {
+        return $this->createQueryBuilder('g')
+            ->innerJoin('g.team', 't')
+            ->addSelect('t');
     }
 
     private function applyDateRange(\Doctrine\ORM\QueryBuilder $qb, ?string $start, ?string $end): void
