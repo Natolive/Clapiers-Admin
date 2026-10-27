@@ -153,5 +153,21 @@ onMounted(async () => {
   .cal-full__card {
     padding: 0.5rem;
   }
+
+  /* Titre sur sa ligne, puis « S'abonner » à gauche et la bascule à droite */
+  .cal-full__head {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  .cal-full__title {
+    flex-basis: 100%;
+    font-size: 1.3rem;
+  }
+  .cal-full__subscribe {
+    margin-left: 0;
+  }
+  .cal-full__switch {
+    margin-left: auto;
+  }
 }
 </style>
