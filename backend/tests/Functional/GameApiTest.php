@@ -25,6 +25,23 @@ class GameApiTest extends ApiTestCase
         $this->assertSame($inRange->getId(), $body[0]['id']);
     }
 
+    public function testAdminListingHidesGamesOfDeletedTeams(): void
+    {
+        $kept = $this->aTeam()->persist();
+        $deleted = $this->aTeam()->persist();
+        $game = $this->aGame()->forTeam($kept)->onDate('2026-07-10')->persist();
+        $this->aGame()->forTeam($deleted)->onDate('2026-07-11')->persist();
+        $this->em()->remove($deleted);
+        $this->em()->flush();
+        $this->em()->clear();
+
+        $this->actingAsAdmin();
+        $this->getJson('/api/game?start=2026-07-01&end=2026-07-31');
+
+        $body = $this->assertJsonResponse(200);
+        $this->assertSame([$game->getId()], array_column($body, 'id'));
+    }
+
     public function testGamesCanBeFilteredByTeam(): void
     {
         $teamA = $this->aTeam()->persist();

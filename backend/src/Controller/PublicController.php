@@ -29,7 +29,9 @@ use App\Application\UseCase\License\UploadLicenseRequestDocument\UploadLicenseRe
 use App\Common\Service\InscriptionsStatusProvider;
 use App\Common\Service\MemberMediaStorage;
 use App\Common\Service\SeasonProvider;
+use App\Entity\Enum\GameVenue;
 use App\Entity\Enum\MemberNationality;
+use App\Entity\Game;
 use App\Repository\GameRepository;
 use App\Repository\SalleClosureRepository;
 use App\Repository\TeamRepository;
@@ -240,6 +242,139 @@ class PublicController extends AbstractController
         $games = $gameRepository->findAllByDateRange($start->format('Y-m-d'), $end->format('Y-m-d'));
 
         return $this->json(array_map(fn ($g) => $g->toArray(), $games));
+    }
+
+    /**
+     * Flux iCalendar (RFC 5545) des matchs, pour s'abonner depuis Google Agenda,
+     * Apple Calendrier, Outlook… Tout le club, ou une équipe avec ?teamId=, et
+     * un rappel optionnel avec ?alarm=<minutes>. Fenêtre : 3 mois passés → 1 an
+     * à venir. Paramètre invalide → 422 (MapQueryString répond 404 par défaut).
+     */
+    #[Route('/games.ics', name: 'games_ics', methods: ['GET'])]
+    public function gamesIcs(
+        #[MapQueryString(validationFailedStatusCode: Response::HTTP_UNPROCESSABLE_ENTITY)]
+        ?Input\GetGamesIcsInput $input,
+        GameRepository $gameRepository,
+        TeamRepository $teamRepository,
+    ): Response {
+        $input ??= new Input\GetGamesIcsInput();
+        $start = (new \DateTimeImmutable('-3 months'))->format('Y-m-d');
+        $end = (new \DateTimeImmutable('+1 year'))->format('Y-m-d');
+        $name = 'Clapiers VB';
+
+        if ($input->teamId !== null) {
+            $team = $teamRepository->find($input->teamId);
+            if (!$team) {
+                throw $this->createNotFoundException('Team not found');
+            }
+            $games = $gameRepository->findByTeamAndDateRange($team, $start, $end);
+            $name .= ' - '.$team->getName();
+        } else {
+            $games = $gameRepository->findAllByDateRange($start, $end);
+        }
+
+        $lines = [
+            'BEGIN:VCALENDAR',
+            'VERSION:2.0',
+            'PRODID:-//Clapiers Volley Ball//Calendrier des matchs//FR',
+            'CALSCALE:GREGORIAN',
+            'METHOD:PUBLISH',
+            'X-WR-CALNAME:'.$this->icsText($name),
+            'X-WR-TIMEZONE:Europe/Paris',
+            // Indication de rafraîchissement (Google l'ignore, Apple/Outlook la suivent)
+            'REFRESH-INTERVAL;VALUE=DURATION:PT6H',
+            'X-PUBLISHED-TTL:PT6H',
+        ];
+        foreach ($games as $game) {
+            array_push($lines, ...$this->icsEvent($game, $input->alarm));
+        }
+        $lines[] = 'END:VCALENDAR';
+
+        $body = implode("\r\n", array_map($this->icsFold(...), $lines))."\r\n";
+
+        return new Response($body, Response::HTTP_OK, [
+            'Content-Type' => 'text/calendar; charset=utf-8',
+            'Content-Disposition' => 'inline; filename="clapiers-matchs.ics"',
+        ]);
+    }
+
+    /** @return list<string> */
+    private function icsEvent(Game $game, ?int $alarmMinutes): array
+    {
+        $isHome = $game->getVenue() === GameVenue::HOME;
+        $utc = new \DateTimeZone('UTC');
+        $time = $this->parseMeetingTime($game->getMeetingTime());
+
+        if ($time !== null) {
+            // L'heure saisie est celle de Paris ; on publie en UTC (pas de VTIMEZONE à fournir)
+            $start = new \DateTimeImmutable($game->getDate()->format('Y-m-d').' '.$time, new \DateTimeZone('Europe/Paris'));
+            // ponytail: durée fixe de 2 h, un match de volley n'a pas d'heure de fin connue
+            $when = [
+                'DTSTART:'.$start->setTimezone($utc)->format('Ymd\THis\Z'),
+                'DTEND:'.$start->modify('+2 hours')->setTimezone($utc)->format('Ymd\THis\Z'),
+            ];
+        } else {
+            $when = [
+                'DTSTART;VALUE=DATE:'.$game->getDate()->format('Ymd'),
+                'DTEND;VALUE=DATE:'.$game->getDate()->modify('+1 day')->format('Ymd'),
+            ];
+        }
+
+        $description = $isHome ? 'Match à domicile' : 'Match à l\'extérieur';
+        if ($game->getMeetingTime()) {
+            $description .= ' - RDV '.$game->getMeetingTime();
+        }
+
+        return [
+            'BEGIN:VEVENT',
+            'UID:game-'.$game->getId().'@clapiersvb.fr',
+            'DTSTAMP:'.($game->getUpdatedAt() ?? new \DateTimeImmutable())->setTimezone($utc)->format('Ymd\THis\Z'),
+            ...$when,
+            'SUMMARY:'.$this->icsText(sprintf('%s %s %s', $game->getTeam()->getName(), $isHome ? 'vs' : '@', $game->getOpponent())),
+            ...($game->getLocation() ? ['LOCATION:'.$this->icsText($game->getLocation())] : []),
+            'DESCRIPTION:'.$this->icsText($description),
+            ...($alarmMinutes ? [
+                'BEGIN:VALARM',
+                'ACTION:DISPLAY',
+                'DESCRIPTION:'.$this->icsText('Match : '.$game->getTeam()->getName()),
+                'TRIGGER:-PT'.$alarmMinutes.'M',
+                'END:VALARM',
+            ] : []),
+            'END:VEVENT',
+        ];
+    }
+
+    /** "20:30", "20h30", "20h" → "20:30" ; tout autre texte libre → null (évènement sur la journée) */
+    private function parseMeetingTime(?string $value): ?string
+    {
+        if ($value === null || !preg_match('/^\s*(\d{1,2})\s*[h:]\s*(\d{2})?\s*$/i', $value, $m)) {
+            return null;
+        }
+        $hours = (int) $m[1];
+        $minutes = (int) ($m[2] ?? 0);
+
+        return $hours < 24 && $minutes < 60 ? sprintf('%02d:%02d', $hours, $minutes) : null;
+    }
+
+    /** Échappement des valeurs TEXT (RFC 5545 §3.3.11) */
+    private function icsText(string $value): string
+    {
+        return str_replace(['\\', ';', ',', "\r\n", "\n"], ['\\\\', '\\;', '\\,', '\\n', '\\n'], $value);
+    }
+
+    /** Repli des lignes à 75 octets (RFC 5545 §3.1), sans couper un caractère UTF-8 */
+    private function icsFold(string $line): string
+    {
+        $folded = '';
+        $limit = 75;
+        while (strlen($line) > $limit) {
+            $chunk = mb_strcut($line, 0, $limit, 'UTF-8');
+            $folded .= $chunk."\r\n ";
+            $line = substr($line, strlen($chunk));
+            $limit = 74; // la ligne de continuation commence par une espace
+        }
+
+        return $folded.$line;
     }
 
     private function parseDate(?string $value): ?\DateTimeImmutable
