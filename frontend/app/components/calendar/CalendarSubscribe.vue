@@ -160,11 +160,6 @@ const copy = async () => {
   font-size: 0.8rem;
   opacity: 0.5;
 }
-@media (max-width: 640px) {
-  .sub__actions {
-    grid-template-columns: 1fr;
-  }
-}
 .sub__alarm:hover {
   border-color: var(--club-primary, #1e3a5f);
 }
@@ -207,5 +202,11 @@ const copy = async () => {
 .sub__action:hover {
   border-color: var(--club-primary, #1e3a5f);
   background: #f8fafc;
+}
+/* Après .sub__actions : à spécificité égale, la dernière règle gagne */
+@media (max-width: 640px) {
+  .sub__actions {
+    grid-template-columns: 1fr;
+  }
 }
 </style>
