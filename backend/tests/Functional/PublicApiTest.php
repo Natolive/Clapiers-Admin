@@ -173,4 +173,110 @@ class PublicApiTest extends ApiTestCase
         $body = $this->assertJsonResponse(200);
         $this->assertSame([$game->getId()], array_column($body, 'id'));
     }
+
+    // ── GET /api/public/games.ics ───────────────────────────────────────────
+
+    public function testGamesIcsExportsTimedAndAllDayEvents(): void
+    {
+        $team = $this->aTeam()->named('Clapiers 1')->persist();
+        $date = new \DateTimeImmutable('+10 days');
+        $home = $this->aGame()->forTeam($team)->home()->onDate($date)->against('VLM, Pampams; 2')
+            ->withMeetingTime('20h30')->at('Gymnase Joël ABATI (Clapiers)')->persist();
+        $this->aGame()->forTeam($team)->away()->onDate($date->modify('+1 day'))->against('SMDT')->persist();
+
+        $this->client->request('GET', '/api/public/games.ics');
+
+        $response = $this->response();
+        $this->assertSame(200, $response->getStatusCode());
+        $this->assertStringStartsWith('text/calendar', (string) $response->headers->get('Content-Type'));
+        $ics = (string) $response->getContent();
+
+        $this->assertStringStartsWith("BEGIN:VCALENDAR\r\n", $ics);
+        $this->assertStringEndsWith("END:VCALENDAR\r\n", $ics);
+        $this->assertSame(2, substr_count($ics, 'BEGIN:VEVENT'));
+        $this->assertStringContainsString('UID:game-'.$home->getId().'@clapiersvb.fr', $ics);
+        // Texte échappé (RFC 5545) et heure de Paris convertie en UTC
+        $this->assertStringContainsString('SUMMARY:Clapiers 1 vs VLM\\, Pampams\\; 2', $ics);
+        $start = new \DateTimeImmutable($date->format('Y-m-d').' 20:30', new \DateTimeZone('Europe/Paris'));
+        $utc = $start->setTimezone(new \DateTimeZone('UTC'));
+        $this->assertStringContainsString('DTSTART:'.$utc->format('Ymd\\THis\\Z'), $ics);
+        $this->assertStringContainsString('DTEND:'.$utc->modify('+2 hours')->format('Ymd\\THis\\Z'), $ics);
+        $this->assertStringContainsString('LOCATION:Gymnase Joël ABATI (Clapiers)', $ics);
+        // Sans heure : évènement sur la journée
+        $this->assertStringContainsString('SUMMARY:Clapiers 1 @ SMDT', $ics);
+        $this->assertStringContainsString('DTSTART;VALUE=DATE:'.$date->modify('+1 day')->format('Ymd'), $ics);
+    }
+
+    public function testGamesIcsCanBeLimitedToOneTeam(): void
+    {
+        $team = $this->aTeam()->named('Les Brigands')->persist();
+        $this->aGame()->forTeam($team)->onDate('+3 days')->persist();
+        $this->aGame()->onDate('+3 days')->persist();
+
+        $this->client->request('GET', '/api/public/games.ics?teamId='.$team->getId());
+
+        $ics = (string) $this->response()->getContent();
+        $this->assertSame(200, $this->response()->getStatusCode(), $ics);
+        $this->assertSame(1, substr_count($ics, 'BEGIN:VEVENT'));
+        $this->assertStringContainsString('X-WR-CALNAME:Clapiers VB - Les Brigands', $ics);
+    }
+
+    public function testGamesIcsFoldsLongLines(): void
+    {
+        $this->aGame()->onDate('+3 days')->at(str_repeat('Gymnase très loin ', 10))->persist();
+
+        $this->client->request('GET', '/api/public/games.ics');
+
+        foreach (explode("\r\n", (string) $this->response()->getContent()) as $line) {
+            $this->assertLessThanOrEqual(75, strlen($line), $line);
+        }
+        // Une fois « dépliée » (CRLF + espace retirés), la ligne d'origine est intacte
+        $unfolded = str_replace("\r\n ", '', (string) $this->response()->getContent());
+        $this->assertStringContainsString('LOCATION:'.str_repeat('Gymnase très loin ', 10), $unfolded);
+    }
+
+    public function testGamesIcsForUnknownTeamReturns404(): void
+    {
+        $this->client->request('GET', '/api/public/games.ics?teamId=999999');
+
+        $this->assertSame(404, $this->response()->getStatusCode());
+    }
+
+    public function testGamesIcsRejectsInvalidTeamId(): void
+    {
+        $this->client->request('GET', '/api/public/games.ics?teamId=abc');
+
+        $this->assertSame(422, $this->response()->getStatusCode());
+    }
+
+    public function testGamesIcsAddsReminderWhenRequested(): void
+    {
+        $this->aGame()->onDate('+3 days')->withMeetingTime('20:30')->persist();
+
+        $this->client->request('GET', '/api/public/games.ics?alarm=90');
+
+        $ics = (string) $this->response()->getContent();
+        $this->assertSame(200, $this->response()->getStatusCode(), $ics);
+        $this->assertStringContainsString("BEGIN:VALARM\r\nACTION:DISPLAY\r\n", $ics);
+        $this->assertStringContainsString('TRIGGER:-PT90M', $ics);
+        $this->assertSame(1, substr_count($ics, 'END:VALARM'));
+    }
+
+    public function testGamesIcsHasNoReminderByDefault(): void
+    {
+        $this->aGame()->onDate('+3 days')->persist();
+
+        $this->client->request('GET', '/api/public/games.ics');
+
+        $this->assertStringNotContainsString('VALARM', (string) $this->response()->getContent());
+    }
+
+    public function testGamesIcsRejectsOutOfRangeReminder(): void
+    {
+        $this->client->request('GET', '/api/public/games.ics?alarm=0');
+        $this->assertSame(422, $this->response()->getStatusCode());
+
+        $this->client->request('GET', '/api/public/games.ics?alarm=999999');
+        $this->assertSame(422, $this->response()->getStatusCode());
+    }
 }
