@@ -5,7 +5,7 @@ namespace App\Tests\Unit\Application\UseCase\User;
 use App\Application\UseCase\User\InviteCoach\InviteCoachCommand;
 use App\Application\UseCase\User\InviteCoach\InviteCoachUseCase;
 use App\Common\Exception\UseCaseException;
-use App\Common\Service\CoachInvitationMailer;
+use App\Common\Service\AccountMailer;
 use App\Entity\Member;
 use App\Entity\Team;
 use App\Repository\MemberRepository;
@@ -39,7 +39,7 @@ class InviteCoachUseCaseTest extends TestCase
             $this->createStub(UserRepository::class),
             $this->createStub(EntityManagerInterface::class),
             $hasher,
-            new CoachInvitationMailer($mailer, 'club@test.fr', 'http://localhost:3000'),
+            new AccountMailer($mailer, 'club@test.fr', 'http://localhost:3000'),
         );
 
         $this->expectException(UseCaseException::class);

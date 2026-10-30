@@ -2,13 +2,13 @@
     <Dialog
         :visible="visible"
         @update:visible="$emit('update:visible', $event)"
-        :header="dateOnly ? 'Replanifier le match' : (isEdit ? 'Modifier le match' : 'Nouveau match')"
+        :header="isEdit ? 'Modifier le match' : 'Nouveau match'"
         modal
         :style="{ width: '30rem' }"
     >
         <form @submit.prevent="handleSubmit" class="flex flex-column gap-4 pt-2">
 
-            <!-- Team selector (super admin: toutes ; admin multi-équipes: les siennes) -->
+            <!-- Team selector (super admin: toutes ; coach multi-équipes: les siennes) -->
             <div v-if="showTeamSelect" class="flex flex-column gap-2">
                 <label class="font-medium text-sm">Équipe <span class="text-red-500">*</span></label>
                 <Select
@@ -17,7 +17,7 @@
                     option-label="name"
                     option-value="id"
                     placeholder="Sélectionner une équipe"
-                    :disabled="noTeamAvailable || dateOnly"
+                    :disabled="noTeamAvailable || coachEdit"
                     :invalid="!!errors.teamId"
                     :fluid="true"
                 />
@@ -34,7 +34,7 @@
                     v-model="form.opponent"
                     placeholder="Ex: Montpellier VB"
                     :invalid="!!errors.opponent"
-                    :disabled="dateOnly"
+                    :disabled="coachEdit"
                     autofocus
                 />
                 <small v-if="errors.opponent" class="text-red-500">{{ errors.opponent }}</small>
@@ -61,7 +61,6 @@
                     :options="GameVenueOptions"
                     option-label="label"
                     option-value="value"
-                    :disabled="dateOnly"
                 />
             </div>
 
@@ -103,14 +102,13 @@
                     v-model="form.meetingTime"
                     placeholder="Ex: 14h30"
                     style="max-width: 10rem"
-                    :disabled="dateOnly"
                 />
             </div>
 
             <!-- Location -->
             <div class="flex flex-column gap-2">
                 <label class="font-medium text-sm">Lieu</label>
-                <InputText v-model="form.location" placeholder="Ex: Gymnase Clapiers" :disabled="dateOnly" />
+                <InputText v-model="form.location" placeholder="Ex: Gymnase Clapiers" />
             </div>
 
             <!-- Actions -->
@@ -135,7 +133,7 @@ const props = defineProps<{
     visible: boolean;
     game?: Game | null;
     initialDate?: Date | null;
-    /** Équipes sélectionnables : toutes pour un super admin, les siennes pour un admin */
+    /** Équipes sélectionnables : toutes pour un super admin, les siennes pour un coach */
     teams?: Team[];
     homeCountByDate?: Record<string, number>;
     teamDateMap?: Record<string, number>;
@@ -155,12 +153,13 @@ const errors = ref<Record<string, string>>({});
 
 const isEdit = computed(() => !!props.game?.id);
 
-// Admin (non super admin) : sur un match existant, seule la date est modifiable.
-// La création reste réservée au super admin, donc dateOnly ne concerne que l'édition.
-const dateOnly = computed(() => isEdit.value && !isSuperAdmin.value);
+// Coach : sur son match, tout est modifiable sauf l'équipe et l'adversaire
+// (fixés par le club, l'API les ignore). La création reste réservée au super
+// admin, donc coachEdit ne concerne que l'édition.
+const coachEdit = computed(() => isEdit.value && !isSuperAdmin.value);
 
 // Le sélecteur n'est masqué que si l'équipe est implicite (exactement une) :
-// un admin sans équipe doit voir le champ et son erreur, pas un submit muet
+// un coach sans équipe doit voir le champ et son erreur, pas un submit muet
 const showTeamSelect = computed(() => isSuperAdmin.value || (props.teams?.length ?? 0) !== 1);
 
 const noTeamAvailable = computed(() => !isSuperAdmin.value && (props.teams?.length ?? 0) === 0);

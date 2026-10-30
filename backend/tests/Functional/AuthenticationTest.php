@@ -55,6 +55,44 @@ class AuthenticationTest extends ApiTestCase
         $this->assertJsonResponse(401);
     }
 
+    /** Anti-bruteforce : après 5 échecs, même le bon mot de passe est refusé. */
+    public function testLoginIsThrottledAfterFiveFailures(): void
+    {
+        $user = $this->aUser()->persist();
+
+        for ($i = 0; $i < 5; ++$i) {
+            $this->postJson('/api/login', ['email' => $user->getEmail(), 'password' => 'wrong-password']);
+            $this->assertJsonResponse(401);
+        }
+
+        $this->postJson('/api/login', ['email' => $user->getEmail(), 'password' => AppUserBuilder::DEFAULT_PASSWORD]);
+        $this->assertStringStartsWith('Trop de tentatives', $this->assertJsonResponse(401)['message']);
+    }
+
+    /** Un changement de mot de passe déconnecte les sessions ouvertes. */
+    public function testTokenIssuedBeforeAPasswordChangeIsRevoked(): void
+    {
+        $user = $this->actingAsCoach();
+        $this->getJson('/api/user/me');
+        $this->assertJsonResponse(200);
+
+        // `iat` est à la seconde : on date le changement après l'émission du jeton.
+        $user->setPasswordChangedAt(new \DateTimeImmutable('+5 seconds'));
+        $this->em()->flush();
+
+        $this->getJson('/api/user/me');
+        $this->assertJsonResponse(401);
+    }
+
+    /** Le rehash transparent au login ne doit déconnecter personne. */
+    public function testPasswordRehashDoesNotRevokeSessions(): void
+    {
+        $user = $this->aUser()->persist();
+        static::getContainer()->get(\App\Repository\UserRepository::class)->upgradePassword($user, 'new-hash');
+
+        $this->assertNull($user->getPasswordChangedAt());
+    }
+
     public function testLoginWithUnknownEmailIsRejected(): void
     {
         $this->postJson('/api/login', [
@@ -62,7 +100,8 @@ class AuthenticationTest extends ApiTestCase
             'password' => 'whatever',
         ]);
 
-        $this->assertJsonResponse(401);
+        // Même message qu'un mauvais mot de passe : on ne révèle pas qui est inscrit.
+        $this->assertSame('Identifiants invalides.', $this->assertJsonResponse(401)['message']);
     }
 
     public function testLoginRehashesOutdatedPasswordHash(): void

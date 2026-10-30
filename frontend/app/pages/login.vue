@@ -1,16 +1,10 @@
 <template>
-  <div class="flex align-items-center justify-content-center min-h-screen bg-surface-50 dark:bg-surface-950 px-4">
-    <div class="surface-card p-6 shadow-2 border-round w-full" style="max-width: 450px">
-
-      <div class="text-center mb-5">
-        <img :src="isDark ? '/logo.svg' : '/logo-light.svg'" alt="Clapiers Volley Ball" height="100" class="mb-3">
-        <h1 class="text-3xl font-medium mb-3">Connexion</h1>
-        <span class="text-600 font-medium">Accédez à votre compte</span>
-      </div>
-
-      <login-form :loading="isSubmitting" @login-success="handleLogin" />
+  <AuthCard title="Connexion" subtitle="Accédez à votre compte">
+    <login-form :loading="isSubmitting" @login-success="handleLogin" />
+    <div class="text-center mt-4">
+      <NuxtLink to="/mot-de-passe-oublie" class="text-primary no-underline text-sm font-medium">Mot de passe oublié ?</NuxtLink>
     </div>
-  </div>
+  </AuthCard>
 </template>
 
 <script setup lang="ts">
@@ -19,9 +13,6 @@ import type {Credentials} from "~/types/custom/Credentials";
 import {useAuthStore} from "~/stores/auth.store";
 
 useHead({ title: 'Connexion - CVB' })
-
-// Login follows the saved admin theme; logo swaps to a dark-text variant in light mode.
-const { isDark } = useDarkMode();
 
 const isSubmitting = ref<boolean>(false);
 

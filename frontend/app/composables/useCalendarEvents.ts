@@ -17,6 +17,15 @@ export function useCalendarEvents(
 ) {
     const toast = usePVToastService();
     const gameRepository = new GameRepository();
+    const { isSuperAdmin } = useUserRole();
+    const authStore = useAuthStore();
+
+    // Un coach ne déplace que les matchs de ses équipes (l'API refuse les
+    // autres en 403). Le réglage par événement prime sur celui du calendrier,
+    // d'où le rappel de `isReadonly`.
+    const canMove = (game: Game): boolean =>
+        !isReadonly.value
+        && (isSuperAdmin.value || (authStore.user?.teams?.some(t => t.id === game.team.id) ?? false));
 
     const homeCountByDate = ref<Record<string, number>>({});
     const teamDateMap = ref<Record<string, number>>({});
@@ -30,6 +39,7 @@ export function useCalendarEvents(
         allDay: true,
         backgroundColor: getTeamColor(game.team.id),
         borderColor: getTeamColor(game.team.id),
+        editable: canMove(game),
         extendedProps: { game },
     });
 

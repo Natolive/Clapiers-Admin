@@ -73,4 +73,23 @@ export class UserRepository {
             body: { password }
         });
     }
+
+    /** Réponse identique que le compte existe ou non. */
+    async requestPasswordReset(email: string, recaptchaToken: string): Promise<{ message: string }> {
+        return await this.publicApi<{ message: string }>('/public/password-reset', {
+            method: 'POST',
+            body: { email, recaptchaToken }
+        });
+    }
+
+    async getPasswordReset(token: string): Promise<{ email: string }> {
+        return await this.publicApi<{ email: string }>(`/public/password-reset/${token}`);
+    }
+
+    async resetPassword(token: string, password: string): Promise<{ email: string }> {
+        return await this.publicApi<{ email: string }>(`/public/password-reset/${token}`, {
+            method: 'POST',
+            body: { password }
+        });
+    }
 }

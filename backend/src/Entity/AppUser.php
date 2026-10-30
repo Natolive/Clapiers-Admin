@@ -34,6 +34,12 @@ class AppUser implements UserInterface, PasswordAuthenticatedUserInterface
     /** Durée de validité d'un lien d'invitation. */
     public const INVITATION_VALIDITY = 'P7D';
 
+    /** Durée de validité d'un lien de réinitialisation de mot de passe. */
+    public const PASSWORD_RESET_VALIDITY = 'PT1H';
+
+    /** Délai minimal entre deux demandes de réinitialisation (anti-spam de la boîte mail). */
+    public const PASSWORD_RESET_COOLDOWN = 'PT5M';
+
     #[ORM\Column(length: 180)]
     private ?string $email = null;
 
@@ -71,6 +77,20 @@ class AppUser implements UserInterface, PasswordAuthenticatedUserInterface
 
     #[ORM\Column(type: 'datetime_immutable', nullable: true)]
     private ?\DateTimeImmutable $invitationExpiresAt = null;
+
+    /**
+     * Dernier changement de mot de passe : tout JWT émis avant est refusé
+     * (JwtRevocationListener), ce qui déconnecte les sessions déjà ouvertes.
+     */
+    #[ORM\Column(type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $passwordChangedAt = null;
+
+    /** Jeton du lien « mot de passe oublié », consommé à l'usage. */
+    #[ORM\Column(length: 64, unique: true, nullable: true)]
+    private ?string $passwordResetToken = null;
+
+    #[ORM\Column(type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $passwordResetExpiresAt = null;
 
     public function __construct()
     {
@@ -132,6 +152,31 @@ class AppUser implements UserInterface, PasswordAuthenticatedUserInterface
     public function setPassword(string $password): static
     {
         $this->password = $password;
+
+        return $this;
+    }
+
+    /**
+     * Changement de mot de passe voulu par l'utilisateur ou un admin : révoque
+     * les sessions ouvertes. Le rehash transparent au login (upgradePassword)
+     * passe par setPassword et ne déconnecte personne.
+     */
+    public function changePassword(string $hashedPassword): static
+    {
+        $this->password = $hashedPassword;
+        $this->passwordChangedAt = new \DateTimeImmutable();
+
+        return $this;
+    }
+
+    public function getPasswordChangedAt(): ?\DateTimeImmutable
+    {
+        return $this->passwordChangedAt;
+    }
+
+    public function setPasswordChangedAt(?\DateTimeImmutable $passwordChangedAt): static
+    {
+        $this->passwordChangedAt = $passwordChangedAt;
 
         return $this;
     }
@@ -218,11 +263,15 @@ class AppUser implements UserInterface, PasswordAuthenticatedUserInterface
         return $this;
     }
 
-    /** Émet un nouveau lien d'invitation ; l'ancien cesse aussitôt de fonctionner. */
+    /**
+     * Émet un nouveau lien d'invitation ; l'ancien cesse aussitôt de fonctionner,
+     * de même qu'un éventuel lien de réinitialisation : l'invitation prime.
+     */
     public function renewInvitation(): static
     {
         $this->invitationToken = bin2hex(random_bytes(32));
         $this->invitationExpiresAt = (new \DateTimeImmutable('now'))->add(new \DateInterval(self::INVITATION_VALIDITY));
+        $this->clearPasswordReset();
 
         return $this;
     }
@@ -252,10 +301,59 @@ class AppUser implements UserInterface, PasswordAuthenticatedUserInterface
     public function getInvitationStatus(): string
     {
         return match (true) {
-            $this->invitationToken === null => 'active',
+            !$this->isInvitationPending() => 'active',
             $this->isInvitationExpired() => 'expired',
             default => 'invited',
         };
+    }
+
+    public function isInvitationPending(): bool
+    {
+        return $this->invitationToken !== null;
+    }
+
+    public function renewPasswordReset(): static
+    {
+        $this->passwordResetToken = bin2hex(random_bytes(32));
+        $this->passwordResetExpiresAt = (new \DateTimeImmutable('now'))->add(new \DateInterval(self::PASSWORD_RESET_VALIDITY));
+
+        return $this;
+    }
+
+    public function clearPasswordReset(): static
+    {
+        $this->passwordResetToken = null;
+        $this->passwordResetExpiresAt = null;
+
+        return $this;
+    }
+
+    public function getPasswordResetToken(): ?string
+    {
+        return $this->passwordResetToken;
+    }
+
+    public function isPasswordResetExpired(): bool
+    {
+        return $this->passwordResetExpiresAt !== null && $this->passwordResetExpiresAt < new \DateTimeImmutable('now');
+    }
+
+    /** Un lien a-t-il été émis il y a moins de PASSWORD_RESET_COOLDOWN ? */
+    public function isPasswordResetCoolingDown(): bool
+    {
+        if ($this->passwordResetExpiresAt === null) {
+            return false;
+        }
+        $issuedAt = $this->passwordResetExpiresAt->sub(new \DateInterval(self::PASSWORD_RESET_VALIDITY));
+
+        return $issuedAt->add(new \DateInterval(self::PASSWORD_RESET_COOLDOWN)) > new \DateTimeImmutable('now');
+    }
+
+    public function setPasswordResetExpiresAt(?\DateTimeImmutable $passwordResetExpiresAt): static
+    {
+        $this->passwordResetExpiresAt = $passwordResetExpiresAt;
+
+        return $this;
     }
 
     public function setInvitationExpiresAt(?\DateTimeImmutable $invitationExpiresAt): static

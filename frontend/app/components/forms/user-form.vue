@@ -26,8 +26,11 @@
       <label for="password" class="font-semibold">
         {{ user ? 'Nouveau mot de passe (optionnel)' : 'Mot de passe' }}
       </label>
+      <!-- Mot de passe d'un autre compte : new-password empêche le navigateur
+           d'y injecter celui de l'admin connecté. -->
       <Password
         name="password"
+        :inputProps="{ autocomplete: 'new-password' }"
         :disabled="loading"
         fluid
         toggleMask

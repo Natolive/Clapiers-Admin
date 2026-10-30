@@ -83,10 +83,10 @@ class CreateUpdateUserUseCase extends AbstractUseCase
 
         $user->setRoles([$command->role]);
 
-        // Only update password if provided
+        // Only update password if provided — and then log out the user's open sessions
         if (!empty($command->password)) {
             $hashedPassword = $this->passwordHasher->hashPassword($user, $command->password);
-            $user->setPassword($hashedPassword);
+            $user->changePassword($hashedPassword);
         }
 
         $this->entityManager->flush();

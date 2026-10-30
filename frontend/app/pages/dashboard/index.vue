@@ -94,7 +94,7 @@
                 <article class="card">
                     <h2 class="card__title">Répartition des licences</h2>
                     <div class="chart chart--donut">
-                        <Chart type="doughnut" :data="licenseChartData" :options="donutOptions" />
+                        <BaseChart type="doughnut" :data="licenseChartData" :options="donutOptions" />
                     </div>
                     <div class="legend">
                         <span class="legend__item"><span class="dot" style="background:#22c55e" />Payée ({{ stats.members.withLicense }})</span>
@@ -105,7 +105,7 @@
                 <article class="card">
                     <h2 class="card__title">Répartition par sexe</h2>
                     <div class="chart chart--donut">
-                        <Chart type="doughnut" :data="genderChartData" :options="donutOptions" />
+                        <BaseChart type="doughnut" :data="genderChartData" :options="donutOptions" />
                     </div>
                     <div class="legend">
                         <span class="legend__item"><span class="dot" style="background:#3b82f6" />Hommes ({{ stats.members.byGender.male }})</span>
@@ -121,7 +121,7 @@
                         <span class="badge">{{ stats.licenses.total }} au total</span>
                     </div>
                     <div class="chart chart--hbar">
-                        <Chart type="bar" :data="licenseStatusChartData" :options="hbarOptions" />
+                        <BaseChart type="bar" :data="licenseStatusChartData" :options="hbarOptions" />
                     </div>
                 </article>
 
@@ -136,7 +136,7 @@
                         </div>
                     </div>
                     <div class="chart chart--bar">
-                        <Chart type="bar" :data="ageChartData" :options="barOptions" />
+                        <BaseChart type="bar" :data="ageChartData" :options="barOptions" />
                     </div>
                 </article>
 
@@ -144,7 +144,7 @@
                 <article class="card card--wide">
                     <h2 class="card__title">Inscriptions — saison {{ season || '—' }}</h2>
                     <div class="chart chart--bar">
-                        <Chart type="bar" :data="inscriptionsChartData" :options="barOptions" />
+                        <BaseChart type="bar" :data="inscriptionsChartData" :options="barOptions" />
                     </div>
                 </article>
             </section>
@@ -166,6 +166,7 @@
 </template>
 
 <script setup lang="ts">
+import BaseChart from '~/components/common/BaseChart.vue';
 import { StatsRepository } from '~/repository/stats-repository';
 import { AppUserRole } from '~/types/entity/AppUser';
 import { LicenseStatus } from '~/types/enum/LicenseStatus';

@@ -4,7 +4,7 @@ namespace App\Application\UseCase\User\InviteCoach;
 
 use App\Common\Command\CommandInterface;
 use App\Common\Exception\UseCaseException;
-use App\Common\Service\CoachInvitationMailer;
+use App\Common\Service\AccountMailer;
 use App\Common\UseCase\AbstractUseCase;
 use App\Entity\AppUser;
 use App\Entity\Enum\AppUserRole;
@@ -32,7 +32,7 @@ class InviteCoachUseCase extends AbstractUseCase
         private readonly UserRepository $userRepository,
         private readonly EntityManagerInterface $entityManager,
         private readonly UserPasswordHasherInterface $passwordHasher,
-        private readonly CoachInvitationMailer $mailer,
+        private readonly AccountMailer $mailer,
     ) {
     }
 
@@ -85,7 +85,7 @@ class InviteCoachUseCase extends AbstractUseCase
         $this->entityManager->flush();
 
         try {
-            $this->mailer->send($user);
+            $this->mailer->sendInvitation($user);
         } catch (TransportExceptionInterface) {
             throw new UseCaseException(
                 "Le compte est prêt mais l'e-mail n'a pas pu partir. Réessayez l'invitation.",

@@ -190,6 +190,9 @@ class UserApiTest extends ApiTestCase
 
         $body = $this->assertJsonResponse(200);
         $this->assertSame('new@test.fr', $body['email']);
+        // Changing someone's password logs out their open sessions
+        $this->em()->clear();
+        $this->assertNotNull($this->em()->getRepository(AppUser::class)->find($user->getId())->getPasswordChangedAt());
 
         // The new credentials actually work
         $this->client->setServerParameter('HTTP_AUTHORIZATION', '');

@@ -19,7 +19,7 @@
         />
 
         <div class="cal-wrapper" ref="calendarWrapperRef">
-            <FullCalendar ref="calendarRef" :options="calendarOptions">
+            <FullCalendar v-if="mounted" ref="calendarRef" :options="calendarOptions">
                 <template #dayCellContent="arg">
                     <div class="fc-cell-top">
                         <span class="fc-cell-badges">
@@ -226,8 +226,9 @@ const calendarOptions = computed<CalendarOptions>(() => ({
     locale: frLocale,
     headerToolbar: false,
     editable: !props.readonly,
-    selectable: !props.readonly,
-    selectMirror: !props.readonly,
+    // Création réservée au super admin : pas de sélection de jour pour un coach.
+    selectable: !props.readonly && isSuperAdmin.value,
+    selectMirror: !props.readonly && isSuperAdmin.value,
     dayCellClassNames: (arg) => isHomeDay(arg.date) ? ['fc-home-day'] : [],
     dayHeaderClassNames: (arg) => isHomeDay(arg.date) ? ['fc-home-col'] : [],
     // Pas de "+N de plus" (popover bugué) : on affiche tous les matchs, la
@@ -287,7 +288,7 @@ const calendarOptions = computed<CalendarOptions>(() => ({
         detailDialog.game = game;
         detailDialog.visible = true;
     },
-    // Création réservée au super admin ; l'admin déplace les matchs (eventDrop) sans en créer
+    // Création réservée au super admin ; le coach déplace ses matchs (eventDrop) sans en créer
     select: (props.readonly || !isSuperAdmin.value) ? undefined : (info: DateSelectArg) => {
         openCreateDialog(info.start);
         calendarApi.value?.unselect();
@@ -304,7 +305,15 @@ const calendarOptions = computed<CalendarOptions>(() => ({
 let resizeObserver: ResizeObserver | null = null;
 let resizeFrame = 0;
 
+// FullCalendar n'est créé qu'une fois la page réellement montée. Rendu pendant
+// la résolution de la page (Suspense + transition out-in de Nuxt), il recevait
+// des mises à jour puis un démontage avant son propre mounted : son wrapper Vue
+// plante (`destroy` / `resumeRendering` sur undefined), l'exception casse la
+// transition et la page reste blanche si l'on quitte le calendrier aussitôt.
+const mounted = ref(false);
+
 onMounted(() => {
+    mounted.value = true;
     if (calendarWrapperRef.value) {
         // Coalesce resize bursts (e.g. animated sidebar) into one update per frame
         resizeObserver = new ResizeObserver(() => {

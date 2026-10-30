@@ -32,7 +32,7 @@ class AcceptInvitationUseCase extends AbstractUseCase
         }
 
         $user = GetInvitationUseCase::findValid($this->userRepository, $command->token);
-        $user->setPassword($this->passwordHasher->hashPassword($user, $command->password));
+        $user->changePassword($this->passwordHasher->hashPassword($user, $command->password));
         $user->clearInvitation();
 
         $this->entityManager->flush();

@@ -16,8 +16,9 @@ Each claim references `file:line` so you can jump straight to the source.
 - [members-and-mediatheque.md](members-and-mediatheque.md) — member entity &
   statuses, the médiathèque tree (folders/documents), file storage, media
   operations, the Excel export of licenciés.
-- [teams-and-users.md](teams-and-users.md) — roles, coach↔team assignment,
-  user↔member linking, my-team downloads, auth/password handling.
+- [teams-and-users.md](teams-and-users.md) — roles (`ROLE_COACH` = chef
+  d'équipe), inviting a licensee as coach, forgotten password, coach↔team assignment, user↔member
+  linking, my-team files, auth/password handling.
 - [seasons-and-stats.md](seasons-and-stats.md) — season format & September
   rollover, season scoping, dashboard stats.
 - [games-closures-contact-logs.md](games-closures-contact-logs.md) — games &

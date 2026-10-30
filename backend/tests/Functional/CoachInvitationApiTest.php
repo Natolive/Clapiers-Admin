@@ -39,7 +39,7 @@ class CoachInvitationApiTest extends ApiTestCase
 
         $user = $this->invitedUser($member->getId());
         $this->assertEmailCount(1);
-        $this->assertEmailHtmlBodyContains($this->getMailerMessage(), '/invitation/'.$user->getInvitationToken());
+        $this->assertEmailHtmlBodyContains($this->getMailerMessage(), '/invitation#'.$user->getInvitationToken());
         $this->assertEmailHtmlBodyContains($this->getMailerMessage(), 'Seniors A, Seniors B');
     }
 

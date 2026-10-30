@@ -176,6 +176,20 @@ class PublicApiTest extends ApiTestCase
 
     // ── GET /api/public/games.ics ───────────────────────────────────────────
 
+    /** Le lieu est saisi par les coachs : un \r isolé ne doit pas ouvrir une nouvelle ligne ICS. */
+    public function testGamesIcsEscapesLoneCarriageReturns(): void
+    {
+        $team = $this->aTeam()->persist();
+        $this->aGame()->forTeam($team)->onDate(new \DateTimeImmutable('+10 days'))
+            ->at("Gymnase\rURL:https://evil.example")->persist();
+
+        $this->client->request('GET', '/api/public/games.ics');
+        $ics = (string) $this->response()->getContent();
+
+        $this->assertStringNotContainsString("\rURL:", $ics);
+        $this->assertStringContainsString('LOCATION:Gymnase\\nURL:https://evil.example', $ics);
+    }
+
     public function testGamesIcsExportsTimedAndAllDayEvents(): void
     {
         $team = $this->aTeam()->named('Clapiers 1')->persist();

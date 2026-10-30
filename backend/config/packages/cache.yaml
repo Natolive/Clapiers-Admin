@@ -15,5 +15,9 @@ framework:
         #app: cache.adapter.apcu
 
         # Namespaced pools use the above "app" backend by default
-        #pools:
-            #my.dedicated.cache: null
+        pools:
+            # Compteurs anti-bruteforce du login : en base (table cache_items)
+            # pour être partagés entre les pods — un cache fichier par pod
+            # multiplierait la limite par le nombre de pods.
+            cache.rate_limiter:
+                adapter: cache.adapter.doctrine_dbal

@@ -6,7 +6,7 @@ use App\Entity\Game;
 use App\Tests\Support\ApiTestCase;
 
 /**
- * /api/game — création/suppression super admin, replanification (date seule) par l'admin
+  * /api/game — création/suppression super admin ; le coach modifie ses matchs (sauf adversaire et équipe)
  * sur ses propres équipes, import CSV (super admin).
  */
 class GameApiTest extends ApiTestCase
@@ -240,27 +240,51 @@ class GameApiTest extends ApiTestCase
         $this->assertSame('away', $body['venue']);
     }
 
-    public function testCoachCanRescheduleOwnGameButOnlyDate(): void
+    public function testCoachEditsOwnGameExceptOpponentAndTeam(): void
     {
         $team = $this->aTeam()->persist();
+        $otherTeam = $this->aTeam()->persist();
         $game = $this->aGame()->forTeam($team)->home()->onDate('2026-09-18')->persist();
-        $coach = $this->aUser()->coach()->managing($team)->persist();
+        $coach = $this->aUser()->coach()->managing($team, $otherTeam)->persist();
 
-        // L'admin déplace le match : seule la date doit être prise en compte,
-        // les autres champs envoyés (adversaire, lieu de réception…) sont ignorés
+        // Le coach gère la logistique (date, réception, rendez-vous, lieu) ;
+        // l'adversaire et l'équipe restent fixés par le club.
         $this->actingAs($coach);
         $this->putJson('/api/game/'.$game->getId(), [
             'opponent' => 'Adversaire falsifié',
             'date' => '2026-09-25',
+            'meetingTime' => '19:30',
             'venue' => 'away',
             'location' => 'Ailleurs',
-            'teamId' => $team->getId(),
+            'teamId' => $otherTeam->getId(),
         ]);
 
         $body = $this->assertJsonResponse(200);
         $this->assertSame('2026-09-25', $body['date']);
+        $this->assertSame('19:30', $body['meetingTime']);
+        $this->assertSame('away', $body['venue']);
+        $this->assertSame('Ailleurs', $body['location']);
         $this->assertSame($game->getOpponent(), $body['opponent']);
-        $this->assertSame('home', $body['venue']);
+        $this->assertSame($team->getId(), $body['team']['id']);
+    }
+
+    public function testCoachCannotSwitchToHomeWhenTheDayIsFull(): void
+    {
+        foreach (range(1, 3) as $i) {
+            $this->aGame()->forTeam($this->aTeam()->persist())->home()->onDate('2026-09-16')->persist();
+        }
+        $team = $this->aTeam()->persist();
+        $game = $this->aGame()->forTeam($team)->away()->onDate('2026-09-16')->persist();
+        $coach = $this->aUser()->coach()->managing($team)->persist();
+
+        $this->actingAs($coach);
+        $this->putJson('/api/game/'.$game->getId(), [
+            'opponent' => $game->getOpponent(),
+            'date' => '2026-09-16',
+            'venue' => 'home',
+        ]);
+
+        $this->assertJsonResponse(422);
     }
 
     public function testCoachCannotRescheduleGameOntoAnExistingGameDay(): void

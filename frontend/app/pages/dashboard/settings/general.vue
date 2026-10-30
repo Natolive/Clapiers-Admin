@@ -110,7 +110,7 @@
                         :feedback="false"
                         toggle-mask
                         fluid
-                        autocomplete="new-password"
+                        :input-props="{ autocomplete: 'new-password' }"
                         :placeholder="helloAsso.clientSecretDefined ? '•••••••• (inchangé)' : 'Non renseigné'"
                       />
                     </div>
@@ -157,7 +157,7 @@
                         :feedback="false"
                         toggle-mask
                         fluid
-                        autocomplete="new-password"
+                        :input-props="{ autocomplete: 'new-password' }"
                         :placeholder="bunny.storageKeyDefined ? '•••••••• (inchangée)' : 'Non renseignée'"
                       />
                       <small class="setting-note">Bunny → Storage → FTP &amp; API Access → Password</small>
@@ -175,7 +175,7 @@
                         :feedback="false"
                         toggle-mask
                         fluid
-                        autocomplete="new-password"
+                        :input-props="{ autocomplete: 'new-password' }"
                         :placeholder="bunny.tokenKeyDefined ? '•••••••• (inchangée)' : 'Non renseignée'"
                       />
                       <small class="setting-note">Bunny → Pull Zone → Security → Token Authentication Key</small>

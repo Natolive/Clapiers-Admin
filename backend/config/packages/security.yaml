@@ -28,6 +28,11 @@ security:
                 password_path: password
                 success_handler: lexik_jwt_authentication.handler.authentication_success
                 failure_handler: lexik_jwt_authentication.handler.authentication_failure
+            # Anti-bruteforce : 5 échecs / 15 min par (e-mail + IP), et 25 par IP
+            # toutes adresses confondues. Compteurs dans le pool cache.rate_limiter.
+            login_throttling:
+                max_attempts: 5
+                interval: '15 minutes'
         api:
             pattern: ^/api
             stateless: true
