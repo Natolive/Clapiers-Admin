@@ -22,10 +22,10 @@ class MemberMediaApiTest extends ApiTestCase
         $this->assertJsonResponse(401);
     }
 
-    public function testAdminIsForbidden(): void
+    public function testCoachIsForbidden(): void
     {
         $member = $this->aMember()->persist();
-        $this->actingAsAdmin();
+        $this->actingAsCoach();
 
         $this->getJson('/api/member/'.$member->getId().'/media');
         $this->assertJsonResponse(403);

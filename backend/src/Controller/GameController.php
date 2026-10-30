@@ -31,7 +31,7 @@ use Symfony\Component\Validator\Constraints as Assert;
 class GameController extends AbstractController
 {
     #[Route('', name: 'get_all', methods: ['GET'])]
-    #[IsGranted(AppUserRole::ROLE_ADMIN)]
+    #[IsGranted(AppUserRole::ROLE_COACH)]
     public function getAll(
         #[MapQueryString] GetGamesInput $input,
         GetGamesUseCase $useCase
@@ -85,7 +85,7 @@ class GameController extends AbstractController
     }
 
     #[Route('/{id}', name: 'update', methods: ['PUT'])]
-    #[IsGranted(AppUserRole::ROLE_ADMIN)]
+    #[IsGranted(AppUserRole::ROLE_COACH)]
     public function update(
         int $id,
         #[MapRequestPayload] CreateUpdateGameInput $input,

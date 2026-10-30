@@ -71,9 +71,9 @@ class ContactMessageApiTest extends ApiTestCase
         $this->assertJsonResponse(403);
     }
 
-    public function testAdminIsForbidden(): void
+    public function testCoachIsForbidden(): void
     {
-        $this->actingAsAdmin();
+        $this->actingAsCoach();
         $this->getJson('/api/contact-message');
 
         $this->assertJsonResponse(403);

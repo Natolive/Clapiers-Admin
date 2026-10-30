@@ -50,11 +50,11 @@
         <div class="member-panel member-panel--form">
           <div class="panel-title">
             <i class="pi pi-pencil" />
-            <span>{{ isAdmin ? 'Modifier le licencié' : 'Informations' }}</span>
+            <span>{{ isCoach ? 'Modifier le licencié' : 'Informations' }}</span>
           </div>
 
           <MemberForm
-            v-if="isAdmin"
+            v-if="isCoach"
             :member="currentMember"
             :teams="teamOptions"
             :loading="saving"
@@ -96,7 +96,7 @@
           <Divider />
 
           <!-- License actions (admin) -->
-          <template v-if="isAdmin">
+          <template v-if="isCoach">
             <div class="panel-title">
               <i class="pi pi-file" />
               <span>Licence</span>
@@ -155,7 +155,7 @@ const emit = defineEmits<{
   'saved': [member: Member];
 }>();
 
-const { isAdmin, isSuperAdmin } = useUserRole();
+const { isCoach, isSuperAdmin } = useUserRole();
 
 const tab = ref<'fiche' | 'media'>(isSuperAdmin.value ? (props.initialTab ?? 'fiche') : 'fiche');
 const memberRepository = new MemberRepository();
@@ -168,7 +168,7 @@ watch(() => props.member, m => { currentMember.value = { ...m }; }, { deep: true
 // on les charge nous-mêmes pour que le select Équipe du formulaire soit utilisable
 const teamOptions = ref<Team[]>(props.teams ?? []);
 onMounted(async () => {
-  if (!isAdmin.value || teamOptions.value.length > 0) return;
+  if (!isCoach.value || teamOptions.value.length > 0) return;
   try {
     teamOptions.value = await new TeamRepository().getAll();
   } catch (error) {

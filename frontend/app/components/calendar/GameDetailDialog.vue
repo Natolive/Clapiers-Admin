@@ -52,7 +52,7 @@
             <!-- Actions -->
             <div v-if="canEdit" class="flex justify-content-between align-items-center pt-3 border-top-1 surface-border">
                 <Button v-if="canDelete" icon="pi pi-trash" label="Supprimer" severity="danger" text size="small" :loading="deleting" @click="handleDelete" />
-                <Button icon="pi pi-pencil" :label="canDelete ? 'Modifier' : 'Replanifier'" class="ml-auto" size="small" @click="$emit('edit', game)" />
+                <Button icon="pi pi-pencil" label="Modifier" class="ml-auto" size="small" @click="$emit('edit', game)" />
             </div>
         </div>
     </Dialog>
@@ -94,7 +94,7 @@ const canEdit = computed(() => {
     return authStore.user?.teams?.some(t => t.id === props.game?.team.id) ?? false;
 });
 
-// Suppression réservée au super admin ; l'admin ne peut que replanifier
+// Suppression réservée au super admin ; le coach modifie ses matchs sans les supprimer
 const canDelete = computed(() => !props.readonly && isSuperAdmin.value);
 
 const formatDate = (dateStr: string) =>

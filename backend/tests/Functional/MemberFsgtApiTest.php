@@ -34,7 +34,7 @@ class MemberFsgtApiTest extends ApiTestCase
     public function testIsForbiddenForAdmin(): void
     {
         $member = $this->licensedMember();
-        $this->actingAsAdmin();
+        $this->actingAsCoach();
 
         $this->putJson('/api/member/'.$member->getId().'/fsgt', ['registered' => true, 'licenseNumber' => 'A1']);
 

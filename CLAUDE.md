@@ -12,8 +12,8 @@ knowledge lives in [`docs/`](docs/README.md).
   lifecycle, HelloAsso checkout/webhook.
 - [`docs/members-and-mediatheque.md`](docs/members-and-mediatheque.md) — members
   & the média tree.
-- [`docs/teams-and-users.md`](docs/teams-and-users.md) — roles, coach↔team,
-  user↔member linking.
+- [`docs/teams-and-users.md`](docs/teams-and-users.md) — roles (`ROLE_COACH`),
+  coach invitation, forgotten password, coach↔team, user↔member linking.
 - [`docs/seasons-and-stats.md`](docs/seasons-and-stats.md) — season rollover,
   scoping, dashboard stats.
 - [`docs/games-closures-contact-logs.md`](docs/games-closures-contact-logs.md).

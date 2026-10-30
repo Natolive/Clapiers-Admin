@@ -53,7 +53,7 @@ class LicenseAdminApiTest extends ApiTestCase
 
     public function testListIsForbiddenForAdmin(): void
     {
-        $this->actingAsAdmin();
+        $this->actingAsCoach();
         $this->getJson('/api/license/paginated');
         $this->assertJsonResponse(403);
     }
@@ -126,7 +126,7 @@ class LicenseAdminApiTest extends ApiTestCase
     public function testGetReviewIsForbiddenForAdmin(): void
     {
         $license = $this->aLicense()->persist();
-        $this->actingAsAdmin();
+        $this->actingAsCoach();
         $this->getJson("/api/license/{$license->getId()}");
         $this->assertJsonResponse(403);
     }
@@ -194,7 +194,7 @@ class LicenseAdminApiTest extends ApiTestCase
     public function testApproveIsForbiddenForAdmin(): void
     {
         $license = $this->aLicense()->persist();
-        $this->actingAsAdmin();
+        $this->actingAsCoach();
         $this->postJson("/api/license/{$license->getId()}/approve", ['helloAssoTierId' => 1, 'amount' => 100]);
         $this->assertJsonResponse(403);
     }
@@ -443,7 +443,7 @@ class LicenseAdminApiTest extends ApiTestCase
         $this->postJson("/api/license/{$license->getId()}/resend-link", []);
         $this->assertJsonResponse(401);
 
-        $this->actingAsAdmin();
+        $this->actingAsCoach();
         $this->postJson("/api/license/{$license->getId()}/resend-link", []);
         $this->assertJsonResponse(403);
     }

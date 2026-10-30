@@ -113,13 +113,18 @@ class CreateUpdateGameUseCase extends AbstractUseCase
             $this->assertHomeGameLimit($command->date, $command->venue, $command->id);
             $this->hydrate($game, $command, $team);
         } else {
-            // Admin : replanification uniquement — seule la date change, sur ses propres équipes
+            // Coach : logistique de ses propres matchs (date, réception, rendez-vous,
+            // lieu). L'adversaire et l'équipe restent fixés par le club : les
+            // valeurs envoyées sont ignorées.
             if (!$command->user->hasTeam($game->getTeam())) {
                 throw new UseCaseException('You are not allowed to modify this game', Response::HTTP_FORBIDDEN);
             }
             $this->assertTeamDailyLimit($game->getTeam(), $command->date, $command->id);
-            $this->assertHomeGameLimit($command->date, $game->getVenue(), $command->id);
+            $this->assertHomeGameLimit($command->date, $command->venue, $command->id);
             $game->setDate(new DateTimeImmutable($command->date));
+            $game->setMeetingTime($command->meetingTime);
+            $game->setVenue($command->venue);
+            $game->setLocation($command->location);
         }
 
         $this->entityManager->flush();

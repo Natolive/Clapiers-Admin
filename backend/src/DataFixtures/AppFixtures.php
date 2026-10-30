@@ -88,7 +88,7 @@ class AppFixtures extends Fixture
             $slug  = preg_replace("/[^a-z0-9]/", "", strtolower($cfg["name"]));
             $admin = new AppUser();
             $admin->setEmail("admin.$slug@clapiers.fr");
-            $admin->setRoles([AppUserRole::ROLE_ADMIN]);
+            $admin->setRoles([AppUserRole::ROLE_COACH]);
             $admin->setPassword($this->hasher->hashPassword($admin, "password"));
             $manager->persist($admin);
 

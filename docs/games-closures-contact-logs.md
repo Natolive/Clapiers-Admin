@@ -14,14 +14,19 @@
   - Both take `excludeId` so an update doesn't collide with itself.
   - Two concurrent requests can both pass the check and both insert — no unique
     index backs these.
-- **Role-split on update** (`:108-123`):
+- **Role-split on update** (`:101-133`):
   - Super admin: full hydrate, can change anything.
-  - Plain admin: **replanification only** — only `date` changes, and only for a
-    game of one of their own teams (`user->hasTeam(...)`, else 403). The
-    controller allows `update` at `ROLE_ADMIN`; the use case re-checks super-admin
-    for everything beyond the date.
+  - Coach: edits **date, venue, meetingTime, location** — never `opponent` nor
+    `team` (sent values are ignored) — and only for a game of one of their own
+    teams (`user->hasTeam(...)`, else 403). Day/home limits use the new
+    date/venue. The controller allows `update` at `ROLE_COACH`; the use case
+    re-checks super-admin for the opponent/team. Coaches see every team's games
+    (read-only for the others: per-event `editable` in `useCalendarEvents`).
+  - Coach-typed text (location, meeting time) reaches the **public ICS feed**:
+    `PublicController::icsText` escapes `\r` alone too, not just `\n`/`\r\n`
+    — many clients treat a bare CR as a line break (property injection).
   - Controller guards: create/delete/import/history are `ROLE_SUPER_ADMIN`;
-    update/list are `ROLE_ADMIN`.
+    update/list are `ROLE_COACH`.
 
 ### Game history / audit (`GameHistorySubscriber`)
 
@@ -87,7 +92,7 @@
   to `CONTACT_RECIPIENT_EMAIL`, **replyTo = the submitter** so admin can reply
   directly. **Email failure is swallowed** (logged) — the message stays persisted
   and the submitter still gets success.
-- **Read side is `ROLE_VIEW_MESSAGE`** (class-level). Remember `ADMIN` does NOT
+- **Read side is `ROLE_VIEW_MESSAGE`** (class-level). Remember `COACH` does NOT
   inherit `VIEW_MESSAGE` — only super admin or an explicit VIEW_MESSAGE user can
   read messages.
 - Search matches full name in both orders (`CONCAT`), lowercased — name only,

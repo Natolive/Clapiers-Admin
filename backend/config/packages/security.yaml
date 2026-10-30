@@ -9,8 +9,8 @@ security:
                 property: email # or 'username' depending on your field
 
     role_hierarchy:
-        ROLE_SUPER_ADMIN: [ROLE_ADMIN, ROLE_VIEW_MESSAGE, ROLE_USER]
-        ROLE_ADMIN: [ROLE_USER]
+        ROLE_SUPER_ADMIN: [ROLE_COACH, ROLE_VIEW_MESSAGE, ROLE_USER]
+        ROLE_COACH: [ROLE_USER]
         ROLE_VIEW_MESSAGE: [ROLE_USER]
 
     firewalls:
@@ -28,6 +28,14 @@ security:
                 password_path: password
                 success_handler: lexik_jwt_authentication.handler.authentication_success
                 failure_handler: lexik_jwt_authentication.handler.authentication_failure
+            # Anti-bruteforce désactivé tant que SYMFONY_TRUSTED_PROXIES n'est pas
+            # posé dans le cluster (#68) : sans lui, toutes les requêtes ont l'IP de
+            # l'ingress et la limite devient globale. À réactiver ensuite :
+            # 5 échecs / 15 min par (e-mail + IP), et 25 par IP, compteurs dans le
+            # pool cache.rate_limiter.
+            # login_throttling:
+            #     max_attempts: 5
+            #     interval: '15 minutes'
         api:
             pattern: ^/api
             stateless: true

@@ -31,6 +31,15 @@ class AppUser implements UserInterface, PasswordAuthenticatedUserInterface
     use SoftDeleteableEntity;
     use TimestampableTrait;
 
+    /** Durée de validité d'un lien d'invitation. */
+    public const INVITATION_VALIDITY = 'P7D';
+
+    /** Durée de validité d'un lien de réinitialisation de mot de passe. */
+    public const PASSWORD_RESET_VALIDITY = 'PT1H';
+
+    /** Délai minimal entre deux demandes de réinitialisation (anti-spam de la boîte mail). */
+    public const PASSWORD_RESET_COOLDOWN = 'PT5M';
+
     #[ORM\Column(length: 180)]
     private ?string $email = null;
 
@@ -58,6 +67,30 @@ class AppUser implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\ManyToMany(targetEntity: Team::class)]
     #[ORM\JoinTable(name: 'app_user_team')]
     private Collection $teams;
+
+    /**
+     * Jeton du lien d'invitation : le compte invité choisit son mot de passe
+     * par ce lien, qui est consommé (remis à null) à l'usage.
+     */
+    #[ORM\Column(length: 64, unique: true, nullable: true)]
+    private ?string $invitationToken = null;
+
+    #[ORM\Column(type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $invitationExpiresAt = null;
+
+    /**
+     * Dernier changement de mot de passe : tout JWT émis avant est refusé
+     * (JwtRevocationListener), ce qui déconnecte les sessions déjà ouvertes.
+     */
+    #[ORM\Column(type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $passwordChangedAt = null;
+
+    /** Jeton du lien « mot de passe oublié », consommé à l'usage. */
+    #[ORM\Column(length: 64, unique: true, nullable: true)]
+    private ?string $passwordResetToken = null;
+
+    #[ORM\Column(type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $passwordResetExpiresAt = null;
 
     public function __construct()
     {
@@ -119,6 +152,31 @@ class AppUser implements UserInterface, PasswordAuthenticatedUserInterface
     public function setPassword(string $password): static
     {
         $this->password = $password;
+
+        return $this;
+    }
+
+    /**
+     * Changement de mot de passe voulu par l'utilisateur ou un admin : révoque
+     * les sessions ouvertes. Le rehash transparent au login (upgradePassword)
+     * passe par setPassword et ne déconnecte personne.
+     */
+    public function changePassword(string $hashedPassword): static
+    {
+        $this->password = $hashedPassword;
+        $this->passwordChangedAt = new \DateTimeImmutable();
+
+        return $this;
+    }
+
+    public function getPasswordChangedAt(): ?\DateTimeImmutable
+    {
+        return $this->passwordChangedAt;
+    }
+
+    public function setPasswordChangedAt(?\DateTimeImmutable $passwordChangedAt): static
+    {
+        $this->passwordChangedAt = $passwordChangedAt;
 
         return $this;
     }
@@ -205,6 +263,106 @@ class AppUser implements UserInterface, PasswordAuthenticatedUserInterface
         return $this;
     }
 
+    /**
+     * Émet un nouveau lien d'invitation ; l'ancien cesse aussitôt de fonctionner,
+     * de même qu'un éventuel lien de réinitialisation : l'invitation prime.
+     */
+    public function renewInvitation(): static
+    {
+        $this->invitationToken = bin2hex(random_bytes(32));
+        $this->invitationExpiresAt = (new \DateTimeImmutable('now'))->add(new \DateInterval(self::INVITATION_VALIDITY));
+        $this->clearPasswordReset();
+
+        return $this;
+    }
+
+    public function clearInvitation(): static
+    {
+        $this->invitationToken = null;
+        $this->invitationExpiresAt = null;
+
+        return $this;
+    }
+
+    public function getInvitationToken(): ?string
+    {
+        return $this->invitationToken;
+    }
+
+    public function isInvitationExpired(): bool
+    {
+        return $this->invitationExpiresAt !== null && $this->invitationExpiresAt < new \DateTimeImmutable('now');
+    }
+
+    /**
+     * État du compte chef d'équipe : `invited` (lien envoyé, pas encore
+     * utilisé), `expired` (lien périmé, à renvoyer) ou `active`.
+     */
+    public function getInvitationStatus(): string
+    {
+        return match (true) {
+            !$this->isInvitationPending() => 'active',
+            $this->isInvitationExpired() => 'expired',
+            default => 'invited',
+        };
+    }
+
+    public function isInvitationPending(): bool
+    {
+        return $this->invitationToken !== null;
+    }
+
+    public function renewPasswordReset(): static
+    {
+        $this->passwordResetToken = bin2hex(random_bytes(32));
+        $this->passwordResetExpiresAt = (new \DateTimeImmutable('now'))->add(new \DateInterval(self::PASSWORD_RESET_VALIDITY));
+
+        return $this;
+    }
+
+    public function clearPasswordReset(): static
+    {
+        $this->passwordResetToken = null;
+        $this->passwordResetExpiresAt = null;
+
+        return $this;
+    }
+
+    public function getPasswordResetToken(): ?string
+    {
+        return $this->passwordResetToken;
+    }
+
+    public function isPasswordResetExpired(): bool
+    {
+        return $this->passwordResetExpiresAt !== null && $this->passwordResetExpiresAt < new \DateTimeImmutable('now');
+    }
+
+    /** Un lien a-t-il été émis il y a moins de PASSWORD_RESET_COOLDOWN ? */
+    public function isPasswordResetCoolingDown(): bool
+    {
+        if ($this->passwordResetExpiresAt === null) {
+            return false;
+        }
+        $issuedAt = $this->passwordResetExpiresAt->sub(new \DateInterval(self::PASSWORD_RESET_VALIDITY));
+
+        return $issuedAt->add(new \DateInterval(self::PASSWORD_RESET_COOLDOWN)) > new \DateTimeImmutable('now');
+    }
+
+    public function setPasswordResetExpiresAt(?\DateTimeImmutable $passwordResetExpiresAt): static
+    {
+        $this->passwordResetExpiresAt = $passwordResetExpiresAt;
+
+        return $this;
+    }
+
+    public function setInvitationExpiresAt(?\DateTimeImmutable $invitationExpiresAt): static
+    {
+        $this->invitationExpiresAt = $invitationExpiresAt;
+
+        return $this;
+    }
+
     public function toArray(): array
     {
         return [
@@ -213,6 +371,7 @@ class AppUser implements UserInterface, PasswordAuthenticatedUserInterface
             'roles' => $this->getRoles(),
             'member' => $this->getMember()?->toArray(),
             'teams' => array_map(fn (Team $t) => $t->toArray(), $this->getTeams()->toArray()),
+            'invitationStatus' => $this->getInvitationStatus(),
             'createdAt' => $this->getCreatedAt()?->format(DATE_ATOM),
             'updatedAt' => $this->getUpdatedAt()?->format(DATE_ATOM),
         ];

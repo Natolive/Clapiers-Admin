@@ -79,6 +79,11 @@
             size="normal"
           />
           <span>{{ slotProps.data.firstName }} {{ slotProps.data.lastName }}</span>
+          <CoachAccountTag
+            v-if="slotProps.data.account"
+            :status="slotProps.data.account.invitationStatus"
+            @click="isSuperAdmin && openInviteDialog(slotProps.data)"
+          />
         </div>
       </template>
     </Column>
@@ -172,6 +177,16 @@
           />
           <Button
             v-if="isSuperAdmin"
+            icon="pi pi-user-plus"
+            severity="secondary"
+            text
+            rounded
+            size="small"
+            @click="openInviteDialog(slotProps.data)"
+            v-tooltip.top="'Inviter comme chef d\'équipe'"
+          />
+          <Button
+            v-if="isSuperAdmin"
             icon="pi pi-trash"
             severity="danger"
             text
@@ -213,6 +228,11 @@
           <span class="member-card__meta">{{ memberTeamsLabel(member) }} · {{ member.phoneNumber }}</span>
           <div class="member-card__tags">
             <LicensePaidTag :paid="member.licensePaid" />
+            <CoachAccountTag
+              v-if="member.account"
+              :status="member.account.invitationStatus"
+              @click.stop="isSuperAdmin && openInviteDialog(member)"
+            />
             <Tag v-if="member.hasLicenseDocument" value="Licence" severity="secondary" class="text-xs" />
             <Tag
               :value="member.fsgtRegistered ? 'FSGT' : 'Hors FSGT'"
@@ -232,6 +252,16 @@
           class="member-card__media"
           @click.stop="openDialog(member, 'media')"
           v-tooltip.left="'Médiathèque'"
+        />
+        <Button
+          v-if="isSuperAdmin"
+          icon="pi pi-user-plus"
+          severity="secondary"
+          text
+          rounded
+          size="small"
+          @click.stop="openInviteDialog(member)"
+          v-tooltip.left="'Inviter comme chef d\'équipe'"
         />
         <Button
           v-if="isSuperAdmin"
@@ -270,9 +300,11 @@ import type { DataTableSortEvent } from 'primevue/datatable';
 import ConfirmDeleteDialog from '~/components/dialogs/ConfirmDeleteDialog.vue';
 import CreateUpdateMemberDialog from '~/components/dialogs/CreateUpdateMemberDialog.vue';
 import FsgtRegistrationDialog from '~/components/dialogs/FsgtRegistrationDialog.vue';
+import InviteCoachDialog from '~/components/dialogs/InviteCoachDialog.vue';
 import MemberDetailsDialog from '~/components/dialogs/MemberDetailsDialog.vue';
 import MemberAvatar from '~/components/common/MemberAvatar.vue';
 import LicensePaidTag from '~/components/common/LicensePaidTag.vue';
+import CoachAccountTag from '~/components/common/CoachAccountTag.vue';
 import { MemberRepository } from '~/repository/member-repository';
 import type { Member } from '~/types/entity/Member';
 import type { Team } from '~/types/entity/Team';
@@ -451,6 +483,10 @@ const openFsgtDialog = (member: Member) => {
       onSaved: () => fetchData(),
     },
   });
+};
+
+const openInviteDialog = (member: Member) => {
+  show({ component: InviteCoachDialog, props: { member, teams: props.teams, onSaved: () => fetchData() } });
 };
 
 const openDialog = (member?: Member, initialTab: 'fiche' | 'media' = 'fiche') => {

@@ -90,13 +90,13 @@ Symfony's validator, not this class.
   manually-declared route.
 - **Class-level `#[IsGranted]` is the default; method-level tightens it.**
   `LicenseController` / `MemberController` are class-wide `ROLE_SUPER_ADMIN`
-  with a method dropping to `ROLE_ADMIN` where allowed. `GameController` has no
+  with a method dropping to `ROLE_COACH` where allowed. `GameController` has no
   class guard — every method declares its own.
 - `IsGranted` uses `AppUserRole::ROLE_*` **string constants** (distinct from the
   enum cases — see entity conventions).
 - **Defense-in-depth**: controller `IsGranted` is the coarse gate; UseCases
-  re-check ownership/role at runtime for finer rules (e.g. an admin may only
-  reschedule their own teams' games — `CreateUpdateGameUseCase.php:108-123`).
+  re-check ownership/role at runtime for finer rules (e.g. a coach may only
+  edit their own teams' games, never their opponent — `CreateUpdateGameUseCase.php:101-133`).
 
 ## Entity conventions
 
@@ -119,20 +119,37 @@ Symfony's validator, not this class.
 
 - **Lexik JWT**, stateless. RSA keypair in `config/jwt/`, **7-day TTL**
   (`token_ttl: 604800`).
-  > **No refresh token, no revocation.** The TTL *is* the session length, and a
-  > stolen token stays valid until it expires — the 7 days are a deliberate
+  > **No refresh token; revocation only on password change.** The TTL *is* the
+  > session length, and a stolen token stays valid until it expires — the 7 days are a deliberate
   > trade against being logged out mid-form. The front's cookie `maxAge`
   > (`TOKEN_MAX_AGE`, `auth.store.ts`) is aligned on it: left as a session
   > cookie it made the app look logged in long after the token died, then eject
   > the user on the first 401. **Move both together.** Locked by
   > `AuthenticationTest::testIssuedTokenLastsSevenDays`.
+- **Password change = logout everywhere**: `AppUser::changePassword()` stamps
+  `passwordChangedAt`; `JwtRevocationListener` (on `JWT_AUTHENTICATED`, user
+  already loaded — no extra query) rejects any JWT whose `iat` is older → 401
+  « Session expirée ». Used by invitation acceptance, password reset and an
+  admin setting someone's password. The transparent rehash on login
+  (`upgradePassword`) goes through `setPassword` and logs nobody out — keep it
+  that way. Granularity is one second (`iat`).
 - Firewalls (`config/packages/security.yaml`): `dev`, `login`
   (`^/api/login`, `json_login` with `email`/`password`), `api` (`^/api`,
   stateless, `jwt: ~`).
+- **Login throttling** — **disabled for now (#68)**: commented out until
+  `SYMFONY_TRUSTED_PROXIES` is set in the cluster (otherwise every request has
+  the ingress IP and the limit becomes global). Once enabled
+  (`login_throttling` on the `login` firewall): 5 failures
+  / 15 min per e-mail+IP (and 5× that per IP). Counters live in the
+  `cache.rate_limiter` pool, backed by **Postgres** (`cache_items`, Doctrine DBAL
+  adapter) so every pod shares them — a filesystem cache would multiply the
+  limit by the pod count. Unlock someone by hand: `DELETE FROM cache_items`.
+- Login failure messages are French and identical whether the account exists
+  or not (`LoginFailureMessageListener`) — the front shows them as-is.
 - User provider: `AppUser` by `email`. `getRoles()` always guarantees
   `ROLE_USER`.
-- **Role hierarchy**: `ROLE_SUPER_ADMIN ⊃ {ADMIN, VIEW_MESSAGE, USER}`;
-  `ADMIN ⊃ USER`; `VIEW_MESSAGE ⊃ USER`. **`ADMIN` does NOT inherit
+- **Role hierarchy**: `ROLE_SUPER_ADMIN ⊃ {COACH, VIEW_MESSAGE, USER}`;
+  `COACH ⊃ USER`; `VIEW_MESSAGE ⊃ USER`. **`COACH` does NOT inherit
   `VIEW_MESSAGE`.**
   > Trap: `AppUserRole::inheritedRoles()` re-declares this hierarchy in PHP but
   > has **no callers** — `security.yaml` is the source of truth. The two can

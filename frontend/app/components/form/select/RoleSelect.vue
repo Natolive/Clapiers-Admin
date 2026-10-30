@@ -50,7 +50,7 @@ const emit = defineEmits<{
 
 const roles = [
   AppUserRole.SUPER_ADMIN,
-  AppUserRole.ADMIN,
+  AppUserRole.COACH,
   AppUserRole.USER
 ];
 

@@ -119,7 +119,7 @@ import {AppUserRole} from "~/types/entity/AppUser";
 definePageMeta({
   middleware: 'auth-middleware',
   layout: 'dashboard',
-  requiredRoles: [AppUserRole.ADMIN],
+  requiredRoles: [AppUserRole.COACH],
   redirectTo: '/dashboard/calendar'
 });
 

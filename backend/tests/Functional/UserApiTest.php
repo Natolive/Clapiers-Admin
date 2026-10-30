@@ -15,14 +15,14 @@ class UserApiTest extends ApiTestCase
     {
         $team = $this->aTeam()->named('Mon équipe')->persist();
         $member = $this->aMember()->inTeams($team)->persist();
-        $user = $this->aUser()->admin()->managing($team)->linkedTo($member)->persist();
+        $user = $this->aUser()->coach()->managing($team)->linkedTo($member)->persist();
 
         $this->actingAs($user);
         $this->getJson('/api/user/me');
 
         $body = $this->assertJsonResponse(200);
         $this->assertSame($user->getEmail(), $body['email']);
-        $this->assertContains(AppUserRole::ROLE_ADMIN, $body['roles']);
+        $this->assertContains(AppUserRole::ROLE_COACH, $body['roles']);
         $this->assertCount(1, $body['teams']);
         $this->assertSame('Mon équipe', $body['teams'][0]['name']);
         $this->assertSame($member->getId(), $body['member']['id']);
@@ -40,9 +40,9 @@ class UserApiTest extends ApiTestCase
         $this->assertCount(3, $body);
     }
 
-    public function testAdminCannotListUsers(): void
+    public function testCoachCannotListUsers(): void
     {
-        $this->actingAsAdmin();
+        $this->actingAsCoach();
         $this->getJson('/api/user');
 
         $this->assertJsonResponse(403);
@@ -55,21 +55,21 @@ class UserApiTest extends ApiTestCase
         $this->assertJsonResponse(401);
     }
 
-    public function testAdminCannotListPaginatedUsers(): void
+    public function testCoachCannotListPaginatedUsers(): void
     {
-        $this->actingAsAdmin();
+        $this->actingAsCoach();
         $this->getJson('/api/user/paginated');
 
         $this->assertJsonResponse(403);
     }
 
-    public function testAdminCannotLinkOrUnlinkMembers(): void
+    public function testCoachCannotLinkOrUnlinkMembers(): void
     {
         $team = $this->aTeam()->persist();
         $member = $this->aMember()->inTeams($team)->persist();
         $user = $this->aUser()->persist();
 
-        $this->actingAsAdmin();
+        $this->actingAsCoach();
 
         $this->patchJson('/api/user/'.$user->getId().'/link-member', ['memberId' => $member->getId()]);
         $this->assertJsonResponse(403);
@@ -114,13 +114,13 @@ class UserApiTest extends ApiTestCase
         $this->actingAsSuperAdmin();
         $this->postJson('/api/user', [
             'email' => 'nouveau.coach@test.fr',
-            'role' => AppUserRole::ROLE_ADMIN,
+            'role' => AppUserRole::ROLE_COACH,
             'password' => 'S3cret!pass',
         ]);
 
         $body = $this->assertJsonResponse(200);
         $this->assertSame('nouveau.coach@test.fr', $body['email']);
-        $this->assertContains(AppUserRole::ROLE_ADMIN, $body['roles']);
+        $this->assertContains(AppUserRole::ROLE_COACH, $body['roles']);
         // L'affectation d'équipes ne se fait plus ici : un nouveau user n'a pas d'équipe.
         $this->assertCount(0, $body['teams']);
 
@@ -190,6 +190,9 @@ class UserApiTest extends ApiTestCase
 
         $body = $this->assertJsonResponse(200);
         $this->assertSame('new@test.fr', $body['email']);
+        // Changing someone's password logs out their open sessions
+        $this->em()->clear();
+        $this->assertNotNull($this->em()->getRepository(AppUser::class)->find($user->getId())->getPasswordChangedAt());
 
         // The new credentials actually work
         $this->client->setServerParameter('HTTP_AUTHORIZATION', '');
@@ -210,9 +213,9 @@ class UserApiTest extends ApiTestCase
         $this->assertSame('User not found', $body['message']);
     }
 
-    public function testAdminCannotCreateUsers(): void
+    public function testCoachCannotCreateUsers(): void
     {
-        $this->actingAsAdmin();
+        $this->actingAsCoach();
         $this->postJson('/api/user', [
             'email' => 'pirate@test.fr',
             'role' => AppUserRole::ROLE_SUPER_ADMIN,

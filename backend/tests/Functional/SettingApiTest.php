@@ -19,7 +19,7 @@ class SettingApiTest extends ApiTestCase
 
     public function testGetSeasonIsForbiddenForAdmin(): void
     {
-        $this->actingAsAdmin();
+        $this->actingAsCoach();
         $this->getJson('/api/settings/season');
         $this->assertJsonResponse(403);
     }
@@ -84,7 +84,7 @@ class SettingApiTest extends ApiTestCase
 
     public function testSetSeasonIsForbiddenForAdmin(): void
     {
-        $this->actingAsAdmin();
+        $this->actingAsCoach();
         $this->putJson('/api/settings/season', ['season' => '2030-2031']);
         $this->assertJsonResponse(403);
     }
@@ -97,7 +97,7 @@ class SettingApiTest extends ApiTestCase
 
     public function testGetInscriptionsIsForbiddenForAdmin(): void
     {
-        $this->actingAsAdmin();
+        $this->actingAsCoach();
         $this->getJson('/api/settings/inscriptions');
         $this->assertJsonResponse(403);
     }
@@ -163,7 +163,7 @@ class SettingApiTest extends ApiTestCase
 
     public function testSetInscriptionsIsForbiddenForAdmin(): void
     {
-        $this->actingAsAdmin();
+        $this->actingAsCoach();
         $this->putJson('/api/settings/inscriptions', ['open' => false]);
         $this->assertJsonResponse(403);
     }
@@ -223,7 +223,7 @@ class SettingApiTest extends ApiTestCase
         $this->getJson('/api/settings/helloasso');
         $this->assertJsonResponse(401);
 
-        $this->actingAsAdmin();
+        $this->actingAsCoach();
         $this->getJson('/api/settings/helloasso');
         $this->assertJsonResponse(403);
 
@@ -312,7 +312,7 @@ class SettingApiTest extends ApiTestCase
         $this->getJson('/api/settings/bunny');
         $this->assertJsonResponse(401);
 
-        $this->actingAsAdmin();
+        $this->actingAsCoach();
         $this->getJson('/api/settings/bunny');
         $this->assertJsonResponse(403);
 

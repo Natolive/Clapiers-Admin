@@ -77,9 +77,9 @@ class SalleClosureApiTest extends ApiTestCase
         $this->assertJsonResponse(422);
     }
 
-    public function testAdminCannotCreateClosure(): void
+    public function testCoachCannotCreateClosure(): void
     {
-        $this->actingAsAdmin();
+        $this->actingAsCoach();
         $this->postJson('/api/salle-closure', [
             'startDate' => '2026-08-01',
             'endDate' => '2026-08-02',

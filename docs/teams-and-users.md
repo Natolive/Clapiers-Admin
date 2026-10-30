@@ -2,18 +2,18 @@
 
 ## Role hierarchy
 
-Values (`Entity/Enum/AppUserRole.php`): `ROLE_SUPER_ADMIN`, `ROLE_ADMIN`,
+Values (`Entity/Enum/AppUserRole.php`): `ROLE_SUPER_ADMIN`, `ROLE_COACH`,
 `ROLE_USER`, `ROLE_VIEW_MESSAGE` (the enum case *value* is the `ROLE_*` string).
 
 The **real** hierarchy is `config/packages/security.yaml`, not PHP:
 
 ```
-SUPER_ADMIN → [ADMIN, VIEW_MESSAGE, USER]
-ADMIN       → [USER]
+SUPER_ADMIN → [COACH, VIEW_MESSAGE, USER]
+COACH       → [USER]
 VIEW_MESSAGE→ [USER]
 ```
 
-- **`ADMIN` does NOT inherit `VIEW_MESSAGE`** — a coach/admin cannot read
+- **`COACH` does NOT inherit `VIEW_MESSAGE`** — a coach cannot read
   contact messages; only SUPER_ADMIN (or an explicit VIEW_MESSAGE grant) can.
 - `getRoles()` always appends `ROLE_USER` and de-dupes — everyone is at least
   USER.
@@ -28,7 +28,7 @@ roles with `setRoles([$command->role])` — the command carries a single scalar
 and stored.
 
 Controller gating: all Team-admin and all User endpoints are
-`ROLE_SUPER_ADMIN`; the "my-team" coach endpoints are `ROLE_ADMIN` (SUPER_ADMIN
+`ROLE_SUPER_ADMIN`; the "my-team" coach endpoints are `ROLE_COACH` (SUPER_ADMIN
 reaches them via hierarchy); `/api/user/me` has **no** `IsGranted` (any
 authenticated user).
 
@@ -49,6 +49,40 @@ authenticated user).
   teams he coaches.
 - "My team" for a coach = the teams on his `AppUser.teams`. `GetMyTeamUseCase`
   lists, per team, that team's **members** for the current season.
+
+## Inviter un licencié comme chef d'équipe
+
+Bouton « Inviter comme chef d'équipe » sur la liste des licenciés (SUPER_ADMIN).
+
+- `POST /api/user/invite` `{memberId, teamIds}` (`InviteCoachUseCase`) : reprend
+  le compte lié au licencié ou en crée un (email = celui du licencié, lien
+  `member` posé, mot de passe aléatoire jamais communiqué), force `ROLE_COACH`
+  (sauf SUPER_ADMIN, jamais rétrogradé), **remplace** ses équipes, émet un
+  nouveau jeton (7 j, `AppUser::INVITATION_VALIDITY`) et envoie
+  `emails/coach_invitation.html.twig` (`AccountMailer::sendInvitation`). Relancer = nouveau lien, l'ancien meurt.
+- Refus : `teamIds` vide → 422 ; licencié sans e-mail → 422 ; id inconnu →
+  404 ; e-mail déjà pris par un compte **non lié** → 409 (le lier d'abord).
+- Échec d'envoi du mail → **502** (contrairement au lien de paiement, propagé :
+  sans mail l'invité ne peut rien faire). Le compte reste créé ; relancer.
+- Public : `GET /api/public/invitation/{token}` → `{email, firstName}` ;
+  `POST` même URL `{password}` (8 à 4096 car.) pose le mot de passe et **consomme**
+  le jeton. Inconnu/déjà utilisé → 404, expiré → 410. Page front
+  `/invitation#<jeton>`, qui connecte directement après.
+- **Jeton dans le fragment (`#`) des liens front**, jamais dans le chemin :
+  Google Tag Manager est chargé sur tout le site et collecterait l'URL (et le
+  `Referer` partirait chez Google). Le fragment n'est envoyé ni au serveur ni
+  dans le `Referer` ; la page le lit en `onMounted`. Même règle pour
+  `/mot-de-passe#<jeton>`. (Le lien de paiement `/licence/<jeton>` a encore le
+  défaut.)
+- Statut (`AppUser::getInvitationStatus()`, exposé en `invitationStatus`) :
+  `invited` (lien envoyé, non utilisé), `expired`, `active`. La liste des
+  licenciés (`GET /api/member/paginated`) porte `account: {invitationStatus,
+  teamIds} | null` (une requête par page, `UserRepository::findByMembersIndexed`)
+  → badge cliquable qui rouvre le dialog pré-rempli pour **relancer**.
+- L'e-mail du compte est **copié** à la création : modifier ensuite celui de la
+  fiche licencié ne le change pas (identifiant de connexion inchangé).
+- Relancer un compte `active` renvoie aussi un lien : l'ancien mot de passe
+  reste valable tant que le lien n'est pas utilisé (sert de réinitialisation).
 
 ## Team admin endpoints (page Équipes)
 
@@ -87,7 +121,7 @@ authenticated user).
 
 ## My-team files (licence PDF, photo)
 
-There is no download route any more: `GET /api/team/my-team` (`ROLE_ADMIN`)
+There is no download route any more: `GET /api/team/my-team` (`ROLE_COACH`)
 carries `profilePictureUrl` and `licenseUrl` — signed CDN URLs — for each member
 it lists, and it only lists the members of the teams the caller coaches. A coach
 without a team gets an empty list, so the old two-stage 403 rule is now enforced
@@ -97,6 +131,31 @@ Files come from the média library: licence = current-season `license` slot
 (season-scoped); photo = root `identity_photo` slot (season-agnostic). No file
 in the slot → the field is `null`. See
 [`members-and-mediatheque.md`](members-and-mediatheque.md) for the signature.
+
+## Mot de passe oublié
+
+Lien « Mot de passe oublié ? » sur `/login` → `/mot-de-passe-oublie` (e-mail +
+captcha) → mail → `/mot-de-passe#<jeton>` → connexion directe. Le nouveau mot
+de passe **déconnecte les sessions ouvertes** (voir architecture.md, Auth stack).
+
+- `POST /api/public/password-reset` `{email, recaptchaToken}`
+  (`RequestPasswordResetUseCase`) répond **toujours** le même message
+  (`RequestPasswordResetUseCase::MESSAGE`), compte existant ou non — on ne
+  révèle pas qui est inscrit. Captcha refusé → 400 ; e-mail invalide → 422.
+- **Bloqué pour une invitation en cours ou expirée** (`isInvitationPending()`) :
+  pas de jeton, pas de mail. Le compte n'a jamais choisi de mot de passe, c'est
+  l'invitation (relancée par le club) qui l'active. Dans l'autre sens,
+  `renewInvitation()` efface un lien de reset déjà émis, et `findValid` refuse
+  (404) un lien de reset si une invitation est en attente.
+- Jeton propre (`passwordResetToken`, distinct de l'invitation), valable **1 h**
+  (`PASSWORD_RESET_VALIDITY`). Anti-spam : pas de nouveau mail dans les
+  **5 min** (`PASSWORD_RESET_COOLDOWN`) ; le premier lien reste bon.
+- `GET /api/public/password-reset/{token}` → `{email}` ; `POST` même URL
+  `{password}` (8 à 4096 car. — au-delà le hasher planterait —, `SetPasswordInput` partagé avec l'invitation) pose le
+  mot de passe et consomme le lien. Inconnu/utilisé → 404, expiré → 410.
+- Échec d'envoi du mail : journalisé, **pas** remonté (même réponse générique).
+- E-mails du compte (invitation + reset) : `AccountMailer`. Front : formulaire
+  commun `components/forms/SetPasswordForm.vue`.
 
 ## Password / auth handling
 

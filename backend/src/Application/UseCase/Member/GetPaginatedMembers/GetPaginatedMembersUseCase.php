@@ -10,6 +10,7 @@ use App\Entity\Member;
 use App\Repository\LicenseRepository;
 use App\Repository\MemberDocumentRepository;
 use App\Repository\MemberRepository;
+use App\Repository\UserRepository;
 
 /**
  * @extends AbstractUseCase<GetPaginatedMembersCommand>
@@ -22,6 +23,7 @@ class GetPaginatedMembersUseCase extends AbstractUseCase
         private readonly LicenseRepository $licenseRepository,
         private readonly SeasonProvider $seasonProvider,
         private readonly MemberPhotoUrls $photoUrls,
+        private readonly UserRepository $userRepository,
     ) {
     }
 
@@ -42,17 +44,17 @@ class GetPaginatedMembersUseCase extends AbstractUseCase
 
         // Une requête pour toutes les licences de la page : l'inscription FSGT
         // est portée par la licence de la saison.
-        $licenses = $this->licenseRepository->findBySeasonIndexedByMember(
-            array_map(static fn (Member $m) => (int) $m->getId(), $result['data']),
-            $season,
-        );
+        $memberIds = array_map(static fn (Member $m) => (int) $m->getId(), $result['data']);
+        $licenses = $this->licenseRepository->findBySeasonIndexedByMember($memberIds, $season);
+        $accounts = $this->userRepository->findByMembersIndexed($memberIds);
 
         $photos = $this->photoUrls->forMembers($result['data'], $season);
 
         return [
             'data' => array_map(
-                function (Member $member) use ($season, $licenses, $photos) {
+                function (Member $member) use ($season, $licenses, $photos, $accounts) {
                     $license = $licenses[$member->getId()] ?? null;
+                    $account = $accounts[$member->getId()] ?? null;
 
                     return [
                         // "Licence payée" et présence du fichier sont toutes deux
@@ -62,6 +64,11 @@ class GetPaginatedMembersUseCase extends AbstractUseCase
                             ->findDefaultSlot($member, $season, 'license')?->hasFile() ?? false,
                         'fsgtRegistered' => $license?->isFsgtRegistered() ?? false,
                         'profilePictureUrl' => $photos[$member->getId()] ?? null,
+                        // Compte de connexion lié (chef d'équipe invité ou actif).
+                        'account' => $account ? [
+                            'invitationStatus' => $account->getInvitationStatus(),
+                            'teamIds' => array_map(fn ($t) => $t->getId(), $account->getTeams()->toArray()),
+                        ] : null,
                     ];
                 },
                 $result['data'],

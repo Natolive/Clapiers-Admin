@@ -2,7 +2,7 @@
   <Form :resolver="resolver" @submit="onFormSubmit" v-slot="$form" class="flex flex-column gap-4">
     <div class="flex flex-column gap-2">
       <label for="email" class="font-bold">Adresse e-mail</label>
-      <InputText name="email" :disabled="loading" type="text" fluid placeholder="exemple@email.com" autocomplete="username" />
+      <InputText id="email" name="email" :disabled="loading" type="email" fluid placeholder="exemple@email.com" autocomplete="username" />
 
       <small v-if="$form.email?.invalid" class="p-error text-red-500 text-sm">
         {{ $form.email?.error?.message }}
@@ -11,14 +11,17 @@
 
     <div class="flex flex-column gap-2">
       <label for="password" class="font-bold">Mot de passe</label>
-      <Password name="password" :disabled="loading" :feedback="false" toggleMask fluid placeholder="••••••••" autocomplete="current-password" />
+      <!-- Password pose ses attributs sur son conteneur : l'id et l'autocomplete
+           doivent passer par inputId/inputProps pour atteindre le vrai <input>,
+           sinon les gestionnaires de mots de passe ne le reconnaissent pas. -->
+      <Password name="password" inputId="password" :inputProps="{ autocomplete: 'current-password' }" :disabled="loading" :feedback="false" toggleMask fluid placeholder="••••••••" />
 
       <small v-if="$form.password?.invalid" class="p-error text-red-500 text-sm">
         {{ $form.password?.error?.message }}
       </small>
     </div>
 
-    <Button type="submit" label="Se connecter" icon="pi pi-user" class="w-full mt-2" :loading="loading" />
+    <Button type="submit" label="Se connecter" icon="pi pi-sign-in" class="w-full mt-2" :loading="loading" />
   </Form>
 </template>
 

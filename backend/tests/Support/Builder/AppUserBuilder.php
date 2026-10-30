@@ -56,9 +56,9 @@ final class AppUserBuilder
         return $this->withRole(AppUserRole::ROLE_SUPER_ADMIN);
     }
 
-    public function admin(): self
+    public function coach(): self
     {
-        return $this->withRole(AppUserRole::ROLE_ADMIN);
+        return $this->withRole(AppUserRole::ROLE_COACH);
     }
 
     /** Teams managed by this user (coach). */

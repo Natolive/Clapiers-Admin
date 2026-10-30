@@ -1,0 +1,36 @@
+{% extends 'emails/layout.html.twig' %}
+
+{% block title %}Votre accès chef d'équipe{% endblock %}
+
+{% block hero_eyebrow %}Espace club{% endblock %}
+
+{% block hero_title %}
+Bienvenue<br><span style="color:#f4a261;">chef d'équipe !</span>
+{% endblock %}
+
+{% block hero_meta %}
+{% include 'emails/components/hero_badge.html.twig' with {label: teams|join(' · ')} %}
+{% endblock %}
+
+{% block body %}
+
+<div style="font-size:16px;line-height:1.7;color:#1a1a2e;">
+Bonjour{% if firstName %} <strong>{{ firstName }}</strong>{% endif %},<br><br>
+Le club vous a ouvert un accès à l'espace de gestion pour suivre {{ teams|length > 1 ? 'vos équipes' : 'votre équipe' }}&nbsp;: <strong>{{ teams|join(', ') }}</strong>.<br>
+Il ne vous reste qu'à choisir votre mot de passe.
+</div>
+
+<div style="margin:24px 0;">
+{% include 'emails/components/button.html.twig' with {href: invitationUrl, label: 'Créer mon mot de passe'} %}
+</div>
+
+<div style="margin-top:24px;font-size:13px;line-height:1.6;color:#6b7280;">
+Ce lien est valable 7 jours et ne sert qu'une fois. Si le bouton ne fonctionne pas, copiez ce lien dans votre navigateur&nbsp;:<br>
+<a href="{{ invitationUrl }}" style="color:#1e3a5f;word-break:break-all;">{{ invitationUrl }}</a>
+</div>
+
+{% endblock %}
+
+{% block footer_note %}
+<a href="https://clapiersvb.fr" style="color:#f4a261;text-decoration:none;">clapiersvb.fr</a>
+{% endblock %}

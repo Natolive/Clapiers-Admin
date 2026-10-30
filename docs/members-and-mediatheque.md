@@ -256,7 +256,7 @@ exposed (nodes are addressed by UUID).
 | --- | --- | --- |
 | `GET /api/member`, `/paginated`, `/team/{id}`, `PATCH /api/team/{id}/roster` | `profilePictureUrl` | `ROLE_SUPER_ADMIN` |
 | `GET /api/user/paginated` | `member.profilePictureUrl` | `ROLE_SUPER_ADMIN` |
-| `GET /api/team/my-team` | `profilePictureUrl`, `licenseUrl` | `ROLE_ADMIN`, own teams only |
+| `GET /api/team/my-team` | `profilePictureUrl`, `licenseUrl` | `ROLE_COACH`, own teams only |
 | `GET /api/member/{id}/media` | `url` per node | `ROLE_SUPER_ADMIN` |
 | `GET /api/license/{id}` (review) | `url` per expected piece | `ROLE_SUPER_ADMIN` |
 
@@ -323,7 +323,10 @@ declared). `PUT /api/member/{id}/fsgt` (`ROLE_SUPER_ADMIN`,
 - No licence for the requested season → **404**: there is nothing to declare.
 - The paginated list exposes `fsgtRegistered` (resolved in **one** query via
   `LicenseRepository::findBySeasonIndexedByMember`) next to the member's
-  `licenseNumber`.
+  `licenseNumber`. It also carries `account` — the linked login account's
+  invitation status and coached teams, one query via
+  `UserRepository::findByMembersIndexed` (see
+  [teams-and-users.md](teams-and-users.md#inviter-un-licencié-comme-chef-déquipe)).
 - Filter `?fsgtRegistered=true|false` on the list **and** the export — it lives
   in the shared `createFilteredQueryBuilder`, so both got it at once.
 
@@ -484,15 +487,15 @@ exportable with no change here (that file's promise still holds).
 
 - **The whole Member API and the whole Média API are `ROLE_SUPER_ADMIN`**
   (class-level), including média download.
-- **The profile picture is the one file a coach may read**, so it lives in its
-  own `MemberPhotoController` (`ROLE_ADMIN`). It cannot stay in
-  `MemberController`: a method-level `#[IsGranted]` **adds to** the class-level
-  one instead of replacing it, so the `ROLE_ADMIN` attribute it used to carry
-  was dead and coaches got a 403. `DownloadMemberPhotoUseCase` then does the
-  fine-grained part — a `ROLE_SUPER_ADMIN` sees the whole club, a coach only
-  members sharing one of their teams (403 otherwise), same rule as the licence
-  download. Médiathèque pieces (medical certificates, ID cards) stay
-  `ROLE_SUPER_ADMIN`.
+- **Coaches read exactly two files — profile picture and current licence — and
+  never through a download route**: `GET /api/team/my-team` (`ROLE_COACH`)
+  carries their signed CDN URLs, and only lists members of the teams the caller
+  coaches (see [teams-and-users.md](teams-and-users.md#my-team-files-licence-pdf-photo)).
+  Médiathèque pieces (medical certificates, ID cards) stay `ROLE_SUPER_ADMIN`.
+- Trap kept from the old photo route: a method-level `#[IsGranted]` **adds to**
+  the class-level one instead of replacing it — a `ROLE_COACH` method inside the
+  `ROLE_SUPER_ADMIN` `MemberController` is dead (coaches get a 403). A route
+  opened to coaches needs its own controller.
 - **Profile picture = the média tree's root `identity_photo` slot** (season-
   independent) — there is no separate avatar field on Member.
 - UseCases throw `UseCaseException` with an explicit status (not
