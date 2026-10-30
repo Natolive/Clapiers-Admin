@@ -136,7 +136,10 @@ Symfony's validator, not this class.
 - Firewalls (`config/packages/security.yaml`): `dev`, `login`
   (`^/api/login`, `json_login` with `email`/`password`), `api` (`^/api`,
   stateless, `jwt: ~`).
-- **Login throttling** (`login_throttling` on the `login` firewall): 5 failures
+- **Login throttling** — **disabled for now (#68)**: commented out until
+  `SYMFONY_TRUSTED_PROXIES` is set in the cluster (otherwise every request has
+  the ingress IP and the limit becomes global). Once enabled
+  (`login_throttling` on the `login` firewall): 5 failures
   / 15 min per e-mail+IP (and 5× that per IP). Counters live in the
   `cache.rate_limiter` pool, backed by **Postgres** (`cache_items`, Doctrine DBAL
   adapter) so every pod shares them — a filesystem cache would multiply the

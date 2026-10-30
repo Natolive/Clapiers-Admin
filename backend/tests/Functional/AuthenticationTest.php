@@ -58,6 +58,8 @@ class AuthenticationTest extends ApiTestCase
     /** Anti-bruteforce : après 5 échecs, même le bon mot de passe est refusé. */
     public function testLoginIsThrottledAfterFiveFailures(): void
     {
+        $this->markTestSkipped('login_throttling désactivé en attendant SYMFONY_TRUSTED_PROXIES (#68).');
+
         $user = $this->aUser()->persist();
 
         for ($i = 0; $i < 5; ++$i) {
