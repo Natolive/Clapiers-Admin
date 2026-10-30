@@ -35,6 +35,36 @@ class UserRepository extends ServiceEntityRepository implements PasswordUpgrader
     }
 
     /**
+     * Comptes liés aux licenciés donnés, indexés par id de licencié — une
+     * requête pour toute une page de la liste (équipes chargées avec).
+     *
+     * @param list<int> $memberIds
+     *
+     * @return array<int, AppUser>
+     */
+    public function findByMembersIndexed(array $memberIds): array
+    {
+        if ($memberIds === []) {
+            return [];
+        }
+
+        $users = $this->createQueryBuilder('u')
+            ->addSelect('t')
+            ->leftJoin('u.teams', 't')
+            ->andWhere('u.member IN (:memberIds)')
+            ->setParameter('memberIds', $memberIds)
+            ->getQuery()
+            ->getResult();
+
+        $byMember = [];
+        foreach ($users as $user) {
+            $byMember[$user->getMember()->getId()] = $user;
+        }
+
+        return $byMember;
+    }
+
+    /**
      * @return array{data: AppUser[], total: int}
      */
     public function findPaginated(

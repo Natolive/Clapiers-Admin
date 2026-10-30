@@ -151,7 +151,7 @@ const { isDark, toggleDark } = useDarkMode();
 
 const authStore = useAuthStore();
 const route = useRoute();
-const { isSuperAdmin, isAdmin } = useUserRole();
+const { isSuperAdmin, isCoach } = useUserRole();
 
 const {
   sidebarVisible,
@@ -184,7 +184,7 @@ const userName = computed(() => authStore.user?.email?.split('@')[0] ?? 'Utilisa
 const userInitials = computed(() => userName.value.slice(0, 2).toUpperCase());
 const userRoleLabel = computed(() => {
   if (isSuperAdmin.value) return 'Super Admin';
-  if (isAdmin.value) return 'Administrateur';
+  if (isCoach.value) return "Chef d'équipe";
   return 'Membre';
 });
 

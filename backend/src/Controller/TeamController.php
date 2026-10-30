@@ -65,7 +65,7 @@ class TeamController extends AbstractController
     }
 
     #[Route('/my-team', name: 'get_my_team', methods: ['GET'])]
-    #[IsGranted(AppUserRole::ROLE_ADMIN)]
+    #[IsGranted(AppUserRole::ROLE_COACH)]
     public function getMyTeam(GetMyTeamUseCase $useCase): Response
     {
         /** @var AppUser $user */

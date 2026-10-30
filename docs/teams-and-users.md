@@ -2,18 +2,18 @@
 
 ## Role hierarchy
 
-Values (`Entity/Enum/AppUserRole.php`): `ROLE_SUPER_ADMIN`, `ROLE_ADMIN`,
+Values (`Entity/Enum/AppUserRole.php`): `ROLE_SUPER_ADMIN`, `ROLE_COACH`,
 `ROLE_USER`, `ROLE_VIEW_MESSAGE` (the enum case *value* is the `ROLE_*` string).
 
 The **real** hierarchy is `config/packages/security.yaml`, not PHP:
 
 ```
-SUPER_ADMIN → [ADMIN, VIEW_MESSAGE, USER]
-ADMIN       → [USER]
+SUPER_ADMIN → [COACH, VIEW_MESSAGE, USER]
+COACH       → [USER]
 VIEW_MESSAGE→ [USER]
 ```
 
-- **`ADMIN` does NOT inherit `VIEW_MESSAGE`** — a coach/admin cannot read
+- **`COACH` does NOT inherit `VIEW_MESSAGE`** — a coach/admin cannot read
   contact messages; only SUPER_ADMIN (or an explicit VIEW_MESSAGE grant) can.
 - `getRoles()` always appends `ROLE_USER` and de-dupes — everyone is at least
   USER.
@@ -28,7 +28,7 @@ roles with `setRoles([$command->role])` — the command carries a single scalar
 and stored.
 
 Controller gating: all Team-admin and all User endpoints are
-`ROLE_SUPER_ADMIN`; the "my-team" coach endpoints are `ROLE_ADMIN` (SUPER_ADMIN
+`ROLE_SUPER_ADMIN`; the "my-team" coach endpoints are `ROLE_COACH` (SUPER_ADMIN
 reaches them via hierarchy); `/api/user/me` has **no** `IsGranted` (any
 authenticated user).
 
@@ -49,6 +49,32 @@ authenticated user).
   teams he coaches.
 - "My team" for a coach = the teams on his `AppUser.teams`. `GetMyTeamUseCase`
   lists, per team, that team's **members** for the current season.
+
+## Inviter un licencié comme chef d'équipe
+
+Bouton « Inviter comme chef d'équipe » sur la liste des licenciés (SUPER_ADMIN).
+
+- `POST /api/user/invite` `{memberId, teamIds}` (`InviteCoachUseCase`) : reprend
+  le compte lié au licencié ou en crée un (email = celui du licencié, lien
+  `member` posé, mot de passe aléatoire jamais communiqué), force `ROLE_COACH`
+  (sauf SUPER_ADMIN, jamais rétrogradé), **remplace** ses équipes, émet un
+  nouveau jeton (7 j, `AppUser::INVITATION_VALIDITY`) et envoie
+  `emails/coach_invitation.html.twig`. Relancer = nouveau lien, l'ancien meurt.
+- Refus : `teamIds` vide → 422 ; licencié sans e-mail → 422 ; id inconnu →
+  404 ; e-mail déjà pris par un compte **non lié** → 409 (le lier d'abord).
+- Échec d'envoi du mail → **502** (contrairement au lien de paiement, propagé :
+  sans mail l'invité ne peut rien faire). Le compte reste créé ; relancer.
+- Public : `GET /api/public/invitation/{token}` → `{email, firstName}` ;
+  `POST` même URL `{password}` (≥ 8 car.) pose le mot de passe et **consomme**
+  le jeton. Inconnu/déjà utilisé → 404, expiré → 410. Page front
+  `/invitation/[token]`, qui connecte directement après.
+- Statut (`AppUser::getInvitationStatus()`, exposé en `invitationStatus`) :
+  `invited` (lien envoyé, non utilisé), `expired`, `active`. La liste des
+  licenciés (`GET /api/member/paginated`) porte `account: {invitationStatus,
+  teamIds} | null` (une requête par page, `UserRepository::findByMembersIndexed`)
+  → badge cliquable qui rouvre le dialog pré-rempli pour **relancer**.
+- Relancer un compte `active` renvoie aussi un lien : l'ancien mot de passe
+  reste valable tant que le lien n'est pas utilisé (sert de réinitialisation).
 
 ## Team admin endpoints (page Équipes)
 
@@ -87,7 +113,7 @@ authenticated user).
 
 ## My-team files (licence PDF, photo)
 
-There is no download route any more: `GET /api/team/my-team` (`ROLE_ADMIN`)
+There is no download route any more: `GET /api/team/my-team` (`ROLE_COACH`)
 carries `profilePictureUrl` and `licenseUrl` — signed CDN URLs — for each member
 it lists, and it only lists the members of the teams the caller coaches. A coach
 without a team gets an empty list, so the old two-stage 403 rule is now enforced

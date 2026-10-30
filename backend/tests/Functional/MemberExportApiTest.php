@@ -38,7 +38,7 @@ class MemberExportApiTest extends ApiTestCase
 
     public function testExportIsForbiddenForAdmin(): void
     {
-        $this->actingAsAdmin();
+        $this->actingAsCoach();
 
         $this->getJson('/api/member/export');
 

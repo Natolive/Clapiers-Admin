@@ -68,7 +68,7 @@ class LogApiTest extends ApiTestCase
 
     public function testListIsForbiddenForAdmin(): void
     {
-        $this->actingAsAdmin();
+        $this->actingAsCoach();
         $this->getJson('/api/logs/paginated');
         $this->assertJsonResponse(403);
     }
@@ -133,7 +133,7 @@ class LogApiTest extends ApiTestCase
 
     public function testClearIsForbiddenForAdmin(): void
     {
-        $this->actingAsAdmin();
+        $this->actingAsCoach();
         $this->deleteJson('/api/logs');
         $this->assertJsonResponse(403);
     }

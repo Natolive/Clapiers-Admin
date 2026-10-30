@@ -48,9 +48,9 @@ Hooks in `.claude/settings.json` enforce this guide automatically:
 - `Support/ApiTestCase.php` — base class: HTTP helpers (`getJson`, `postJson`,
   `uploadFile`…), `assertJsonResponse($status)` (returns decoded body, dumps it
   on failure), JWT auth without HTTP round-trip (`actingAsSuperAdmin()`,
-  `actingAsAdmin()`, `actingAs($user)`), fake files (`fakePdf/fakePng/fakeCsv`).
+  `actingAsCoach()`, `actingAs($user)`), fake files (`fakePdf/fakePng/fakeCsv`).
 - `Support/Builder/` — fluent builders with unique defaults:
-  `$this->aUser()->admin()->managing($teamA, $teamB)->persist()`. Specify only
+  `$this->aUser()->coach()->managing($teamA, $teamB)->persist()`. Specify only
   what the test cares about; never set irrelevant fields.
 - `Functional/` — one class per controller. This is the default place for any
   new test.
@@ -66,7 +66,7 @@ no cleanup code, no shared fixtures, ever.
 1. happy path asserting the response body shape (not just the status),
 2. 401 unauthenticated,
 3. 403 for the highest role that must NOT access it (role hierarchy:
-   SUPER_ADMIN > ADMIN/VIEW_MESSAGE > USER),
+   SUPER_ADMIN > COACH/VIEW_MESSAGE > USER),
 4. validation failure (422 via MapRequestPayload, 400 via UseCaseException),
 5. 404 for unknown ids.
 

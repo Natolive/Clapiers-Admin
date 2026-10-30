@@ -7,6 +7,8 @@ use App\Application\UseCase\User\CreateUpdateUser\CreateUpdateUserUseCase;
 use App\Application\UseCase\User\GetAllUsersUseCase;
 use App\Application\UseCase\User\GetPaginatedUsers\GetPaginatedUsersCommand;
 use App\Application\UseCase\User\GetPaginatedUsers\GetPaginatedUsersUseCase;
+use App\Application\UseCase\User\InviteCoach\InviteCoachCommand;
+use App\Application\UseCase\User\InviteCoach\InviteCoachUseCase;
 use App\Application\UseCase\User\LinkMember\LinkMemberCommand;
 use App\Application\UseCase\User\LinkMember\LinkMemberUseCase;
 use App\Application\UseCase\User\UnlinkMember\UnlinkMemberCommand;
@@ -53,6 +55,16 @@ class UserController extends AbstractController
     public function createUpdate(
         #[MapRequestPayload] CreateUpdateUserCommand $command,
         CreateUpdateUserUseCase $useCase
+    ): Response {
+        return $useCase->execute($command);
+    }
+
+    /** Invite un licencié comme chef d'équipe (compte + équipes + e-mail). */
+    #[Route('/invite', name: 'invite', methods: ['POST'])]
+    #[IsGranted(AppUserRole::ROLE_SUPER_ADMIN)]
+    public function invite(
+        #[MapRequestPayload] InviteCoachCommand $command,
+        InviteCoachUseCase $useCase
     ): Response {
         return $useCase->execute($command);
     }

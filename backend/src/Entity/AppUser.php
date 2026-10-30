@@ -31,6 +31,9 @@ class AppUser implements UserInterface, PasswordAuthenticatedUserInterface
     use SoftDeleteableEntity;
     use TimestampableTrait;
 
+    /** Durée de validité d'un lien d'invitation. */
+    public const INVITATION_VALIDITY = 'P7D';
+
     #[ORM\Column(length: 180)]
     private ?string $email = null;
 
@@ -58,6 +61,16 @@ class AppUser implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\ManyToMany(targetEntity: Team::class)]
     #[ORM\JoinTable(name: 'app_user_team')]
     private Collection $teams;
+
+    /**
+     * Jeton du lien d'invitation : le compte invité choisit son mot de passe
+     * par ce lien, qui est consommé (remis à null) à l'usage.
+     */
+    #[ORM\Column(length: 64, unique: true, nullable: true)]
+    private ?string $invitationToken = null;
+
+    #[ORM\Column(type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $invitationExpiresAt = null;
 
     public function __construct()
     {
@@ -205,6 +218,53 @@ class AppUser implements UserInterface, PasswordAuthenticatedUserInterface
         return $this;
     }
 
+    /** Émet un nouveau lien d'invitation ; l'ancien cesse aussitôt de fonctionner. */
+    public function renewInvitation(): static
+    {
+        $this->invitationToken = bin2hex(random_bytes(32));
+        $this->invitationExpiresAt = (new \DateTimeImmutable('now'))->add(new \DateInterval(self::INVITATION_VALIDITY));
+
+        return $this;
+    }
+
+    public function clearInvitation(): static
+    {
+        $this->invitationToken = null;
+        $this->invitationExpiresAt = null;
+
+        return $this;
+    }
+
+    public function getInvitationToken(): ?string
+    {
+        return $this->invitationToken;
+    }
+
+    public function isInvitationExpired(): bool
+    {
+        return $this->invitationExpiresAt !== null && $this->invitationExpiresAt < new \DateTimeImmutable('now');
+    }
+
+    /**
+     * État du compte chef d'équipe : `invited` (lien envoyé, pas encore
+     * utilisé), `expired` (lien périmé, à renvoyer) ou `active`.
+     */
+    public function getInvitationStatus(): string
+    {
+        return match (true) {
+            $this->invitationToken === null => 'active',
+            $this->isInvitationExpired() => 'expired',
+            default => 'invited',
+        };
+    }
+
+    public function setInvitationExpiresAt(?\DateTimeImmutable $invitationExpiresAt): static
+    {
+        $this->invitationExpiresAt = $invitationExpiresAt;
+
+        return $this;
+    }
+
     public function toArray(): array
     {
         return [
@@ -213,6 +273,7 @@ class AppUser implements UserInterface, PasswordAuthenticatedUserInterface
             'roles' => $this->getRoles(),
             'member' => $this->getMember()?->toArray(),
             'teams' => array_map(fn (Team $t) => $t->toArray(), $this->getTeams()->toArray()),
+            'invitationStatus' => $this->getInvitationStatus(),
             'createdAt' => $this->getCreatedAt()?->format(DATE_ATOM),
             'updatedAt' => $this->getUpdatedAt()?->format(DATE_ATOM),
         ];

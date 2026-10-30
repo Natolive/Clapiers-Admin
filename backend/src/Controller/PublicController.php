@@ -26,7 +26,12 @@ use App\Application\UseCase\License\SubmitLicenseRequest\SubmitLicenseRequestCom
 use App\Application\UseCase\License\SubmitLicenseRequest\SubmitLicenseRequestUseCase;
 use App\Application\UseCase\License\UploadLicenseRequestDocument\UploadLicenseRequestDocumentCommand;
 use App\Application\UseCase\License\UploadLicenseRequestDocument\UploadLicenseRequestDocumentUseCase;
+use App\Application\UseCase\User\AcceptInvitation\AcceptInvitationCommand;
+use App\Application\UseCase\User\AcceptInvitation\AcceptInvitationUseCase;
+use App\Application\UseCase\User\GetInvitation\GetInvitationCommand;
+use App\Application\UseCase\User\GetInvitation\GetInvitationUseCase;
 use App\Common\Service\InscriptionsStatusProvider;
+use App\Controller\Input\AcceptInvitationInput;
 use App\Common\Service\MemberMediaStorage;
 use App\Common\Service\SeasonProvider;
 use App\Entity\Enum\GameVenue;
@@ -175,6 +180,23 @@ class PublicController extends AbstractController
         CreateCheckoutUseCase $useCase
     ): Response {
         return $useCase->execute(new CreateCheckoutCommand($token));
+    }
+
+    #[Route('/invitation/{token}', name: 'invitation_get', methods: ['GET'], requirements: self::DRAFT_TOKEN)]
+    public function getInvitation(
+        string $token,
+        GetInvitationUseCase $useCase
+    ): Response {
+        return $useCase->execute(new GetInvitationCommand($token));
+    }
+
+    #[Route('/invitation/{token}', name: 'invitation_accept', methods: ['POST'], requirements: self::DRAFT_TOKEN)]
+    public function acceptInvitation(
+        string $token,
+        #[MapRequestPayload] AcceptInvitationInput $input,
+        AcceptInvitationUseCase $useCase
+    ): Response {
+        return $useCase->execute(new AcceptInvitationCommand($token, $input->password));
     }
 
     #[Route('/helloasso/webhook', name: 'helloasso_webhook', methods: ['POST'])]

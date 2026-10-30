@@ -264,9 +264,9 @@ class GameHistoryApiTest extends ApiTestCase
         $this->assertJsonResponse(401);
     }
 
-    public function testAdminCannotSeeHistory(): void
+    public function testCoachCannotSeeHistory(): void
     {
-        $this->actingAsAdmin();
+        $this->actingAsCoach();
         $this->getJson('/api/game/history');
 
         $this->assertJsonResponse(403);

@@ -115,7 +115,7 @@ class ImportGamesUseCaseTest extends TestCase
     {
         $coach = new AppUser();
         $coach->setEmail('coach@test.fr');
-        $coach->setRoles([AppUserRole::ROLE_ADMIN]);
+        $coach->setRoles([AppUserRole::ROLE_COACH]);
 
         $command = new ImportGamesCommand(user: $coach, csvContent: "whatever\n");
 

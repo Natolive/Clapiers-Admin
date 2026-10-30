@@ -64,9 +64,9 @@ class MemberApiTest extends ApiTestCase
      * photo de profil, qui doit servir les coachs, vit donc dans son propre
      * contrôleur (cf. les tests de photo plus bas).
      */
-    public function testAdminIsForbiddenOnEveryMemberRoute(): void
+    public function testCoachIsForbiddenOnEveryMemberRoute(): void
     {
-        $this->actingAsAdmin();
+        $this->actingAsCoach();
 
         $this->getJson('/api/member');
         $this->assertJsonResponse(403);
@@ -97,7 +97,7 @@ class MemberApiTest extends ApiTestCase
         $team = $this->aTeam()->persist();
         $member = $this->aMember()->inTeams($team)->persist();
         $license = $this->aLicense()->forMember($member)->persist();
-        $account = $this->aUser()->admin()->linkedTo($member)->persist();
+        $account = $this->aUser()->coach()->linkedTo($member)->persist();
 
         $payment = (new Payment())
             ->setLicense($license)
@@ -224,7 +224,7 @@ class MemberApiTest extends ApiTestCase
     {
         $team = $this->aTeam()->persist();
         $member = $this->aMember()->inTeams($team)->persist();
-        $this->aUser()->admin()->managing($team)->linkedTo($member)->persist();
+        $this->aUser()->coach()->managing($team)->linkedTo($member)->persist();
 
         $conn = $this->em()->getConnection();
         $this->assertSame(1, (int) $conn->fetchOne('SELECT COUNT(*) FROM member_team'));
@@ -693,7 +693,7 @@ class MemberApiTest extends ApiTestCase
     // ── Photo d'identité : lecture depuis la médiathèque ─────────────────────
     //
     // La route sert deux publics : le SUPER_ADMIN voit tout le club, un coach
-    // (ROLE_ADMIN) seulement les licenciés d'une de ses équipes. La photo est
+    // (ROLE_COACH) seulement les licenciés d'une de ses équipes. La photo est
     // une donnée personnelle, pas un trombinoscope ouvert.
 
     public function testMemberListCarriesASignedCdnUrlForTheProfilePicture(): void

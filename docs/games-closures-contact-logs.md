@@ -18,10 +18,10 @@
   - Super admin: full hydrate, can change anything.
   - Plain admin: **replanification only** — only `date` changes, and only for a
     game of one of their own teams (`user->hasTeam(...)`, else 403). The
-    controller allows `update` at `ROLE_ADMIN`; the use case re-checks super-admin
+    controller allows `update` at `ROLE_COACH`; the use case re-checks super-admin
     for everything beyond the date.
   - Controller guards: create/delete/import/history are `ROLE_SUPER_ADMIN`;
-    update/list are `ROLE_ADMIN`.
+    update/list are `ROLE_COACH`.
 
 ### Game history / audit (`GameHistorySubscriber`)
 
@@ -87,7 +87,7 @@
   to `CONTACT_RECIPIENT_EMAIL`, **replyTo = the submitter** so admin can reply
   directly. **Email failure is swallowed** (logged) — the message stays persisted
   and the submitter still gets success.
-- **Read side is `ROLE_VIEW_MESSAGE`** (class-level). Remember `ADMIN` does NOT
+- **Read side is `ROLE_VIEW_MESSAGE`** (class-level). Remember `COACH` does NOT
   inherit `VIEW_MESSAGE` — only super admin or an explicit VIEW_MESSAGE user can
   read messages.
 - Search matches full name in both orders (`CONCAT`), lowercased — name only,

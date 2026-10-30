@@ -90,7 +90,7 @@ Symfony's validator, not this class.
   manually-declared route.
 - **Class-level `#[IsGranted]` is the default; method-level tightens it.**
   `LicenseController` / `MemberController` are class-wide `ROLE_SUPER_ADMIN`
-  with a method dropping to `ROLE_ADMIN` where allowed. `GameController` has no
+  with a method dropping to `ROLE_COACH` where allowed. `GameController` has no
   class guard — every method declares its own.
 - `IsGranted` uses `AppUserRole::ROLE_*` **string constants** (distinct from the
   enum cases — see entity conventions).
@@ -131,8 +131,8 @@ Symfony's validator, not this class.
   stateless, `jwt: ~`).
 - User provider: `AppUser` by `email`. `getRoles()` always guarantees
   `ROLE_USER`.
-- **Role hierarchy**: `ROLE_SUPER_ADMIN ⊃ {ADMIN, VIEW_MESSAGE, USER}`;
-  `ADMIN ⊃ USER`; `VIEW_MESSAGE ⊃ USER`. **`ADMIN` does NOT inherit
+- **Role hierarchy**: `ROLE_SUPER_ADMIN ⊃ {COACH, VIEW_MESSAGE, USER}`;
+  `COACH ⊃ USER`; `VIEW_MESSAGE ⊃ USER`. **`COACH` does NOT inherit
   `VIEW_MESSAGE`.**
   > Trap: `AppUserRole::inheritedRoles()` re-declares this hierarchy in PHP but
   > has **no callers** — `security.yaml` is the source of truth. The two can

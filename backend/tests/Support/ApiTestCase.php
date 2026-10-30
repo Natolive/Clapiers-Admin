@@ -91,9 +91,9 @@ abstract class ApiTestCase extends WebTestCase
         return $this->actingAs($this->aUser()->superAdmin()->persist());
     }
 
-    protected function actingAsAdmin(): AppUser
+    protected function actingAsCoach(): AppUser
     {
-        return $this->actingAs($this->aUser()->admin()->persist());
+        return $this->actingAs($this->aUser()->coach()->persist());
     }
 
     protected function actingAsUser(): AppUser

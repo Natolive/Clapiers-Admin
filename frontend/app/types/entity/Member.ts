@@ -1,4 +1,5 @@
 import type { Team } from './Team';
+import type { InvitationStatus } from './AppUser';
 import type { MemberGender } from '~/types/enum/MemberGender';
 
 export type Member = {
@@ -18,6 +19,11 @@ export type Member = {
     /** « Mon équipe » : URL CDN signée de la licence de la saison courante. */
     licenseUrl?: string | null;
     licenseNumber: string | null;
+    /** Liste paginée : compte de connexion lié (chef d'équipe invité ou actif). */
+    account?: {
+        invitationStatus: InvitationStatus;
+        teamIds: number[];
+    } | null;
     /** Liste paginée : inscription à la FSGT déclarée pour la saison filtrée. */
     fsgtRegistered?: boolean;
     address: {

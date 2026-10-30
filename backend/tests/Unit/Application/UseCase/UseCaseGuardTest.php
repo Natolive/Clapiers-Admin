@@ -77,6 +77,9 @@ class UseCaseGuardTest extends TestCase
             \App\Application\UseCase\Team\GetMyTeam\GetMyTeamUseCase::class,
             \App\Application\UseCase\Team\UpdateTeamRoster\UpdateTeamRosterUseCase::class,
             \App\Application\UseCase\User\CreateUpdateUser\CreateUpdateUserUseCase::class,
+            \App\Application\UseCase\User\AcceptInvitation\AcceptInvitationUseCase::class,
+            \App\Application\UseCase\User\GetInvitation\GetInvitationUseCase::class,
+            \App\Application\UseCase\User\InviteCoach\InviteCoachUseCase::class,
             \App\Application\UseCase\User\LinkMember\LinkMemberUseCase::class,
             \App\Application\UseCase\User\UnlinkMember\UnlinkMemberUseCase::class,
         ];

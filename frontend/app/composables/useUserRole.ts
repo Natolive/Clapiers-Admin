@@ -8,18 +8,18 @@ export const useUserRole = () => {
     /**
      * Role hierarchy:
      * - SUPER_ADMIN has all permissions
-     * - ADMIN is also USER
+     * - COACH is also USER
      * - VIEW_MESSAGE is also USER
      * - USER is just USER
      */
     const roleHierarchy: Record<AppUserRole, AppUserRole[]> = {
         [AppUserRole.SUPER_ADMIN]: [
             AppUserRole.SUPER_ADMIN,
-            AppUserRole.ADMIN,
+            AppUserRole.COACH,
             AppUserRole.USER,
             AppUserRole.VIEW_MESSAGE
         ],
-        [AppUserRole.ADMIN]: [AppUserRole.ADMIN, AppUserRole.USER],
+        [AppUserRole.COACH]: [AppUserRole.COACH, AppUserRole.USER],
         [AppUserRole.VIEW_MESSAGE]: [AppUserRole.VIEW_MESSAGE, AppUserRole.USER],
         [AppUserRole.USER]: [AppUserRole.USER]
     };
@@ -53,7 +53,7 @@ export const useUserRole = () => {
      * Helper computed properties for role checks
      */
     const isSuperAdmin = computed(() => hasRole(AppUserRole.SUPER_ADMIN));
-    const isAdmin = computed(() => hasRole(AppUserRole.ADMIN));
+    const isCoach = computed(() => hasRole(AppUserRole.COACH));
     const isUser = computed(() => hasRole(AppUserRole.USER));
 
     /**
@@ -62,7 +62,7 @@ export const useUserRole = () => {
     const getRoleLabel = (role: string): string => {
         const roleMap: Record<string, string> = {
             [AppUserRole.SUPER_ADMIN]: 'Super Admin',
-            [AppUserRole.ADMIN]: 'Admin',
+            [AppUserRole.COACH]: "Chef d'équipe",
             [AppUserRole.USER]: 'Utilisateur',
             [AppUserRole.VIEW_MESSAGE]: 'Voir messages'
         };
@@ -74,7 +74,7 @@ export const useUserRole = () => {
      */
     const getRoleSeverity = (role: string): 'danger' | 'info' | 'secondary' => {
         if (role === AppUserRole.SUPER_ADMIN) return 'danger';
-        if (role === AppUserRole.ADMIN) return 'info';
+        if (role === AppUserRole.COACH) return 'info';
         return 'secondary';
     };
 
@@ -83,7 +83,7 @@ export const useUserRole = () => {
         hasRole,
         hasExactRole,
         isSuperAdmin,
-        isAdmin,
+        isCoach,
         isUser,
         getRoleLabel,
         getRoleSeverity

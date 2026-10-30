@@ -285,7 +285,7 @@ formulaire est fermé : une demande déjà créée doit pouvoir finir de se dép
 
 ## Security summary
 
-- Admin surface (`/api/license/*`) is `ROLE_SUPER_ADMIN` (not `ADMIN`).
+- Admin surface (`/api/license/*`) is `ROLE_SUPER_ADMIN` (not `COACH`).
 - Payment portal / checkout / document upload are gated **only by the opaque
   64-char `accessToken`** — no auth, mais l'échéance est appliquée : les trois
   entrées publiques répondent **410 Gone** dès que `License::isTokenExpired()`

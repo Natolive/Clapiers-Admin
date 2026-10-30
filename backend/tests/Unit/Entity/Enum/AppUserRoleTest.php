@@ -10,7 +10,7 @@ class AppUserRoleTest extends TestCase
     public function testEveryRoleHasALabel(): void
     {
         $this->assertSame('Super Admin', AppUserRole::SUPER_ADMIN->label());
-        $this->assertSame('Admin', AppUserRole::ADMIN->label());
+        $this->assertSame("Chef d'équipe", AppUserRole::COACH->label());
         $this->assertSame('Utilisateur', AppUserRole::USER->label());
         $this->assertSame('Voir messages', AppUserRole::VIEW_MESSAGE->label());
     }
@@ -19,10 +19,10 @@ class AppUserRoleTest extends TestCase
     {
         // Must stay in sync with role_hierarchy in config/packages/security.yaml
         $this->assertSame(
-            [AppUserRole::SUPER_ADMIN, AppUserRole::ADMIN, AppUserRole::USER, AppUserRole::VIEW_MESSAGE],
+            [AppUserRole::SUPER_ADMIN, AppUserRole::COACH, AppUserRole::USER, AppUserRole::VIEW_MESSAGE],
             AppUserRole::SUPER_ADMIN->inheritedRoles(),
         );
-        $this->assertSame([AppUserRole::ADMIN, AppUserRole::USER], AppUserRole::ADMIN->inheritedRoles());
+        $this->assertSame([AppUserRole::COACH, AppUserRole::USER], AppUserRole::COACH->inheritedRoles());
         $this->assertSame([AppUserRole::VIEW_MESSAGE, AppUserRole::USER], AppUserRole::VIEW_MESSAGE->inheritedRoles());
         $this->assertSame([AppUserRole::USER], AppUserRole::USER->inheritedRoles());
     }

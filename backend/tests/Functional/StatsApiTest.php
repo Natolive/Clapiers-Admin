@@ -144,9 +144,9 @@ class StatsApiTest extends ApiTestCase
         $this->assertSame(0, $after['age']['average'], 'Agrégat SQL brut');
     }
 
-    public function testAdminIsForbidden(): void
+    public function testCoachIsForbidden(): void
     {
-        $this->actingAsAdmin();
+        $this->actingAsCoach();
         $this->getJson('/api/stats/dashboard');
 
         $this->assertJsonResponse(403);

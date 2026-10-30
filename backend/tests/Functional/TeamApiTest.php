@@ -38,27 +38,27 @@ class TeamApiTest extends ApiTestCase
         $this->assertJsonResponse(401);
     }
 
-    public function testAdminCannotListTeams(): void
+    public function testCoachCannotListTeams(): void
     {
-        $this->actingAsAdmin();
+        $this->actingAsCoach();
         $this->getJson('/api/team');
 
         $this->assertJsonResponse(403);
     }
 
-    public function testAdminCannotCreateTeam(): void
+    public function testCoachCannotCreateTeam(): void
     {
-        $this->actingAsAdmin();
+        $this->actingAsCoach();
         $this->postJson('/api/team', ['name' => 'Interdit']);
 
         $this->assertJsonResponse(403);
     }
 
-    public function testAdminCannotUpdateTeam(): void
+    public function testCoachCannotUpdateTeam(): void
     {
         $team = $this->aTeam()->persist();
 
-        $this->actingAsAdmin();
+        $this->actingAsCoach();
         $this->putJson('/api/team', ['id' => $team->getId(), 'name' => 'Interdit']);
 
         $this->assertJsonResponse(403);
@@ -96,9 +96,9 @@ class TeamApiTest extends ApiTestCase
         $this->assertSame('Nouveau nom', $body['name']);
     }
 
-    public function testAdminCannotCreateOrUpdateTeam(): void
+    public function testCoachCannotCreateOrUpdateTeam(): void
     {
-        $this->actingAsAdmin();
+        $this->actingAsCoach();
         $this->postJson('/api/team', ['name' => 'Interdit']);
         $this->assertJsonResponse(403);
     }
@@ -107,8 +107,8 @@ class TeamApiTest extends ApiTestCase
 
     public function testCreateTeamWithCoaches(): void
     {
-        $coachA = $this->aUser()->admin()->persist();
-        $coachB = $this->aUser()->admin()->persist();
+        $coachA = $this->aUser()->coach()->persist();
+        $coachB = $this->aUser()->coach()->persist();
 
         $this->actingAsSuperAdmin();
         $this->postJson('/api/team', [
@@ -133,8 +133,8 @@ class TeamApiTest extends ApiTestCase
     public function testUpdateTeamReplacesCoaches(): void
     {
         $team = $this->aTeam()->persist();
-        $former = $this->aUser()->admin()->managing($team)->persist();
-        $incoming = $this->aUser()->admin()->persist();
+        $former = $this->aUser()->coach()->managing($team)->persist();
+        $incoming = $this->aUser()->coach()->persist();
 
         $this->actingAsSuperAdmin();
         $this->putJson('/api/team', [
@@ -157,7 +157,7 @@ class TeamApiTest extends ApiTestCase
     public function testUpdateTeamWithEmptyUserIdsRemovesAllCoaches(): void
     {
         $team = $this->aTeam()->persist();
-        $this->aUser()->admin()->managing($team)->persist();
+        $this->aUser()->coach()->managing($team)->persist();
 
         $this->actingAsSuperAdmin();
         $this->putJson('/api/team', [
@@ -173,7 +173,7 @@ class TeamApiTest extends ApiTestCase
     public function testUpdateTeamWithoutUserIdsKeepsCoaches(): void
     {
         $team = $this->aTeam()->persist();
-        $coach = $this->aUser()->admin()->managing($team)->persist();
+        $coach = $this->aUser()->coach()->managing($team)->persist();
 
         $this->actingAsSuperAdmin();
         // Pas de clé userIds → on ne touche pas aux coachs.
@@ -279,7 +279,7 @@ class TeamApiTest extends ApiTestCase
         $season = $this->currentSeason();
         $team = $this->aTeam()->persist();
         $member = $this->aMember()->inTeams($team)->licensedFor($season)->persist();
-        $coach = $this->aUser()->admin()->managing($team)->persist();
+        $coach = $this->aUser()->coach()->managing($team)->persist();
 
         $this->actingAsSuperAdmin();
         $this->deleteJson('/api/team/'.$team->getId());
@@ -332,11 +332,11 @@ class TeamApiTest extends ApiTestCase
         $this->assertJsonResponse(401);
     }
 
-    public function testAdminCannotDeleteTeam(): void
+    public function testCoachCannotDeleteTeam(): void
     {
         $team = $this->aTeam()->persist();
 
-        $this->actingAsAdmin();
+        $this->actingAsCoach();
         $this->deleteJson('/api/team/'.$team->getId());
 
         $this->assertJsonResponse(403);
@@ -443,11 +443,11 @@ class TeamApiTest extends ApiTestCase
         $this->assertJsonResponse(401);
     }
 
-    public function testAdminCannotUpdateRoster(): void
+    public function testCoachCannotUpdateRoster(): void
     {
         $team = $this->aTeam()->persist();
 
-        $this->actingAsAdmin();
+        $this->actingAsCoach();
         $this->patchJson('/api/team/'.$team->getId().'/members', ['add' => []]);
 
         $this->assertJsonResponse(403);
@@ -468,7 +468,7 @@ class TeamApiTest extends ApiTestCase
         $memberA = $this->aMember()->inTeams($teamA)->licensedFor($season)->persist();
         $this->aMember()->inTeams($otherTeam)->licensedFor($season)->persist();
 
-        $coach = $this->aUser()->admin()->managing($teamA, $teamB)->persist();
+        $coach = $this->aUser()->coach()->managing($teamA, $teamB)->persist();
         $this->actingAs($coach);
 
         $this->getJson('/api/team/my-team');
@@ -493,7 +493,7 @@ class TeamApiTest extends ApiTestCase
 
     public function testMyTeamIsEmptyForCoachWithoutTeams(): void
     {
-        $this->actingAsAdmin();
+        $this->actingAsCoach();
         $this->getJson('/api/team/my-team');
 
         $body = $this->assertJsonResponse(200);
@@ -515,7 +515,7 @@ class TeamApiTest extends ApiTestCase
         $this->givePhotoInMediatheque($member);
         $this->giveLicenseInMediatheque($member);
 
-        $this->actingAs($this->aUser()->admin()->managing($team)->persist());
+        $this->actingAs($this->aUser()->coach()->managing($team)->persist());
         $this->getJson('/api/team/my-team');
 
         $row = $this->assertJsonResponse(200)[0]['members'][0];
@@ -531,7 +531,7 @@ class TeamApiTest extends ApiTestCase
         $team = $this->aTeam()->persist();
         $this->aMember()->inTeams($team)->licensedFor($this->currentSeason())->persist();
 
-        $this->actingAs($this->aUser()->admin()->managing($team)->persist());
+        $this->actingAs($this->aUser()->coach()->managing($team)->persist());
         $this->getJson('/api/team/my-team');
 
         $row = $this->assertJsonResponse(200)[0]['members'][0];
@@ -551,7 +551,7 @@ class TeamApiTest extends ApiTestCase
         $this->givePhotoInMediatheque($member);
         $this->giveLicenseInMediatheque($member);
 
-        $this->actingAs($this->aUser()->admin()->managing($myTeam)->persist());
+        $this->actingAs($this->aUser()->coach()->managing($myTeam)->persist());
         $this->getJson('/api/team/my-team');
 
         $this->assertSame([], $this->assertJsonResponse(200)[0]['members']);
@@ -569,7 +569,7 @@ class TeamApiTest extends ApiTestCase
     public function testDownloadLicenseReturns404ForUnknownMember(): void
     {
         $team = $this->aTeam()->persist();
-        $coach = $this->aUser()->admin()->managing($team)->persist();
+        $coach = $this->aUser()->coach()->managing($team)->persist();
         $this->actingAs($coach);
 
         $this->getJson('/api/team/my-team/license/999999');
@@ -590,7 +590,7 @@ class TeamApiTest extends ApiTestCase
         $slot->setFile('ghost.pdf', 'licence.pdf', 'application/pdf', 12);
         $this->em()->flush();
 
-        $coach = $this->aUser()->admin()->managing($team)->persist();
+        $coach = $this->aUser()->coach()->managing($team)->persist();
         $this->actingAs($coach);
 
         $this->getJson('/api/team/my-team/license/'.$member->getId());

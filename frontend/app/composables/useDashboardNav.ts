@@ -18,7 +18,7 @@ export type DashboardMenuItem = {
  */
 export const useDashboardNav = (onNavigate?: () => void) => {
     const route = useRoute();
-    const { isSuperAdmin, isAdmin, hasRole } = useUserRole();
+    const { isSuperAdmin, isCoach, hasRole } = useUserRole();
 
     const go = (path: string) => () => {
         navigateTo(path);
@@ -36,7 +36,7 @@ export const useDashboardNav = (onNavigate?: () => void) => {
 
     const navigationItems = computed<DashboardMenuItem[]>(() => {
         const su = isSuperAdmin.value;
-        const admin = isAdmin.value;
+        const admin = isCoach.value;
         const canMsg = hasRole(AppUserRole.VIEW_MESSAGE);
 
         const sections: (DashboardMenuItem | null)[] = [

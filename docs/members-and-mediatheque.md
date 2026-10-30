@@ -256,7 +256,7 @@ exposed (nodes are addressed by UUID).
 | --- | --- | --- |
 | `GET /api/member`, `/paginated`, `/team/{id}`, `PATCH /api/team/{id}/roster` | `profilePictureUrl` | `ROLE_SUPER_ADMIN` |
 | `GET /api/user/paginated` | `member.profilePictureUrl` | `ROLE_SUPER_ADMIN` |
-| `GET /api/team/my-team` | `profilePictureUrl`, `licenseUrl` | `ROLE_ADMIN`, own teams only |
+| `GET /api/team/my-team` | `profilePictureUrl`, `licenseUrl` | `ROLE_COACH`, own teams only |
 | `GET /api/member/{id}/media` | `url` per node | `ROLE_SUPER_ADMIN` |
 | `GET /api/license/{id}` (review) | `url` per expected piece | `ROLE_SUPER_ADMIN` |
 
@@ -485,9 +485,9 @@ exportable with no change here (that file's promise still holds).
 - **The whole Member API and the whole Média API are `ROLE_SUPER_ADMIN`**
   (class-level), including média download.
 - **The profile picture is the one file a coach may read**, so it lives in its
-  own `MemberPhotoController` (`ROLE_ADMIN`). It cannot stay in
+  own `MemberPhotoController` (`ROLE_COACH`). It cannot stay in
   `MemberController`: a method-level `#[IsGranted]` **adds to** the class-level
-  one instead of replacing it, so the `ROLE_ADMIN` attribute it used to carry
+  one instead of replacing it, so the `ROLE_COACH` attribute it used to carry
   was dead and coaches got a 403. `DownloadMemberPhotoUseCase` then does the
   fine-grained part — a `ROLE_SUPER_ADMIN` sees the whole club, a coach only
   members sharing one of their teams (403 otherwise), same rule as the licence
