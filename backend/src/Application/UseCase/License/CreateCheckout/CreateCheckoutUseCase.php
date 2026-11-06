@@ -15,6 +15,8 @@ use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\Response;
 
+use function Symfony\Component\String\u;
+
 /**
  * Crée un checkout-intent HelloAsso pour une licence validée et renvoie l'URL
  * de redirection vers la page de paiement. Le paiement est tracé en PENDING
@@ -92,15 +94,37 @@ class CreateCheckoutUseCase extends AbstractUseCase
             'errorUrl' => $base.'?status=error',
             'returnUrl' => $base.'?status=success',
             'containsDonation' => false,
-            'payer' => [
-                'firstName' => $member->getFirstName(),
-                'lastName' => $member->getLastName(),
+            // Le payeur ne sert qu'à pré-remplir HelloAsso : un nom inutilisable est omis
+            'payer' => array_filter([
+                'firstName' => self::payerName($member->getFirstName()),
+                'lastName' => self::payerName($member->getLastName()),
                 'email' => $member->getEmail(),
-            ],
+            ], static fn ($v) => $v !== null),
             'metadata' => [
                 'licenseId' => $license->getId(),
                 'memberId' => $member->getId(),
             ],
         ];
+    }
+
+    /**
+     * HelloAsso répond 400 sur un nom de payeur hors lettres latines (accents
+     * compris), espace, tiret et apostrophe droite. On redresse apostrophes et
+     * tirets typographiques, on translittère les alphabets non latins et on
+     * retire le reste ; moins de 2 caractères → null (champ omis).
+     */
+    public static function payerName(string $name): ?string
+    {
+        $name = strtr($name, [
+            '’' => "'", '‘' => "'", 'ʼ' => "'", '´' => "'", '`' => "'",
+            '‐' => '-', '‑' => '-', '‒' => '-', '–' => '-', '—' => '-',
+        ]);
+        if (preg_match('/(?=\p{L})\P{Latin}/u', $name)) {
+            $name = u($name)->ascii()->toString();
+        }
+        $name = (string) preg_replace("/[^\p{Latin}\p{M}' -]+/u", ' ', $name);
+        $name = trim((string) preg_replace('/ {2,}/', ' ', $name), " '-");
+
+        return mb_strlen($name) >= 2 ? $name : null;
     }
 }

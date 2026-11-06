@@ -69,6 +69,25 @@ class LicensePaymentApiTest extends ApiTestCase
         $this->assertSame($licenseId, $fake->createdCheckoutBodies[0]['metadata']['licenseId']);
     }
 
+    public function testCheckoutNormalizesTypographicApostropheInPayerName(): void
+    {
+        // HelloAsso répond 400 sur l'apostrophe typographique (’) du nom du payeur
+        $member = $this->aMember()->named('Keali’i', 'O’Neil')->persist();
+        $this->aLicense()
+            ->forMember($member)
+            ->withToken('tok-apos')
+            ->withStatus(LicenseStatus::VALIDEE)
+            ->withAmount(12000)
+            ->persist();
+
+        $this->postJson('/api/public/license/tok-apos/checkout');
+
+        $this->assertJsonResponse(200);
+        $payer = static::getContainer()->get(FakeHelloAssoClient::class)->createdCheckoutBodies[0]['payer'];
+        $this->assertSame("Keali'i", $payer['firstName']);
+        $this->assertSame("O'Neil", $payer['lastName']);
+    }
+
     public function testGetForPaymentWithExpiredTokenReturns410(): void
     {
         $this->aLicense()

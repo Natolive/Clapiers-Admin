@@ -8,6 +8,7 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Contracts\Cache\CacheInterface;
 use Symfony\Contracts\Cache\ItemInterface;
 use Symfony\Contracts\HttpClient\Exception\ExceptionInterface as HttpExceptionInterface;
+use Symfony\Contracts\HttpClient\Exception\HttpExceptionInterface as HttpResponseException;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 
 /**
@@ -113,6 +114,8 @@ class HelloAssoClient implements HelloAssoClientInterface
             $this->logger->error('HelloAsso API request failed', [
                 'method' => $method,
                 'path' => $path,
+                // Le corps d'erreur HelloAsso dit quel champ est refusé
+                'response' => $e instanceof HttpResponseException ? $e->getResponse()->getContent(false) : null,
                 'exception' => $e,
             ]);
 
